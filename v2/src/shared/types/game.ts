@@ -4,14 +4,16 @@ export interface Game {
   readonly id: number;
   readonly title: string;
   readonly description: string;
-  readonly image: string;
+  /** Cover art URL. Optional — a fallback cover renders when absent or broken. */
+  readonly image?: string;
   readonly link: string;
   readonly timeline: string;
   readonly category: GameCategory;
-  readonly slug: string;
-  readonly rtp: number;
-  readonly volatility: 'HIGH' | 'ULTRA';
-  readonly genre: string;
+  readonly slug?: string;
+  /** Enriched metadata — present for catalogued titles, optional for live-only ones. */
+  readonly rtp?: number;
+  readonly volatility?: 'HIGH' | 'ULTRA';
+  readonly genre?: string;
   readonly isHot?: boolean;
 }
 

@@ -28,11 +28,11 @@ export class ErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return this.props.fallback ?? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <AlertTriangle className="w-12 h-12 text-[var(--color-electric)] mb-4" />
-          <h3 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">
+          <AlertTriangle className="w-12 h-12 text-(--color-holo-500) mb-4" />
+          <h3 className="text-xl font-semibold text-(--color-text) mb-2">
             Something went wrong
           </h3>
-          <p className="text-[var(--color-text-muted)]">
+          <p className="text-(--color-text-mute)">
             Please refresh the page to try again.
           </p>
         </div>

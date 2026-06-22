@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
+import { SectionHeading, Button, Divider } from '@/shared/ui';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -19,17 +20,6 @@ interface JobListing {
   readonly applyUrl: string;
 }
 
-const MONO: React.CSSProperties = { fontFamily: "'SF Mono','Menlo','Consolas',monospace" };
-const CYAN = '#4fc3f7';
-const CARD_BG: React.CSSProperties = {
-  background: 'linear-gradient(135deg, rgba(20,28,45,0.9) 0%, rgba(8,12,24,0.95) 50%, rgba(14,20,36,0.9) 100%)',
-  borderTop: '1px solid rgba(79,195,247,0.2)',
-  borderLeft: '1px solid rgba(79,195,247,0.1)',
-  borderRight: '1px solid rgba(79,195,247,0.06)',
-  borderBottom: '1px solid rgba(0,0,0,0.4)',
-  boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.08), 0 4px 12px rgba(0,0,0,0.4)',
-};
-const BEVEL = 'polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px))';
 const APPLY_EMAIL = 'cwang@metawin.inc';
 
 const JOB_LISTINGS: readonly JobListing[] = [
@@ -167,13 +157,96 @@ const JOB_LISTINGS: readonly JobListing[] = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Display helpers
+// ---------------------------------------------------------------------------
+
+/** Tokens that must keep their casing when a SCREAMING_SNAKE title is humanised. */
+const TITLE_ACRONYMS: Readonly<Record<string, string>> = {
+  AI: 'AI',
+  RNG: 'RNG',
+  QA: 'QA',
+  UI: 'UI',
+  'PIXI.JS': 'Pixi.js',
+};
+
+/** Convert a SCREAMING title to Title Case while preserving known acronyms. */
+function toTitleCase(title: string): string {
+  return title
+    .split(' ')
+    .map((word) => {
+      const acronym = TITLE_ACRONYMS[word];
+      if (acronym) return acronym;
+      if (word === '/') return '/';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+// ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
 
-const REQ_VARIANTS = {
+const DETAILS_VARIANTS = {
   collapsed: { height: 0, opacity: 0, transition: { duration: 0.22 } },
   expanded: { height: 'auto' as const, opacity: 1, transition: { duration: 0.26 } },
 } as const;
+
+const READOUT_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 'var(--text-2xs)',
+  letterSpacing: '0.14em',
+  textTransform: 'uppercase',
+  color: 'var(--color-text-mute)',
+};
+
+const SMALL_LABEL_STYLE: React.CSSProperties = {
+  fontFamily: 'var(--font-mono)',
+  fontSize: 'var(--text-2xs)',
+  fontWeight: 600,
+  letterSpacing: 'var(--tracking-label)',
+  textTransform: 'uppercase',
+  color: 'var(--color-holo-300)',
+  display: 'block',
+  marginBottom: 8,
+};
+
+const SMALL_LABEL_MUTE_STYLE: React.CSSProperties = {
+  ...SMALL_LABEL_STYLE,
+  color: 'var(--color-text-mute)',
+};
+
+interface JobBulletProps {
+  readonly children: React.ReactNode;
+  readonly muted?: boolean;
+}
+
+function JobBullet({ children, muted = false }: JobBulletProps) {
+  return (
+    <li
+      className="body-text"
+      style={{
+        display: 'flex',
+        gap: 8,
+        alignItems: 'flex-start',
+        color: muted ? 'var(--color-text-mute)' : 'var(--color-text-soft)',
+      }}
+    >
+      <span
+        aria-hidden="true"
+        style={{
+          flexShrink: 0,
+          marginTop: 7,
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          background: muted ? 'var(--color-text-dim)' : 'var(--color-holo-500)',
+          boxShadow: muted ? 'none' : '0 0 8px var(--color-holo-500)',
+        }}
+      />
+      <span>{children}</span>
+    </li>
+  );
+}
 
 interface JobCardProps {
   readonly job: JobListing;
@@ -183,57 +256,73 @@ interface JobCardProps {
 }
 
 function JobCard({ job, index, showDetails, onToggleDetails }: JobCardProps) {
-  const btnBase: React.CSSProperties = {
-    ...MONO, clipPath: BEVEL, border: 'none', padding: '5px 18px', fontSize: '11px',
-    fontWeight: 700, letterSpacing: '0.1em', cursor: 'pointer', textTransform: 'uppercase' as const,
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-  };
+  const detailsId = `job-details-${job.id}`;
 
   return (
     <motion.div
+      className="card card--hover"
       initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: index * 0.08 }}
-      style={{ ...CARD_BG, clipPath: BEVEL, padding: '12px 14px' }}
     >
-      <div style={{ ...MONO, fontSize: '13px', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
-        {job.title}
-      </div>
-      <div style={{ ...MONO, fontSize: '10px', color: 'rgba(79,195,247,0.7)', marginBottom: '6px' }}>
+      <h3 className="card__title">{toTitleCase(job.title)}</h3>
+      <div style={{ ...READOUT_STYLE, marginBottom: 8 }}>
         {job.department} · {job.location} · {job.type}
       </div>
-      <div style={{ ...MONO, fontSize: '11px', color: '#94a3b8', marginBottom: '8px', lineHeight: 1.5 }}>
+      <p className="body-text" style={{ marginBottom: 12 }}>
         {job.summary}
-      </div>
-      <div style={{ height: '1px', background: 'rgba(79,195,247,0.15)', marginBottom: '8px' }} aria-hidden="true" />
+      </p>
+      <Divider className="mb-3" />
 
       <AnimatePresence initial={false}>
         {showDetails && (
-          <motion.div key="details" variants={REQ_VARIANTS} initial="collapsed" animate="expanded" exit="collapsed" style={{ overflow: 'hidden' }}>
-            <p style={{ ...MONO, fontSize: '11px', color: '#94a3b8', lineHeight: 1.6, marginBottom: '10px' }}>
+          <motion.div
+            key="details"
+            id={detailsId}
+            variants={DETAILS_VARIANTS}
+            initial="collapsed"
+            animate="expanded"
+            exit="collapsed"
+            style={{ overflow: 'hidden' }}
+          >
+            <p className="body-text" style={{ marginBottom: 14 }}>
               {job.description}
             </p>
-            <div style={{ ...MONO, fontSize: '10px', color: CYAN, letterSpacing: '0.1em', marginBottom: '6px' }}>
-              REQUIREMENTS
-            </div>
-            <ul style={{ margin: '0 0 10px 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+
+            <span style={SMALL_LABEL_STYLE}>Requirements</span>
+            <ul
+              style={{
+                margin: '0 0 14px 0',
+                padding: 0,
+                listStyle: 'none',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 5,
+              }}
+            >
               {job.requirements.map((r) => (
-                <li key={r} style={{ ...MONO, fontSize: '11px', color: '#94a3b8', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                  <span style={{ color: CYAN, flexShrink: 0, marginTop: '1px' }}>▸</span>{r}
-                </li>
+                <JobBullet key={r}>{r}</JobBullet>
               ))}
             </ul>
+
             {job.niceToHave.length > 0 && (
               <>
-                <div style={{ ...MONO, fontSize: '10px', color: 'rgba(79,195,247,0.5)', letterSpacing: '0.1em', marginBottom: '6px' }}>
-                  NICE TO HAVE
-                </div>
-                <ul style={{ margin: '0 0 10px 0', padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <span style={SMALL_LABEL_MUTE_STYLE}>Nice to Have</span>
+                <ul
+                  style={{
+                    margin: '0 0 14px 0',
+                    padding: 0,
+                    listStyle: 'none',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 5,
+                  }}
+                >
                   {job.niceToHave.map((r) => (
-                    <li key={r} style={{ ...MONO, fontSize: '11px', color: 'rgba(148,163,184,0.6)', display: 'flex', gap: '6px', alignItems: 'flex-start' }}>
-                      <span style={{ color: 'rgba(79,195,247,0.4)', flexShrink: 0, marginTop: '1px' }}>▹</span>{r}
-                    </li>
+                    <JobBullet key={r} muted>
+                      {r}
+                    </JobBullet>
                   ))}
                 </ul>
               </>
@@ -242,18 +331,18 @@ function JobCard({ job, index, showDetails, onToggleDetails }: JobCardProps) {
         )}
       </AnimatePresence>
 
-      <div style={{ display: 'flex', gap: '8px' }}>
-        <button onClick={() => onToggleDetails(job.id)}
-          style={{ ...btnBase, background: showDetails ? 'rgba(79,195,247,0.15)' : 'rgba(79,195,247,0.08)', color: CYAN, border: '1px solid rgba(79,195,247,0.3)', boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.15), 0 2px 6px rgba(0,0,0,0.4)' }}>
-          ▸ {showDetails ? 'HIDE' : 'DETAILS'}
-        </button>
-        <a
-          href={job.applyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ ...btnBase, background: CYAN, color: '#080c18', textDecoration: 'none', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2), 0 2px 6px rgba(0,0,0,0.4)' }}>
-          ▸ APPLY
-        </a>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        <Button
+          variant="secondary"
+          onClick={() => onToggleDetails(job.id)}
+          aria-expanded={showDetails}
+          aria-controls={detailsId}
+        >
+          {showDetails ? 'Hide' : 'Details'}
+        </Button>
+        <Button variant="primary" href={job.applyUrl} target="_blank" rel="noopener noreferrer">
+          Apply
+        </Button>
       </div>
     </motion.div>
   );
@@ -269,7 +358,11 @@ export function CareersSection() {
   function handleToggle(id: string) {
     setExpandedIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
       return next as ReadonlySet<string>;
     });
   }
@@ -278,39 +371,43 @@ export function CareersSection() {
 
   return (
     <SectionWrapper id="careers">
-      <div style={{ ...MONO, color: CYAN, fontSize: '11px', marginBottom: '6px' }}>// RECRUITMENT_OPS</div>
-      <div style={{ borderTop: `1px solid ${CYAN}`, borderBottom: `1px solid ${CYAN}`, padding: '4px 0', marginBottom: '8px' }}>
-        <h2 style={{ ...MONO, fontSize: '16px', fontWeight: 700, color: '#f1f5f9', letterSpacing: '0.12em', margin: 0 }}>OPEN POSITIONS</h2>
-      </div>
-      <p style={{ ...MONO, fontSize: '11px', color: 'rgba(148,163,184,0.8)', lineHeight: 1.5, marginBottom: '16px' }}>
-        Gladiator Studio is a small, senior team building the games behind MetaWin — one of the world's most-played crypto casinos. We hire for craft, move fast, and ship to production constantly.
-      </p>
+      <SectionHeading
+        as="h1"
+        eyebrow="Careers"
+        title="Open Positions"
+        lede="Gladiator Studio is a small, senior team building the games behind MetaWin — one of the world's most-played crypto casinos. We hire for craft, move fast, and ship to production constantly."
+      />
 
       {/* Job cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {JOB_LISTINGS.map((job, index) => (
-          <JobCard key={job.id} job={job} index={index} showDetails={expandedIds.has(job.id)} onToggleDetails={handleToggle} />
+          <JobCard
+            key={job.id}
+            job={job}
+            index={index}
+            showDetails={expandedIds.has(job.id)}
+            onToggleDetails={handleToggle}
+          />
         ))}
       </div>
 
       {/* Speculative CTA */}
       <motion.div
+        className="card"
         initial={{ opacity: 0, y: 12 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, amount: 0.5 }}
         transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1], delay: 0.25 }}
-        style={{ ...CARD_BG, clipPath: BEVEL, padding: '12px 14px', borderColor: 'rgba(79,195,247,0.2)' }}
       >
-        <div style={{ ...MONO, fontSize: '12px', fontWeight: 700, color: '#f1f5f9', marginBottom: '4px' }}>
-          ROLE NOT LISTED?
-        </div>
-        <div style={{ ...MONO, fontSize: '11px', color: '#94a3b8', marginBottom: '10px', lineHeight: 1.5 }}>
-          We hire senior talent across engineering, design, and product on a rolling basis. If you are exceptional at what you do and want to work on games that real players use daily, send us your dossier.
-        </div>
-        <a href={cvHref}
-          style={{ ...MONO, clipPath: BEVEL, background: 'rgba(79,195,247,0.08)', border: '1px solid rgba(79,195,247,0.3)', color: CYAN, textDecoration: 'none', display: 'inline-block', padding: '5px 14px', fontSize: '11px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase' as const, boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.15), 0 2px 6px rgba(0,0,0,0.4)' }}>
-          ▸ SEND DOSSIER
-        </a>
+        <h3 className="card__title">Role Not Listed?</h3>
+        <p className="body-text" style={{ marginBottom: 14 }}>
+          We hire senior talent across engineering, design, and product on a rolling basis. If you are
+          exceptional at what you do and want to work on games that real players use daily, send us your
+          dossier.
+        </p>
+        <Button variant="primary" href={cvHref}>
+          Get in Touch
+        </Button>
       </motion.div>
     </SectionWrapper>
   );

@@ -1,1 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap');
+/* ─── Type system: Holo-luxe Starmap ───────────────────────────────────────────
+   Saira         — display / headings (technical-elegant, Starmap-adjacent)
+   Sora          — body / UI (premium geometric humanist, replaces Inter)
+   JetBrains Mono — telemetry / data labels (tabular, refined technical voice)
+   The font stylesheet <link> + preconnects live in index.html so the preload
+   scanner fetches them in parallel (a render-blocking @import here would
+   serialize html → css → fonts and delay first text paint).                     */

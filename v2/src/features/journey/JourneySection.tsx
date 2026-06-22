@@ -1,7 +1,5 @@
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
-
-const MONO = "'SF Mono','Menlo','Consolas',monospace";
-const CYAN = '#4fc3f7';
+import { SectionHeading } from '@/shared/ui';
 
 interface Mission {
   readonly date: string;
@@ -20,7 +18,7 @@ const MISSIONS: readonly Mission[] = [
   {
     date: 'Q4 2023',
     title: 'FIRST TITLE DEPLOYED',
-    description: '"To The Top" launched as inaugural slot — introduced the studio signature escalating-multiplier mechanic and established ULTRA-volatility market positioning.',
+    description: '“To The Top” launched as inaugural slot — introduced the studio signature escalating-multiplier mechanic and established ULTRA-volatility market positioning.',
     status: 'COMPLETE',
   },
   {
@@ -55,69 +53,114 @@ const MISSIONS: readonly Mission[] = [
   },
 ] as const;
 
-const STATUS_CONFIG = {
-  COMPLETE: { color: CYAN, bg: 'rgba(79,195,247,0.08)', borderColor: CYAN },
-  ACTIVE: { color: '#69f0ae', bg: 'rgba(105,240,174,0.08)', borderColor: '#69f0ae' },
-  QUEUED: { color: 'rgba(255,255,255,0.3)', bg: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.15)' },
+/** Maps a milestone status to its semantic accent token + display label. */
+const STATUS_CONFIG: Record<Mission['status'], { readonly color: string; readonly label: string }> = {
+  COMPLETE: { color: 'var(--color-holo-500)', label: 'Complete' },
+  ACTIVE: { color: 'var(--color-live)', label: 'Active' },
+  QUEUED: { color: 'var(--color-text-dim)', label: 'Queued' },
 } as const;
+
+/** Converts a SCREAMING title (e.g. "STUDIO FOUNDED") to Title Case. */
+function toTitleCase(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
 
 export function JourneySection() {
   return (
-    <SectionWrapper id="journey" style={{ padding: 0 }}>
-      <div style={{ fontFamily: MONO, fontSize: 10, color: CYAN, letterSpacing: '0.2em', marginBottom: 6 }}>
-        // MISSION_LOG
-      </div>
-      <h2 style={{ fontFamily: MONO, fontSize: 18, fontWeight: 700, color: '#e8f4fd', marginBottom: 6, letterSpacing: '0.06em' }}>
-        OPERATIONS TIMELINE
-      </h2>
-      <p style={{ fontFamily: MONO, fontSize: 11, color: 'rgba(232,244,253,0.5)', marginBottom: 16, lineHeight: '17px' }}>
-        From founding to 34 live titles across 7 markets. Every milestone logged.
-      </p>
+    <SectionWrapper id="journey">
+      <SectionHeading
+        as="h1"
+        eyebrow="Journey"
+        title="Timeline"
+        lede="From founding to 34 live titles across 7 markets."
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {MISSIONS.map((m, i) => {
           const cfg = STATUS_CONFIG[m.status];
+          const isLast = i === MISSIONS.length - 1;
           return (
-            <div
+            <li
               key={m.date}
               style={{
-                display: 'flex', flexDirection: 'column', gap: 4,
-                padding: '10px 12px',
-                background: i % 2 === 0
-                  ? 'linear-gradient(135deg, rgba(20,28,45,0.9) 0%, rgba(8,12,24,0.95) 50%, rgba(14,20,36,0.9) 100%)'
-                  : 'linear-gradient(135deg, rgba(14,20,36,0.7) 0%, rgba(8,12,24,0.8) 100%)',
-                borderLeft: `3px solid ${cfg.borderColor}`,
-                borderTop: '1px solid rgba(79,195,247,0.08)',
-                borderRight: '1px solid rgba(79,195,247,0.04)',
-                borderBottom: '1px solid rgba(0,0,0,0.3)',
-                boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.05), 0 2px 6px rgba(0,0,0,0.3)',
-                fontFamily: MONO,
+                display: 'grid',
+                gridTemplateColumns: '14px 1fr',
+                columnGap: 16,
+                paddingBottom: isLast ? 0 : 24,
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 9, color: cfg.color, minWidth: 60, letterSpacing: '0.12em', fontWeight: 700 }}>
-                  [{m.date}]
-                </span>
-                <span style={{ flex: 1, fontSize: 11, color: '#e8f4fd', fontWeight: 600 }}>
-                  {m.title}
-                </span>
-                <span style={{
-                  fontSize: 8, letterSpacing: '0.15em', fontWeight: 600,
-                  color: cfg.color,
-                  background: cfg.bg,
-                  padding: '2px 6px',
-                  border: `1px solid ${cfg.borderColor}`,
-                }}>
-                  {m.status}
-                </span>
+              {/* Connector rail: node dot + vertical hairline */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 10,
+                    height: 10,
+                    borderRadius: '50%',
+                    marginTop: 5,
+                    flexShrink: 0,
+                    border: `1px solid ${cfg.color}`,
+                    background: `radial-gradient(circle, ${cfg.color} 0%, transparent 72%)`,
+                    boxShadow: `0 0 10px ${cfg.color}`,
+                  }}
+                />
+                {!isLast && (
+                  <span
+                    aria-hidden="true"
+                    style={{
+                      width: 1,
+                      flex: 1,
+                      marginTop: 6,
+                      background: 'linear-gradient(180deg, var(--color-line), transparent)',
+                    }}
+                  />
+                )}
               </div>
-              <p style={{ fontSize: 10, color: 'rgba(232,244,253,0.5)', lineHeight: '15px', margin: '2px 0 0 70px' }}>
-                {m.description}
-              </p>
-            </div>
+
+              {/* Milestone content */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                  <time
+                    dateTime={m.date}
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--text-2xs)',
+                      fontWeight: 600,
+                      letterSpacing: 'var(--tracking-label)',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-text-mute)',
+                    }}
+                  >
+                    {m.date}
+                  </time>
+                  <span
+                    className="chip"
+                    style={{ color: cfg.color, borderColor: cfg.color }}
+                  >
+                    {cfg.label}
+                  </span>
+                </div>
+
+                <h3
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 600,
+                    fontSize: '1.05rem',
+                    letterSpacing: '-0.005em',
+                    color: 'var(--color-ice-50)',
+                  }}
+                >
+                  {toTitleCase(m.title)}
+                </h3>
+
+                <p className="body-text">{m.description}</p>
+              </div>
+            </li>
           );
         })}
-      </div>
+      </ol>
     </SectionWrapper>
   );
 }

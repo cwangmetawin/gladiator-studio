@@ -248,13 +248,18 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
 
   // ── Start animation loop ──────────────────────────────────────────────────
   useEffect(() => {
+    // Respect reduced-motion: skip the warp entirely and enter the HUD.
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      onComplete();
+      return;
+    }
     rafRef.current = requestAnimationFrame(animate);
     return () => {
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
       }
     };
-  }, [animate]);
+  }, [animate, onComplete]);
 
   // ── Compute overlay opacity for CSS fade (logo + container) ───────────────
   // We use a CSS animation on the wrapper via inline style driven by elapsed time.
@@ -306,6 +311,8 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
         <img
           src="/gladiator-logo.svg"
           alt=""
+          width={935}
+          height={535}
           style={{
             position: 'absolute',
             top: '50%',

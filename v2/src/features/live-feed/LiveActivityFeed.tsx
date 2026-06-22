@@ -1,27 +1,19 @@
 import { useEffect, useRef } from 'react';
+import { Eyebrow, Divider } from '@/shared/ui';
 import { useFeederSocket, type FeedEvent } from './useFeederSocket';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const MONO: React.CSSProperties['fontFamily'] =
-  "'SF Mono', 'Menlo', 'Consolas', monospace";
+const MONO: React.CSSProperties['fontFamily'] = 'var(--font-mono)';
 
-const PANEL_STYLE: React.CSSProperties = {
-  background: 'linear-gradient(135deg, rgba(20,28,45,0.9) 0%, rgba(8,12,24,0.95) 50%, rgba(14,20,36,0.9) 100%)',
-  backdropFilter: 'blur(8px)',
-  borderTop: '1px solid rgba(79,195,247,0.2)',
-  borderLeft: '1px solid rgba(79,195,247,0.1)',
-  borderRight: '1px solid rgba(79,195,247,0.06)',
-  borderBottom: '1px solid rgba(0,0,0,0.4)',
-  borderRadius: 12,
-  boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.08), 0 4px 12px rgba(0,0,0,0.4)',
-};
-
-const CYAN = '#4fc3f7';
-const PURPLE = '#b39ddb';
-const GOLD = '#ffd54f';
-const GREEN = '#22c55e';
-const RED = '#ef5350';
+// Token hex equivalents — used only inside runtime cssText template strings,
+// where var() resolution against the element is not always reliable.
+// Mirror of theme.css tokens; keep in sync.
+const HOLO = '#4FC3F7'; // var(--color-holo-500)
+const GOLD = '#FFD27A'; // var(--color-gold)
+const ICE = '#C6D2E2'; // var(--color-ice-200)
+const MUTE = '#8294AC'; // var(--color-text-mute)
+const PURPLE = '#b39ddb'; // Originals accent (kept as-is)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,18 +25,20 @@ function formatUSD(n: number): string {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
+/** A small breathing status dot — live-green when connected, ember when offline. */
 function LiveDot({ isConnected }: { readonly isConnected: boolean }) {
-  const color = isConnected ? GREEN : RED;
+  const color = isConnected ? 'var(--color-live)' : 'var(--color-ember)';
   return (
     <span
+      aria-hidden="true"
+      className="animate-live-pulse"
       style={{
         display: 'inline-block',
         width: 8,
         height: 8,
         borderRadius: '50%',
         background: color,
-        boxShadow: `0 0 6px ${color}`,
-        animation: 'livePulse 2s ease-in-out infinite',
+        boxShadow: `0 0 8px ${color}`,
         flexShrink: 0,
       }}
     />
@@ -57,26 +51,28 @@ interface StatPanelProps {
   readonly valueColor?: string;
 }
 
-function StatPanel({ label, value, valueColor = CYAN }: StatPanelProps) {
+/** Compact glass mini-stat card with a mono telemetry value over a Title Case label. */
+function StatPanel({ label, value, valueColor = 'var(--color-holo-500)' }: StatPanelProps) {
   return (
     <div
+      className="card"
       style={{
-        ...PANEL_STYLE,
-        padding: '6px 10px',
+        padding: '8px 10px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'space-between',
         gap: 4,
-        minHeight: 52,
+        minHeight: 54,
       }}
     >
       <span
         style={{
           fontFamily: MONO,
-          fontSize: 10,
-          letterSpacing: '1.5px',
+          fontSize: 'var(--text-2xs)',
+          fontWeight: 500,
+          letterSpacing: 'var(--tracking-label)',
           textTransform: 'uppercase',
-          color: 'rgba(255,255,255,0.5)',
+          color: 'var(--color-text-mute)',
           lineHeight: 1.2,
         }}
       >
@@ -88,6 +84,7 @@ function StatPanel({ label, value, valueColor = CYAN }: StatPanelProps) {
           fontSize: 16,
           fontWeight: 700,
           color: valueColor,
+          fontVariantNumeric: 'tabular-nums',
         }}
       >
         {value}
@@ -96,7 +93,7 @@ function StatPanel({ label, value, valueColor = CYAN }: StatPanelProps) {
   );
 }
 
-// FeedItem is now created via direct DOM manipulation inside FeedPanel (feeder pattern)
+// FeedItem is created via direct DOM manipulation inside FeedPanel (feeder pattern)
 
 interface FeedPanelProps {
   readonly title: string;
@@ -138,37 +135,36 @@ function FeedPanel({
       const ev = newItems[i];
       if (!ev) continue;
       const isGladiator = ev.provider === 'gladiator';
-      const barColor = isGladiator ? CYAN : PURPLE;
+      const railColor = isGladiator ? HOLO : PURPLE;
       const isBigWin = ev.amount >= 100;
 
       const item = document.createElement('div');
       item.style.cssText = `
-        display:flex;align-items:center;gap:6px;font-size:10px;
-        min-height:24px;padding:0 10px;
+        display:flex;align-items:center;gap:8px;font-size:11px;
+        min-height:24px;padding:2px 8px;border-radius:var(--radius-xs);
         font-family:${MONO};
         animation:feedFadeIn 0.3s ease-out;
         transition:background 0.18s ease;
       `;
 
-      // Rail bar (like feeder)
+      // Thin rail bar — gold for big wins, holo/purple otherwise
       const rail = document.createElement('span');
       rail.style.cssText = `
-        width:4px;height:20px;border-radius:999px;flex:0 0 auto;margin-right:4px;
-        background:${isBigWin ? `${GOLD}cc` : `${barColor}66`};
-        ${isBigWin ? `box-shadow:0 0 10px ${GOLD}66;` : ''}
+        width:3px;height:18px;border-radius:999px;flex:0 0 auto;
+        background:${isBigWin ? GOLD : railColor};
       `;
 
       const amount = document.createElement('span');
-      amount.style.cssText = `color:${isBigWin ? GOLD : CYAN};font-weight:bold;min-width:58px;flex:0 0 auto;letter-spacing:0.4px;`;
+      amount.style.cssText = `color:${isBigWin ? GOLD : HOLO};font-weight:700;min-width:58px;flex:0 0 auto;font-variant-numeric:tabular-nums;letter-spacing:0.02em;`;
       amount.textContent = formatUSD(ev.amount);
 
       const name = document.createElement('span');
-      name.style.cssText = `color:${isBigWin ? '#fff1ae' : 'rgba(255,255,255,0.5)'};flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;opacity:${isBigWin ? '0.94' : '0.72'};`;
+      name.style.cssText = `color:${ICE};flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;`;
       name.textContent = ev.gameName;
       name.title = ev.gameName;
 
       const loc = document.createElement('span');
-      loc.style.cssText = `color:rgba(255,255,255,0.5);font-size:9px;flex:0 0 auto;min-width:16px;text-align:right;letter-spacing:1px;opacity:0.78;`;
+      loc.style.cssText = `color:${MUTE};font-size:10px;flex:0 0 auto;min-width:16px;text-align:right;letter-spacing:0.08em;`;
       loc.textContent = ev.country;
 
       item.appendChild(rail);
@@ -176,8 +172,8 @@ function FeedPanel({
       item.appendChild(name);
       item.appendChild(loc);
 
-      // Hover effect
-      item.addEventListener('mouseenter', () => { item.style.background = isBigWin ? `${GOLD}0d` : 'rgba(255,255,255,0.03)'; });
+      // Subtle hover background
+      item.addEventListener('mouseenter', () => { item.style.background = 'rgba(79,195,247,0.06)'; });
       item.addEventListener('mouseleave', () => { item.style.background = 'transparent'; });
 
       list.prepend(item);
@@ -193,12 +189,11 @@ function FeedPanel({
   }, [events]);
 
   return (
-    <div style={{ ...PANEL_STYLE, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-      {/* Tab header */}
+    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
       <div
         style={{
-          borderBottom: '1px solid rgba(79, 195, 247, 0.12)',
-          boxShadow: '0 1px 0 rgba(79,195,247,0.05)',
+          borderBottom: '1px solid var(--color-line)',
           padding: '10px 14px',
           display: 'flex',
           alignItems: 'center',
@@ -211,21 +206,19 @@ function FeedPanel({
           <LiveDot isConnected={isConnected} />
           <span
             style={{
-              fontFamily: MONO,
-              fontSize: 11,
-              letterSpacing: '1.5px',
-              textTransform: 'uppercase',
+              fontFamily: 'var(--font-display)',
+              fontSize: '0.95rem',
+              fontWeight: 600,
+              letterSpacing: '-0.005em',
               color: accentColor,
-              borderBottom: `2px solid ${accentColor}`,
-              paddingBottom: 2,
             }}
           >
             {title}
           </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontFamily: MONO, fontSize: 11 }}>
-          <span style={{ color: accentColor }}>{eventCount}</span>
-          <span style={{ color: GOLD }}>{formatUSD(panelTotal)}</span>
+        <div className="readout" style={{ gap: '0.9rem' }}>
+          <span className="readout__value">{eventCount}</span>
+          <span className="readout__value readout__value--gold">{formatUSD(panelTotal)}</span>
         </div>
       </div>
 
@@ -235,7 +228,7 @@ function FeedPanel({
         style={{
           display: 'flex',
           flexDirection: 'column',
-          gap: 4,
+          gap: 2,
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
@@ -247,7 +240,16 @@ function FeedPanel({
         className="feed-scroll"
       >
         {events.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '32px 16px', fontFamily: MONO, fontSize: 10, color: 'rgba(255,255,255,0.3)', letterSpacing: '1px' }}>
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '32px 16px',
+              fontFamily: MONO,
+              fontSize: 'var(--text-2xs)',
+              color: 'var(--color-text-mute)',
+              letterSpacing: '0.08em',
+            }}
+          >
             {emptyMessage}
           </div>
         )}
@@ -278,49 +280,48 @@ export function LiveActivityFeed() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <style>{`
-        @keyframes livePulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.85)} }
         @keyframes feedFadeIn { 0%{opacity:0} 100%{opacity:1} }
         .feed-scroll::-webkit-scrollbar{width:4px}
         .feed-scroll::-webkit-scrollbar-track{background:transparent}
         .feed-scroll::-webkit-scrollbar-thumb{background:rgba(79,195,247,.4);border-radius:2px}
       `}</style>
 
-      {/* Compact header — single line */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexShrink: 0 }}>
-        <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '1.5px', color: CYAN, textTransform: 'uppercase' }}>
-          // LIVE TELEMETRY
-        </span>
+      {/* Header */}
+      <div style={{ marginBottom: 10, flexShrink: 0 }}>
+        <Eyebrow dot>Live Telemetry</Eyebrow>
       </div>
 
       {/* Stats — compact single row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 8, flexShrink: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 10, flexShrink: 0 }}>
         <StatPanel
-          label="STATUS"
-          value={isConnected ? 'ONLINE' : 'OFFLINE'}
-          valueColor={isConnected ? GREEN : RED}
+          label="Status"
+          value={isConnected ? 'Online' : 'Offline'}
+          valueColor={isConnected ? 'var(--color-live)' : 'var(--color-ember)'}
         />
-        <StatPanel label="EVENTS/S" value={eventsPerSecond.toFixed(0)} />
-        <StatPanel label="WAGERED" value={formatUSD(totalAmount)} />
-        <StatPanel label="EVENTS" value={`${gladiatorCount + originalCount}`} />
+        <StatPanel label="Events/s" value={eventsPerSecond.toFixed(0)} />
+        <StatPanel label="Wagered" value={formatUSD(totalAmount)} />
+        <StatPanel label="Events" value={`${gladiatorCount + originalCount}`} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16, flex: 1, minHeight: 0 }}>
+      <Divider />
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 14, flex: 1, minHeight: 0, marginTop: 12 }}>
         <FeedPanel
-          title="GLADIATOR"
-          accentColor={CYAN}
+          title="Gladiator"
+          accentColor="var(--color-holo-300)"
           eventCount={gladiatorCount}
           panelTotal={gladiatorTotal}
           events={gladiatorEvents}
-          emptyMessage="AWAITING GLADIATOR EVENTS..."
+          emptyMessage="Awaiting Gladiator events…"
           isConnected={isConnected}
         />
         <FeedPanel
-          title="ORIGINALS"
+          title="Originals"
           accentColor={PURPLE}
           eventCount={originalCount}
           panelTotal={originalTotal}
           events={originalEvents}
-          emptyMessage="AWAITING METAWIN EVENTS..."
+          emptyMessage="Awaiting MetaWin events…"
           isConnected={isConnected}
         />
       </div>

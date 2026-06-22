@@ -1,300 +1,68 @@
 import React, { useState, useCallback } from 'react';
 import type { Game } from '@/shared/types/game';
-
-// ------------------------------------------------------------------
-// Constants
-// ------------------------------------------------------------------
-
-const CYAN = '#4fc3f7';
-const GOLD = '#ffd54f';
-const PANEL_BG = 'linear-gradient(135deg, rgba(20,28,45,0.9) 0%, rgba(8,12,24,0.95) 50%, rgba(14,20,36,0.9) 100%)';
-const GLOW_HOVER = '0 0 20px rgba(79, 195, 247, 0.25), 0 0 40px rgba(79, 195, 247, 0.08)';
-const GLOW_REST = '0 4px 24px rgba(0, 0, 0, 0.5)';
-const SCANLINE = 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(79,195,247,0.03) 2px, rgba(79,195,247,0.03) 4px)';
-const LABEL_STYLE: React.CSSProperties = {
-  fontFamily: 'monospace',
-  fontSize: '11px',
-  fontWeight: 700,
-  letterSpacing: '1.5px',
-  textTransform: 'uppercase',
-};
-
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
+import { soundEngine } from '@/shared/utils/soundEngine';
 
 function isSafeUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    return parsed.protocol === 'https:';
+    return new URL(url).protocol === 'https:';
   } catch {
     return false;
   }
 }
 
-// ------------------------------------------------------------------
-// Sub-components
-// ------------------------------------------------------------------
+// ─── Sub-components ─────────────────────────────────────────────────────────────
 
 function FallbackCover({ title }: { readonly title: string }) {
   return (
     <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '12px',
-        padding: '16px',
-        background: 'linear-gradient(135deg, rgba(8,12,24,1) 0%, rgba(14,20,40,1) 100%)',
-      }}
       aria-hidden="true"
+      style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+        gap: 12, padding: 16,
+        background: 'linear-gradient(157deg, rgba(20,26,42,0.9), rgba(9,11,20,0.96))',
+      }}
     >
-      <span style={{ fontSize: '48px', lineHeight: 1 }}>🎰</span>
-      <span
-        style={{
-          ...LABEL_STYLE,
-          color: 'rgba(255,255,255,0.5)',
-          textAlign: 'center',
-          lineHeight: 1.4,
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}
-      >
+      <span style={{ fontSize: 40, lineHeight: 1, opacity: 0.7 }}>🎰</span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-mute)', textAlign: 'center', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
         {title}
       </span>
     </div>
   );
 }
 
-function StudioBadge({ category }: { readonly category: Game['category'] }) {
-  const label = category === 'slot' ? 'GLADIATOR' : 'METAWIN';
+function CornerTag({ children, side, gold = false }: { readonly children: React.ReactNode; readonly side: 'left' | 'right'; readonly gold?: boolean }) {
   return (
-    <div
+    <span
       style={{
-        position: 'absolute',
-        top: '8px',
-        left: '8px',
-        zIndex: 20,
-        padding: '2px 6px',
-        borderRadius: '4px',
-        background: 'rgba(79, 195, 247, 0.1)',
-        border: `1px solid rgba(79, 195, 247, 0.35)`,
-        backdropFilter: 'blur(8px)',
-        color: CYAN,
-        ...LABEL_STYLE,
-        fontSize: '11px',
+        position: 'absolute', top: 10, [side]: 10, zIndex: 20,
+        fontFamily: 'var(--font-mono)', fontSize: 9, fontWeight: 600,
+        letterSpacing: '0.14em', textTransform: 'uppercase',
+        padding: '3px 7px', borderRadius: 999,
+        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        ...(gold
+          ? { background: 'var(--color-gold)', color: 'var(--color-void-900)' }
+          : { background: 'rgba(8,12,22,0.6)', color: 'var(--color-holo-300)', border: '1px solid var(--color-line)' }),
       }}
     >
-      {label}
-    </div>
-  );
-}
-
-function HotBadge() {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: '8px',
-        right: '8px',
-        zIndex: 20,
-        padding: '2px 6px',
-        borderRadius: '4px',
-        background: GOLD,
-        color: '#000',
-        ...LABEL_STYLE,
-        fontSize: '11px',
-      }}
-    >
-      HOT
-    </div>
+      {children}
+    </span>
   );
 }
 
 function VolatilityBar({ volatility }: { readonly volatility: 'HIGH' | 'ULTRA' }) {
   const filled = volatility === 'ULTRA' ? 5 : 4;
-  const color = volatility === 'ULTRA' ? GOLD : CYAN;
+  const color = volatility === 'ULTRA' ? 'var(--color-gold)' : 'var(--color-holo-500)';
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }} aria-label={`Volatility: ${volatility}`}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }} aria-label={`Volatility ${volatility}`}>
       {Array.from({ length: 5 }, (_, i) => (
-        <div
-          key={i}
-          style={{
-            width: '10px',
-            height: '6px',
-            borderRadius: '2px',
-            background: i < filled ? color : 'rgba(255,255,255,0.1)',
-          }}
-        />
+        <span key={i} style={{ width: 9, height: 4, borderRadius: 2, background: i < filled ? color : 'rgba(255,255,255,0.12)' }} />
       ))}
-    </div>
+    </span>
   );
 }
 
-interface HoverOverlayProps {
-  readonly title: string;
-  readonly description: string;
-  readonly visible: boolean;
-  readonly onPlay: () => void;
-}
-
-function HoverOverlay({ title, description, visible, onPlay }: HoverOverlayProps) {
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 10,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '12px',
-        padding: '16px',
-        background: 'rgba(8, 12, 24, 0.88)',
-        backdropFilter: 'blur(4px)',
-        borderRadius: '8px',
-        opacity: visible ? 1 : 0,
-        pointerEvents: visible ? 'auto' : 'none',
-        transition: 'opacity 0.2s ease',
-      }}
-    >
-      <p
-        style={{
-          color: 'rgba(255,255,255,0.5)',
-          fontSize: '11px',
-          lineHeight: 1.5,
-          textAlign: 'center',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}
-      >
-        {description}
-      </p>
-      <button
-        type="button"
-        onClick={onPlay}
-        aria-label={`Play demo for ${title}`}
-        style={{
-          padding: '8px 20px',
-          borderRadius: '4px',
-          border: `1px solid ${CYAN}`,
-          background: 'rgba(79, 195, 247, 0.12)',
-          color: CYAN,
-          cursor: 'pointer',
-          fontFamily: 'monospace',
-          fontSize: '11px',
-          fontWeight: 700,
-          letterSpacing: '2px',
-          textTransform: 'uppercase',
-          boxShadow: `inset 0 1px 0 rgba(79,195,247,0.15), 0 2px 6px rgba(0,0,0,0.4), 0 0 12px rgba(79, 195, 247, 0.2)`,
-          transition: 'background 0.15s ease, box-shadow 0.15s ease',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.background = 'rgba(79, 195, 247, 0.22)';
-          e.currentTarget.style.boxShadow = `inset 0 1px 0 rgba(79,195,247,0.2), 0 2px 6px rgba(0,0,0,0.5), 0 0 20px rgba(79, 195, 247, 0.4)`;
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.background = 'rgba(79, 195, 247, 0.12)';
-          e.currentTarget.style.boxShadow = `inset 0 1px 0 rgba(79,195,247,0.15), 0 2px 6px rgba(0,0,0,0.4), 0 0 12px rgba(79, 195, 247, 0.2)`;
-        }}
-      >
-        PLAY DEMO
-      </button>
-    </div>
-  );
-}
-
-interface InfoPanelProps {
-  readonly title: string;
-  readonly rtp: number;
-  readonly volatility: 'HIGH' | 'ULTRA';
-  readonly genre: string;
-}
-
-function InfoPanel({ title, rtp, volatility, genre }: InfoPanelProps) {
-  return (
-    <div
-      style={{
-        padding: '10px 12px 12px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '6px',
-      }}
-    >
-      {/* Title */}
-      <p
-        style={{
-          color: '#fff',
-          fontSize: '13px',
-          fontWeight: 700,
-          lineHeight: 1.2,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          margin: 0,
-        }}
-      >
-        {title}
-      </p>
-
-      {/* Stats row */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
-        <VolatilityBar volatility={volatility} />
-        <span
-          style={{
-            color: GOLD,
-            fontFamily: 'monospace',
-            fontSize: '11px',
-            fontWeight: 700,
-            letterSpacing: '0.5px',
-            flexShrink: 0,
-          }}
-        >
-          RTP {rtp}%
-        </span>
-      </div>
-
-      {/* Genre + ULTRA label */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-        <span
-          style={{
-            ...LABEL_STYLE,
-            fontSize: '11px',
-            color: 'rgba(255,255,255,0.35)',
-            padding: '1px 5px',
-            borderRadius: '3px',
-            border: '1px solid rgba(255,255,255,0.08)',
-          }}
-        >
-          {genre}
-        </span>
-        {volatility === 'ULTRA' && (
-          <span
-            style={{
-              ...LABEL_STYLE,
-              fontSize: '11px',
-              color: GOLD,
-            }}
-          >
-            ULTRA
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ------------------------------------------------------------------
-// GameCard
-// ------------------------------------------------------------------
+// ─── GameCard ───────────────────────────────────────────────────────────────────
 
 interface GameCardProps {
   readonly game: Game;
@@ -303,123 +71,118 @@ interface GameCardProps {
 
 function GameCardComponent({ game, onPlayGame }: GameCardProps) {
   const [imageError, setImageError] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-
-  const handleImageError = useCallback(() => {
-    setImageError(true);
-  }, []);
+  const [hovered, setHovered] = useState(false);
 
   const handlePlay = useCallback(() => {
     if (!isSafeUrl(game.link)) {
-      console.warn(`GameCard: unsafe link blocked for "${game.title}": ${game.link}`);
+      console.warn(`GameCard: unsafe link blocked for "${game.title}"`);
       return;
     }
-    // Dispatch global event so App.tsx iframe overlay picks it up
+    soundEngine.transmission();
     window.dispatchEvent(new CustomEvent('play-game', { detail: { title: game.title, link: game.link } }));
     onPlayGame(game);
   }, [game, onPlayGame]);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        handlePlay();
-      }
-    },
-    [handlePlay],
-  );
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handlePlay();
+    }
+  }, [handlePlay]);
 
   return (
     <div
-      role="article"
+      role="button"
       tabIndex={0}
-      aria-label={game.title}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      aria-label={`Play ${game.title}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onFocus={() => setHovered(true)}
+      onBlur={() => setHovered(false)}
       onKeyDown={handleKeyDown}
       onClick={handlePlay}
       style={{
-        background: PANEL_BG,
-        borderTop: `1px solid ${isHovered ? 'rgba(79,195,247,0.4)' : 'rgba(79,195,247,0.2)'}`,
-        borderLeft: `1px solid ${isHovered ? 'rgba(79,195,247,0.25)' : 'rgba(79,195,247,0.1)'}`,
-        borderRight: `1px solid ${isHovered ? 'rgba(79,195,247,0.15)' : 'rgba(79,195,247,0.06)'}`,
-        borderBottom: '1px solid rgba(0,0,0,0.4)',
-        borderRadius: '8px',
-        cursor: 'pointer',
-        outline: 'none',
-        overflow: 'hidden',
-        boxShadow: isHovered
-          ? `inset 0 1px 0 rgba(79,195,247,0.12), ${GLOW_HOVER}`
-          : `inset 0 1px 0 rgba(79,195,247,0.08), ${GLOW_REST}`,
-        transform: isHovered
-          ? 'perspective(600px) translateY(-4px) rotateX(2deg) rotateY(-1deg) scale(1.02)'
-          : 'perspective(600px) translateY(0) rotateX(0) rotateY(0) scale(1)',
-        transformStyle: 'preserve-3d' as const,
-        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'flex', flexDirection: 'column',
+        borderRadius: 'var(--radius-md)', overflow: 'hidden', cursor: 'pointer',
+        background: 'linear-gradient(157deg, rgba(20,26,42,0.55), rgba(9,11,20,0.7))',
+        border: `1px solid ${hovered ? 'rgba(79,195,247,0.4)' : 'var(--color-line)'}`,
+        boxShadow: hovered
+          ? 'inset 0 1px 0 var(--color-line-bright), 0 16px 36px -16px rgba(0,0,0,0.7), var(--shadow-glow)'
+          : 'inset 0 1px 0 var(--color-line-bright), 0 8px 24px -12px rgba(0,0,0,0.6)',
+        transform: hovered ? 'translateY(-4px)' : 'translateY(0)',
+        transition: 'transform var(--dur) var(--ease-out-expo), box-shadow var(--dur) var(--ease-out-expo), border-color var(--dur) var(--ease-out-expo)',
       }}
     >
-      {/* Image section */}
-      <div
-        style={{
-          position: 'relative',
-          aspectRatio: '3/4',
-          overflow: 'hidden',
-          background: 'rgba(8, 12, 24, 1)',
-          backgroundImage: SCANLINE,
-        }}
-      >
-        {imageError ? (
+      {/* Cover */}
+      <div style={{ position: 'relative', aspectRatio: '3 / 4', overflow: 'hidden', background: 'var(--color-void-900)' }}>
+        {(!game.image || imageError) ? (
           <FallbackCover title={game.title} />
         ) : (
           <img
             src={game.image}
-            alt={game.title}
+            alt=""
             loading="lazy"
-            onError={handleImageError}
+            width={300} height={400}
+            onError={() => setImageError(true)}
             draggable={false}
             style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              objectPosition: 'center',
-              background: 'rgba(8,12,24,1)',
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center',
+              transform: hovered ? 'scale(1.05)' : 'scale(1)',
+              transition: 'transform var(--dur-slow) var(--ease-out-expo)',
             }}
           />
         )}
 
-        {/* Bottom gradient overlay */}
+        {/* Legibility gradient */}
+        <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(5,6,10,0.85) 0%, transparent 55%)', pointerEvents: 'none' }} />
+
+        <CornerTag side="left">{game.category === 'slot' ? 'Gladiator' : 'MetaWin'}</CornerTag>
+        {game.isHot && <CornerTag side="right" gold>Hot</CornerTag>}
+
+        {/* Hover overlay */}
         <div
           style={{
-            position: 'absolute',
-            inset: 0,
-            background: 'linear-gradient(to top, rgba(8,12,24,0.9) 0%, transparent 50%)',
-            pointerEvents: 'none',
+            position: 'absolute', inset: 0, zIndex: 10,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, padding: 16,
+            background: 'rgba(5,8,16,0.82)', backdropFilter: 'blur(6px)', WebkitBackdropFilter: 'blur(6px)',
+            opacity: hovered ? 1 : 0, pointerEvents: hovered ? 'auto' : 'none',
+            transition: 'opacity var(--dur) var(--ease-out-expo)',
           }}
-          aria-hidden="true"
-        />
-
-        <StudioBadge category={game.category} />
-        {game.isHot === true && <HotBadge />}
-
-        <HoverOverlay
-          title={game.title}
-          description={game.description}
-          visible={isHovered}
-          onPlay={handlePlay}
-        />
+        >
+          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-soft)', fontSize: 12, lineHeight: 1.55, textAlign: 'center', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', margin: 0 }}>
+            {game.description}
+          </p>
+          <span className="btn btn--primary" aria-hidden="true">Play Demo</span>
+        </div>
       </div>
 
-      {/* Info panel below image */}
-      <InfoPanel
-        title={game.title}
-        rtp={game.rtp}
-        volatility={game.volatility}
-        genre={game.genre}
-      />
+      {/* Info */}
+      <div style={{ padding: '11px 13px 13px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <p style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--color-ice-50)', fontSize: 14, lineHeight: 1.2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', margin: 0 }}>
+          {game.title}
+        </p>
+        {(game.volatility || game.rtp != null) && (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 12 }}>
+            {game.volatility ? <VolatilityBar volatility={game.volatility} /> : <span />}
+            {game.rtp != null && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600, color: 'var(--color-gold)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>
+                RTP {game.rtp}%
+              </span>
+            )}
+          </div>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {game.genre && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-mute)', padding: '2px 6px', borderRadius: 4, border: '1px solid var(--color-line)' }}>
+              {game.genre}
+            </span>
+          )}
+          {game.volatility === 'ULTRA' && (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-gold)' }}>Ultra</span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

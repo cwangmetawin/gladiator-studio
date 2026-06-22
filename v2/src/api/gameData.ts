@@ -1,4 +1,5 @@
-import type { Game, GameData } from '@/shared/types/game';
+import type { Game, GameData, GameCategory } from '@/shared/types/game';
+import { GameDataResponseSchema } from './schemas';
 
 // ─── Game URL builders (from feeder providerRef) ─────────────────────────────
 const GLADIATOR_CDN = 'https://cdn-dev.gladiatorgames.io/games';
@@ -54,6 +55,93 @@ const FALLBACK_GAMES: GameData = {
   miniGames: METAWIN_ORIGINALS,
 };
 
+// ─── Live catalogue from the lobby API, enriched with curated metadata ────────
+
+const API_URL = 'https://game-lobby-kappa.vercel.app/api/data';
+const FETCH_TIMEOUT_MS = 6000;
+
+/** Loose title key so live titles match curated metadata despite minor wording
+ *  (drops the "MetaWin"/"the" qualifiers and any punctuation/spacing). */
+function titleKey(title: string): string {
+  return title.toLowerCase().replace(/\bmetawin\b/g, '').replace(/\bthe\b/g, '').replace(/[^a-z0-9]/g, '');
+}
+
+/** Collapse runs of the same letter so typos like "Dazle" still match "Dazzle". */
+function dedupeKey(key: string): string {
+  return key.replace(/(.)\1+/g, '$1');
+}
+
+const CURATED_ALL = [...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS];
+const META_BY_TITLE: ReadonlyMap<string, Game> = new Map(CURATED_ALL.map((g) => [titleKey(g.title), g] as const));
+const META_BY_DEDUPE: ReadonlyMap<string, Game> = new Map(CURATED_ALL.map((g) => [dedupeKey(titleKey(g.title)), g] as const));
+
+/** Exact key match, then a typo-tolerant deduped-key match. */
+function findMeta(title: string): Game | undefined {
+  const key = titleKey(title);
+  return META_BY_TITLE.get(key) ?? META_BY_DEDUPE.get(dedupeKey(key));
+}
+
+interface LiveGame {
+  readonly id: number;
+  readonly title: string;
+  readonly description: string;
+  readonly image: string;
+  readonly link: string;
+  readonly timeline: string;
+}
+
+/**
+ * Resolve a usable cover URL from the live API value:
+ *   1. absolute URL (e.g. imgix) — use as-is (covers the new games)
+ *   2. curated cover — known-good CDN art for catalogued titles
+ *   3. relative "assets/x.png" — best-effort CDN by basename; GameCard's
+ *      onError falls back to the placeholder cover if it 404s.
+ */
+function resolveImage(liveImage: string, meta: Game | undefined): string | undefined {
+  if (/^https?:\/\//i.test(liveImage)) return liveImage;
+  if (meta?.image) return meta.image;
+  if (liveImage) return `${IMG_CDN}/${liveImage.split('/').pop()}`;
+  return undefined;
+}
+
+/** Merge an authoritative live game with curated cover/metadata where available. */
+function enrich(live: LiveGame, category: GameCategory): Game {
+  const meta = findMeta(live.title);
+  return {
+    id: live.id,
+    title: live.title,
+    description: live.description || meta?.description || '',
+    link: live.link,
+    timeline: live.timeline,
+    category,
+    slug: meta?.slug,
+    image: resolveImage(live.image, meta), // absolute API url → curated → CDN basename
+    rtp: meta?.rtp, // hidden in the card when unknown
+    volatility: meta?.volatility ?? (category === 'slot' ? 'ULTRA' : 'HIGH'),
+    genre: meta?.genre ?? (category === 'slot' ? 'Slot' : 'Original'),
+    isHot: meta?.isHot,
+  };
+}
+
+/**
+ * Fetch the live catalogue from the lobby API (the source of truth for which
+ * games exist), enrich each entry with curated artwork + RTP/volatility/genre
+ * by title, and fall back to the curated list on network or validation failure.
+ */
 export async function fetchGameData(): Promise<GameData> {
-  return FALLBACK_GAMES;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    const res = await fetch(API_URL, { signal: controller.signal });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const parsed = GameDataResponseSchema.parse(await res.json());
+    return {
+      slotGames: parsed.slotGames.map((g) => enrich(g, 'slot')),
+      miniGames: parsed.miniGames.map((g) => enrich(g, 'mini')),
+    };
+  } catch (err) {
+    console.warn('[gameData] live fetch failed — using curated fallback:', err);
+    return FALLBACK_GAMES;
+  }
 }

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
+import { soundEngine } from '@/shared/utils/soundEngine';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@babylonjs/core');
@@ -1276,9 +1277,11 @@ function buildScene(
   }
 
   // Subscribe to BIG+ wins ($1000+) — full beam
-  const unsubscribeWins = sceneEvents.onWin(({ lat, lng, amount, gameName }) => {
-    console.log(`[BEAM] ${gameName} $${amount.toFixed(2)} at [${lat.toFixed(1)}, ${lng.toFixed(1)}]`);
+  let lastWinSoundAt = 0;
+  const unsubscribeWins = sceneEvents.onWin(({ lat, lng, amount }) => {
     fireBeam(lat, lng, amount);
+    const now = Date.now();
+    if (now - lastWinSoundAt > 2500) { lastWinSoundAt = now; soundEngine.alert(); }
   });
 
   // Subscribe to normal wins — expanding ring ripple (feeder surfaceWaveRing)
@@ -1592,16 +1595,42 @@ export default function StarfieldBackground() {
       const engine = new BABYLON.Engine(canvas, true, {
         antialias: true,
         powerPreference: 'high-performance',
+        // Keep the last frame painted so the reduced-motion / hidden-tab static
+        // frame survives page compositing instead of clearing to black.
+        preserveDrawingBuffer: true,
       });
+      if (IS_MOBILE) engine.setHardwareScalingLevel(1.5);
 
       const scene = buildScene(BABYLON, engine);
 
-      engine.runRenderLoop(() => {
-        if (!disposed) scene.render();
-      });
-
-      // Load space station in background — non-blocking
-      // loadSpaceStation(BABYLON, scene); // Disabled: GLB model visual quality not acceptable
+      // Honor prefers-reduced-motion and pause on hidden tabs. A single static
+      // frame keeps the backdrop visible while stopping the continuous RAF loop
+      // (per-frame satellite trail rebuilds, flyby spawns, camera lerps) — the
+      // dominant GPU/battery cost the CSS reduced-motion blanket cannot touch.
+      const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const renderStatic = (): void => {
+        // Force entry-animated bodies to final scale so the single frozen frame
+        // shows the full earth (the scale-up tween cannot run when frozen).
+        for (const name of ['earth', 'clouds', 'atmosphere']) {
+          const mesh = scene.getMeshByName(name);
+          if (mesh) mesh.scaling.setAll(1);
+        }
+        const fx = scene.getTransformNodeByName('effectsContainer');
+        if (fx) fx.scaling.setAll(1);
+        scene.render();
+      };
+      const startLoop = (): void => {
+        engine.stopRenderLoop();
+        if (disposed) return;
+        if (motionQuery.matches || document.hidden) {
+          renderStatic();
+        } else {
+          engine.runRenderLoop(() => { if (!disposed) scene.render(); });
+        }
+      };
+      startLoop();
+      motionQuery.addEventListener('change', startLoop);
+      document.addEventListener('visibilitychange', startLoop);
 
       function handleResize(): void {
         engine.resize();
@@ -1610,6 +1639,9 @@ export default function StarfieldBackground() {
 
       cleanupRef.current = () => {
         window.removeEventListener('resize', handleResize);
+        motionQuery.removeEventListener('change', startLoop);
+        document.removeEventListener('visibilitychange', startLoop);
+        engine.stopRenderLoop();
         scene.dispose();
         engine.dispose();
       };

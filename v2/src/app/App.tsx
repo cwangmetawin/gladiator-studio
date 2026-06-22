@@ -1,6 +1,9 @@
 import { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
-import { X, ExternalLink, Volume2, VolumeOff, Menu, Gamepad2, Info, Users, Map, Radio, Briefcase, Mail } from 'lucide-react';
+import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import {
+  X, ExternalLink, Volume2, VolumeOff, Menu, Maximize2,
+  Gamepad2, Info, Users, Map, Radio, Briefcase, Mail,
+} from 'lucide-react';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { Hero } from '@/features/hero/Hero';
 import { fetchGameData } from '@/api/gameData';
@@ -22,465 +25,27 @@ const JourneySection = lazy(() => import('@/features/journey/JourneySection').th
 const CareersSection = lazy(() => import('@/features/careers/CareersSection').then(m => ({ default: m.CareersSection })));
 const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
 
-const CYAN = '#4fc3f7';
-const MONO = "'SF Mono','Menlo','Consolas',monospace" as const;
-const CYAN_DIM = 'rgba(79,195,247,0.2)';
-const BEVEL = 'polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px))';
-const HUD: React.CSSProperties = { fontFamily: MONO, fontSize: '10px', letterSpacing: '1.5px', fontWeight: 600, textTransform: 'uppercase' as const };
-
-// ─── 3D metallic styling constants ────────────────────────────────────────────
-const METAL_BG = 'linear-gradient(180deg, rgba(30,40,60,0.95) 0%, rgba(12,18,32,0.98) 100%)';
-const METAL_HIGHLIGHT = 'inset 0 1px 0 rgba(79,195,247,0.15), inset 0 -1px 0 rgba(0,0,0,0.4)';
-const METAL_SHADOW = '0 2px 8px rgba(0,0,0,0.5), 0 0 1px rgba(79,195,247,0.2)';
-const BTN_3D: React.CSSProperties = {
-  background: METAL_BG,
-  boxShadow: `${METAL_HIGHLIGHT}, ${METAL_SHADOW}`,
-  borderTop: '1px solid rgba(79,195,247,0.2)',
-  borderBottom: '1px solid rgba(0,0,0,0.5)',
-  borderLeft: '1px solid rgba(79,195,247,0.1)',
-  borderRight: '1px solid rgba(79,195,247,0.1)',
-};
-const BAR_3D: React.CSSProperties = {
-  background: 'linear-gradient(180deg, rgba(20,28,45,0.96) 0%, rgba(8,12,24,0.98) 50%, rgba(14,20,36,0.96) 100%)',
-  boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.1), inset 0 -1px 0 rgba(0,0,0,0.5), 0 4px 16px rgba(0,0,0,0.6)',
-};
-const PANEL_3D: React.CSSProperties = {
-  background: 'linear-gradient(135deg, rgba(16,24,40,0.95) 0%, rgba(8,12,24,0.98) 50%, rgba(12,18,32,0.96) 100%)',
-  boxShadow: 'inset 0 1px 0 rgba(79,195,247,0.12), inset -1px 0 0 rgba(79,195,247,0.06), 0 8px 32px rgba(0,0,0,0.7), 0 0 1px rgba(79,195,247,0.3)',
-  borderTop: '1px solid rgba(79,195,247,0.2)',
-  borderLeft: '1px solid rgba(79,195,247,0.12)',
-  borderRight: '1px solid rgba(79,195,247,0.08)',
-  borderBottom: '1px solid rgba(0,0,0,0.5)',
-};
-const SCANLINE_STYLE: React.CSSProperties = {
-  position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 1,
-  backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px)',
-};
+// ─── Layout constants ───────────────────────────────────────────────────────
+const BAR_H = 56;
+const HOLO = 'var(--color-holo-500)';
+const HOLO_DIM = 'var(--color-line)';
 
 type PanelId = 'none' | 'games' | 'about' | 'team' | 'journey' | 'live' | 'careers' | 'contact';
 
-// ─── Planet glow color map ────────────────────────────────────────────────────
+const NAV_ITEMS: readonly { label: string; panelId: PanelId; icon: React.ComponentType<{ size?: number }> }[] = [
+  { label: 'Games', panelId: 'games', icon: Gamepad2 },
+  { label: 'About', panelId: 'about', icon: Info },
+  { label: 'Team', panelId: 'team', icon: Users },
+  { label: 'Journey', panelId: 'journey', icon: Map },
+  { label: 'Live Feed', panelId: 'live', icon: Radio },
+  { label: 'Careers', panelId: 'careers', icon: Briefcase },
+  { label: 'Contact', panelId: 'contact', icon: Mail },
+] as const;
 
-const PLANET_GLOW: Record<string, string> = {
-  games:   '#ffd54f',
-  about:   '#4fc3f7',
-  team:    '#ef5350',
-  journey: '#b39ddb',
-  live:    '#66bb6a',
-  careers: '#ff8a65',
-  contact: '#90a4ae',
-};
-
-// ─── Planet drawing functions ─────────────────────────────────────────────────
-
-function drawSaturn(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  // Planet body — gold radial gradient
-  const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.05, cx, cy, r);
-  body.addColorStop(0, '#fff3b0');
-  body.addColorStop(0.4, '#ffd54f');
-  body.addColorStop(0.75, '#c8960c');
-  body.addColorStop(1, '#6b4a00');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Banding — subtle horizontal stripes
-  for (let i = 0; i < 4; i++) {
-    const by = cy - r * 0.5 + i * r * 0.32;
-    const bh = r * 0.12;
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = 'rgba(0,0,0,0.12)';
-    ctx.fillRect(cx - r, by, r * 2, bh);
-    ctx.restore();
-  }
-
-  // Ring — elliptical arc, drawn before planet so it wraps around
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.scale(1, 0.28);
-  ctx.beginPath();
-  ctx.arc(0, 0, r * 1.65, 0, Math.PI * 2);
-  const ring = ctx.createLinearGradient(-r * 1.65, 0, r * 1.65, 0);
-  ring.addColorStop(0, 'rgba(255,213,79,0)');
-  ring.addColorStop(0.2, 'rgba(255,213,79,0.55)');
-  ring.addColorStop(0.5, 'rgba(200,150,12,0.7)');
-  ring.addColorStop(0.8, 'rgba(255,213,79,0.55)');
-  ring.addColorStop(1, 'rgba(255,213,79,0)');
-  ctx.strokeStyle = ring;
-  ctx.lineWidth = r * 0.38;
-  ctx.stroke();
-  ctx.restore();
-}
-
-function drawIcePlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  const body = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, r * 0.05, cx, cy, r);
-  body.addColorStop(0, '#e3f6ff');
-  body.addColorStop(0.35, '#81d4fa');
-  body.addColorStop(0.7, '#0277bd');
-  body.addColorStop(1, '#01294a');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Cloud swirls — bezier curves
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.lineWidth = r * 0.08;
-  ctx.lineCap = 'round';
-  for (let i = 0; i < 3; i++) {
-    const oy = cy - r * 0.4 + i * r * 0.38;
-    ctx.beginPath();
-    ctx.moveTo(cx - r * 0.85, oy);
-    ctx.bezierCurveTo(
-      cx - r * 0.3, oy - r * 0.18,
-      cx + r * 0.3, oy + r * 0.18,
-      cx + r * 0.85, oy,
-    );
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Polar highlight
-  const polar = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.55, 0, cx - r * 0.2, cy - r * 0.55, r * 0.45);
-  polar.addColorStop(0, 'rgba(255,255,255,0.35)');
-  polar.addColorStop(1, 'rgba(255,255,255,0)');
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = polar;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawMarsPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.05, cx, cy, r);
-  body.addColorStop(0, '#ff8a65');
-  body.addColorStop(0.4, '#d84315');
-  body.addColorStop(0.8, '#7f1b0a');
-  body.addColorStop(1, '#3e0b05');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Craters — deterministic positions using prime-step offsets
-  const craters: readonly [number, number, number][] = [
-    [-0.35, -0.25, 0.14],
-    [0.3, 0.15, 0.10],
-    [-0.1, 0.42, 0.08],
-    [0.45, -0.38, 0.06],
-    [-0.5, 0.28, 0.07],
-    [0.12, -0.5, 0.09],
-  ];
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  for (const [ox, oy, cr] of craters) {
-    const px = cx + ox * r;
-    const py = cy + oy * r;
-    ctx.beginPath();
-    ctx.arc(px, py, cr * r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.3)';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(px - cr * r * 0.3, py - cr * r * 0.3, cr * r * 0.5, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,0.08)';
-    ctx.fill();
-  }
-  ctx.restore();
-}
-
-function drawNebula(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  // Multiple overlapping soft gas cloud blobs
-  const blobs: readonly [number, number, number, string][] = [
-    [cx - r * 0.2, cy - r * 0.1, r * 0.75, '#9c27b0'],
-    [cx + r * 0.25, cy + r * 0.15, r * 0.65, '#673ab7'],
-    [cx - r * 0.3, cy + r * 0.2, r * 0.55, '#e91e63'],
-    [cx + r * 0.1, cy - r * 0.3, r * 0.5, '#3f51b5'],
-    [cx, cy, r * 0.4, '#ce93d8'],
-  ];
-  ctx.save();
-  ctx.globalAlpha = 0.75;
-  for (const [bx, by, br, color] of blobs) {
-    const g = ctx.createRadialGradient(bx, by, 0, bx, by, br);
-    const hex = color;
-    g.addColorStop(0, hex + 'cc');
-    g.addColorStop(0.5, hex + '55');
-    g.addColorStop(1, hex + '00');
-    ctx.beginPath();
-    ctx.arc(bx, by, br, 0, Math.PI * 2);
-    ctx.fillStyle = g;
-    ctx.fill();
-  }
-  ctx.restore();
-
-  // Star specks inside nebula
-  const specks: readonly [number, number][] = [
-    [cx - r * 0.4, cy - r * 0.35],
-    [cx + r * 0.3, cy - r * 0.2],
-    [cx - r * 0.1, cy + r * 0.4],
-    [cx + r * 0.45, cy + r * 0.1],
-    [cx - r * 0.55, cy + r * 0.05],
-    [cx + r * 0.15, cy + r * 0.55],
-    [cx - r * 0.28, cy - r * 0.55],
-  ];
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  for (const [sx, sy] of specks) {
-    ctx.beginPath();
-    ctx.arc(sx, sy, 1.2, 0, Math.PI * 2);
-    ctx.fill();
-  }
-}
-
-function drawEnergySphere(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  const body = ctx.createRadialGradient(cx - r * 0.2, cy - r * 0.2, r * 0.05, cx, cy, r);
-  body.addColorStop(0, '#c8e6c9');
-  body.addColorStop(0.3, '#4caf50');
-  body.addColorStop(0.65, '#1b5e20');
-  body.addColorStop(1, '#0a1f0b');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Electric arcs — jagged line segments radiating from center
-  const arcs = 6;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.strokeStyle = 'rgba(144,238,144,0.45)';
-  ctx.lineWidth = 1.2;
-  ctx.lineCap = 'round';
-  for (let i = 0; i < arcs; i++) {
-    const angle = (i / arcs) * Math.PI * 2;
-    const steps = 5;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    let px = cx;
-    let py = cy;
-    for (let s = 1; s <= steps; s++) {
-      const t = s / steps;
-      const baseX = cx + Math.cos(angle) * r * t;
-      const baseY = cy + Math.sin(angle) * r * t;
-      const jitter = r * 0.12;
-      px = baseX + (Math.random() - 0.5) * jitter;
-      py = baseY + (Math.random() - 0.5) * jitter;
-      ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Outer glow ring
-  const glow = ctx.createRadialGradient(cx, cy, r * 0.8, cx, cy, r * 1.1);
-  glow.addColorStop(0, 'rgba(76,175,80,0.0)');
-  glow.addColorStop(0.5, 'rgba(76,175,80,0.2)');
-  glow.addColorStop(1, 'rgba(76,175,80,0)');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r * 1.1, 0, Math.PI * 2);
-  ctx.fillStyle = glow;
-  ctx.fill();
-}
-
-function drawMoltenPlanet(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  const body = ctx.createRadialGradient(cx - r * 0.25, cy - r * 0.25, r * 0.08, cx, cy, r);
-  body.addColorStop(0, '#ffe0b2');
-  body.addColorStop(0.3, '#ff8a65');
-  body.addColorStop(0.65, '#e64a19');
-  body.addColorStop(1, '#3e1200');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Lava crack lines — branching paths
-  const cracks: readonly [number, number, number, number][] = [
-    [cx, cy - r * 0.1, cx - r * 0.45, cy + r * 0.6],
-    [cx - r * 0.05, cy, cx + r * 0.5, cy + r * 0.5],
-    [cx - r * 0.3, cy - r * 0.3, cx + r * 0.3, cy - r * 0.7],
-    [cx + r * 0.1, cy + r * 0.1, cx - r * 0.6, cy - r * 0.2],
-  ];
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.strokeStyle = 'rgba(255,235,59,0.55)';
-  ctx.lineWidth = 1.5;
-  ctx.lineCap = 'round';
-  for (const [x1, y1, x2, y2] of cracks) {
-    const mx = (x1 + x2) / 2 + (Math.random() - 0.5) * r * 0.3;
-    const my = (y1 + y2) / 2 + (Math.random() - 0.5) * r * 0.3;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.quadraticCurveTo(mx, my, x2, y2);
-    ctx.stroke();
-    // Glowing inner line
-    ctx.strokeStyle = 'rgba(255,255,100,0.7)';
-    ctx.lineWidth = 0.7;
-    ctx.beginPath();
-    ctx.moveTo(x1, y1);
-    ctx.quadraticCurveTo(mx, my, x2, y2);
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,235,59,0.55)';
-    ctx.lineWidth = 1.5;
-  }
-  ctx.restore();
-}
-
-function drawMoon(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number): void {
-  const body = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.05, cx, cy, r);
-  body.addColorStop(0, '#eceff1');
-  body.addColorStop(0.4, '#b0bec5');
-  body.addColorStop(0.8, '#607d8b');
-  body.addColorStop(1, '#263238');
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = body;
-  ctx.fill();
-
-  // Craters — larger and more prominent than Mars
-  const craters: readonly [number, number, number][] = [
-    [-0.3, -0.2, 0.18],
-    [0.35, 0.25, 0.13],
-    [-0.05, 0.45, 0.10],
-    [0.42, -0.4, 0.08],
-    [-0.55, 0.1, 0.09],
-    [0.1, -0.55, 0.07],
-    [-0.45, -0.42, 0.06],
-  ];
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  for (const [ox, oy, cr] of craters) {
-    const px = cx + ox * r;
-    const py = cy + oy * r;
-    ctx.beginPath();
-    ctx.arc(px, py, cr * r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(0,0,0,0.22)';
-    ctx.fill();
-    // Crater rim highlight
-    ctx.beginPath();
-    ctx.arc(px, py, cr * r, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1.2;
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  // Terminator shadow — sharp directional shadow on right side
-  const shadow = ctx.createRadialGradient(cx + r * 0.5, cy, 0, cx + r * 0.5, cy, r * 1.1);
-  shadow.addColorStop(0, 'rgba(0,0,0,0)');
-  shadow.addColorStop(0.6, 'rgba(0,0,0,0)');
-  shadow.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.clip();
-  ctx.fillStyle = shadow;
-  ctx.fill();
-  ctx.restore();
-}
-
-function drawPlanet(ctx: CanvasRenderingContext2D, size: number, panelId: string): void {
-  const cx = size / 2;
-  const cy = size / 2;
-  const r = size * 0.33;
-  switch (panelId) {
-    case 'games':   drawSaturn(ctx, cx, cy, r);       break;
-    case 'about':   drawIcePlanet(ctx, cx, cy, r);    break;
-    case 'team':    drawMarsPlanet(ctx, cx, cy, r);   break;
-    case 'journey': drawNebula(ctx, cx, cy, r);       break;
-    case 'live':    drawEnergySphere(ctx, cx, cy, r); break;
-    case 'careers': drawMoltenPlanet(ctx, cx, cy, r); break;
-    case 'contact': drawMoon(ctx, cx, cy, r);         break;
-    default: break;
-  }
-}
-
-// ─── PanelPlanet component ────────────────────────────────────────────────────
-
-interface PanelPlanetProps {
-  readonly panelId: string;
-  readonly isLeft: boolean;
-}
-
-function PanelPlanet({ panelId, isLeft }: PanelPlanetProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const size = 200;
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = size * dpr;
-    canvas.height = size * dpr;
-    ctx.scale(dpr, dpr);
-
-    let angle = 0;
-    let raf = 0;
-
-    const animate = () => {
-      angle += 0.003;
-      ctx.clearRect(0, 0, size, size);
-      ctx.save();
-      ctx.translate(size / 2, size / 2);
-      ctx.rotate(angle);
-      ctx.translate(-size / 2, -size / 2);
-      drawPlanet(ctx, size, panelId);
-      ctx.restore();
-      raf = requestAnimationFrame(animate);
-    };
-
-    raf = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(raf);
-  }, [panelId]);
-
-  const glowColor = PLANET_GLOW[panelId] ?? '#4fc3f7';
-
-  return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        top: '50%',
-        ...(isLeft
-          ? { right: '-60px' }
-          : { left: '-60px' }),
-        transform: 'translateY(-50%)',
-        width: 200,
-        height: 200,
-        opacity: 0.15,
-        pointerEvents: 'none',
-        zIndex: 0,
-        filter: `drop-shadow(0 0 30px ${glowColor})`,
-      }}
-    />
-  );
-}
+// Panels that slide in from the left; everything else slides from the right.
 const LEFT_PANELS: readonly PanelId[] = ['games', 'about', 'team', 'journey'];
 
-interface CommandButtonProps {
-  readonly label: string; readonly panelId: PanelId;
-  readonly active: boolean; readonly onClick: (id: PanelId) => void;
-}
-
-// ─── useValueFlash hook ────────────────────────────────────────────────────────
+// ─── useValueFlash — brief glow when a live telemetry value changes ───────────
 
 function useValueFlash(value: number): boolean {
   const prevRef = useRef<number>(value);
@@ -498,197 +63,31 @@ function useValueFlash(value: number): boolean {
   return flashing;
 }
 
-// ─── HUD corner brackets ───────────────────────────────────────────────────────
-
-interface HudCornersProps {
-  readonly size?: number;
-  readonly thickness?: number;
-}
-
-function HudCorners({ size = 18, thickness = 2 }: HudCornersProps) {
-  const len = size;
-  // Each entry: pixel coords relative to a corner anchor, delay in seconds
-  // cx/cy: 0 = start from 0, 1 = start from 100%
-  const segments = [
-    // top-left vertical (draws down)
-    { id: 'tl-v', x1: 0, y1: 0,    x2: 0,   y2: len,  cx: 0, cy: 0, delay: 0 },
-    // top-left horizontal (draws right)
-    { id: 'tl-h', x1: 0, y1: 0,    x2: len, y2: 0,    cx: 0, cy: 0, delay: 0.06 },
-    // top-right horizontal (draws left)
-    { id: 'tr-h', x1: 0, y1: 0,    x2: -len, y2: 0,   cx: 1, cy: 0, delay: 0.12 },
-    // top-right vertical (draws down)
-    { id: 'tr-v', x1: 0, y1: 0,    x2: 0,   y2: len,  cx: 1, cy: 0, delay: 0.18 },
-    // bottom-right vertical (draws up)
-    { id: 'br-v', x1: 0, y1: 0,    x2: 0,   y2: -len, cx: 1, cy: 1, delay: 0.24 },
-    // bottom-right horizontal (draws left)
-    { id: 'br-h', x1: 0, y1: 0,    x2: -len, y2: 0,   cx: 1, cy: 1, delay: 0.30 },
-    // bottom-left horizontal (draws right)
-    { id: 'bl-h', x1: 0, y1: 0,    x2: len, y2: 0,    cx: 0, cy: 1, delay: 0.36 },
-    // bottom-left vertical (draws up)
-    { id: 'bl-v', x1: 0, y1: 0,    x2: 0,   y2: -len, cx: 0, cy: 1, delay: 0.42 },
-  ] as const;
-
-  const resolve = (coord: number, base: 0 | 1): string =>
-    base === 0 ? `${coord}` : `calc(100% + ${coord}px)`;
-
-  return (
-    <svg
-      aria-hidden="true"
-      style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 5,
-        width: '100%', height: '100%', overflow: 'visible',
-      }}
-    >
-      {segments.map((s) => (
-        <line
-          key={s.id}
-          x1={resolve(s.x1, s.cx)}
-          y1={resolve(s.y1, s.cy)}
-          x2={resolve(s.x2, s.cx)}
-          y2={resolve(s.y2, s.cy)}
-          stroke={CYAN}
-          strokeWidth={thickness}
-          strokeLinecap="square"
-          strokeDasharray={len}
-          strokeDashoffset={len}
-          style={{ animation: `hud-draw 0.35s ease-out ${s.delay}s forwards`, opacity: 0.85 }}
-        />
-      ))}
-    </svg>
-  );
-}
-
-// ─── Scan sweep overlay ────────────────────────────────────────────────────────
-
-function ScanSweep() {
-  return (
-    <div
-      aria-hidden="true"
-      style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 3, overflow: 'hidden' }}
-    >
-      <div
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          height: '15%',
-          background: 'linear-gradient(180deg, transparent 0%, rgba(79,195,247,0.08) 50%, transparent 100%)',
-          animation: 'scan-sweep 6s linear infinite',
-          willChange: 'transform',
-        }}
-      />
-    </div>
-  );
-}
-
-// ─── Holographic noise overlay ─────────────────────────────────────────────────
-
-function HoloNoise() {
-  return (
-    <svg
-      aria-hidden="true"
-      style={{
-        position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 4,
-        width: '100%', height: '100%', opacity: 0.04,
-        animation: 'holo-flicker 0.25s steps(4) infinite',
-        willChange: 'transform',
-      }}
-    >
-      <filter id="holo-noise">
-        <feTurbulence type="fractalNoise" baseFrequency="0.72" numOctaves="4" stitchTiles="stitch" />
-        <feColorMatrix type="saturate" values="0" />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#holo-noise)" />
-    </svg>
-  );
-}
-
-// ─── Command button ───────────────────────────────────────────────────────────
-
-function CommandButton({ label, panelId, active, onClick }: CommandButtonProps) {
-  const [hovered, setHovered] = useState(false);
-  const lit = active || hovered;
-
-  return (
-    <button
-      onClick={() => { soundEngine.click(); onClick(panelId); }}
-      onMouseEnter={() => { setHovered(true); soundEngine.hover(); }}
-      onMouseLeave={() => setHovered(false)}
-      aria-pressed={active}
-      style={{
-        ...HUD,
-        clipPath: BEVEL,
-        background: active
-          ? 'linear-gradient(180deg, rgba(10,15,25,0.98) 0%, rgba(20,30,50,0.95) 100%)'
-          : hovered
-            ? 'linear-gradient(180deg, rgba(35,45,65,0.95) 0%, rgba(16,22,38,0.98) 100%)'
-            : 'linear-gradient(180deg, rgba(30,40,60,0.95) 0%, rgba(12,18,32,0.98) 100%)',
-        border: '1px solid rgba(79,195,247,0.15)',
-        boxShadow: active
-          ? 'inset 0 2px 6px rgba(0,0,0,0.6), inset 0 0 12px rgba(79,195,247,0.1), 0 0 8px rgba(79,195,247,0.2)'
-          : lit
-            ? 'inset 0 1px 0 rgba(79,195,247,0.15), inset 0 -1px 0 rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.5), 0 0 12px rgba(79,195,247,0.15)'
-            : 'inset 0 1px 0 rgba(79,195,247,0.15), inset 0 -1px 0 rgba(0,0,0,0.4), 0 2px 8px rgba(0,0,0,0.5)',
-        color: lit ? CYAN : 'rgba(255,255,255,0.5)',
-        padding: '10px 16px',
-        minWidth: '80px',
-        minHeight: '44px',
-        cursor: 'pointer',
-        outline: 'none',
-        transition: 'background 0.15s ease, box-shadow 0.15s ease, color 0.15s ease, transform 0.15s ease',
-        transform: active ? 'translateY(1px)' : hovered ? 'translateY(-1px)' : 'none',
-        textShadow: lit ? '0 0 8px rgba(79,195,247,0.5)' : 'none',
-        textAlign: 'center' as const,
-        whiteSpace: 'nowrap' as const,
-        flexShrink: 0,
-        fontSize: '10px',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
-
-// ─── Sound toggle ────────────────────────────────────────────────────────────
+// ─── Sound toggle ─────────────────────────────────────────────────────────────
 
 function SoundToggle() {
   const [isMuted, setIsMuted] = useState(() => soundEngine.isMuted());
-  const [hovered, setHovered] = useState(false);
 
   const toggle = useCallback(() => {
-    const nowMuted = soundEngine.toggleMute();
-    setIsMuted(nowMuted);
+    setIsMuted(soundEngine.toggleMute());
   }, []);
 
   return (
     <button
+      type="button"
       onClick={toggle}
-      onMouseEnter={() => { setHovered(true); soundEngine.hover(); }}
-      onMouseLeave={() => setHovered(false)}
-      aria-label={isMuted ? 'Unmute sound' : 'Mute sound'}
-      title={isMuted ? 'Sound OFF' : 'Sound ON'}
-      style={{
-        ...HUD,
-        width: '32px', height: '32px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: hovered ? 'rgba(79,195,247,0.1)' : 'transparent',
-        border: `1px solid ${hovered ? 'rgba(79,195,247,0.3)' : 'rgba(79,195,247,0.1)'}`,
-        borderRadius: 4,
-        color: isMuted ? 'rgba(255,255,255,0.3)' : CYAN,
-        cursor: 'pointer',
-        outline: 'none',
-        flexShrink: 0,
-        position: 'relative', zIndex: 2,
-        transition: 'all 0.2s',
-        fontSize: '14px',
-      }}
+      onMouseEnter={() => soundEngine.hover()}
+      className="icon-btn"
+      aria-label={isMuted ? 'Unmute ambient sound' : 'Mute ambient sound'}
+      title={isMuted ? 'Sound off' : 'Sound on'}
+      style={{ color: isMuted ? 'var(--color-text-mute)' : HOLO }}
     >
-      {isMuted ? <VolumeOff size={14} /> : <Volume2 size={14} />}
+      {isMuted ? <VolumeOff size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
     </button>
   );
 }
 
-// ─── Top HUD status bar ───────────────────────────────────────────────────────
+// ─── Top status bar ─────────────────────────────────────────────────────────
 
 interface StatusBarProps {
   readonly isConnected: boolean;
@@ -698,7 +97,6 @@ interface StatusBarProps {
 }
 
 function StatusBar({ isConnected, totalEvents, totalAmount, isMobile }: StatusBarProps) {
-  const [caHovered, setCaHovered] = useState(false);
   const wagered = totalAmount >= 1000
     ? `$${(totalAmount / 1000).toFixed(1)}K`
     : `$${totalAmount.toFixed(0)}`;
@@ -709,100 +107,78 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile }: StatusBa
   return (
     <header
       role="banner"
-      aria-label="HUD status bar"
+      aria-label="Studio status"
+      className="shell-bar"
       style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        height: '40px',
-        ...BAR_3D,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderBottom: '1px solid rgba(79,195,247,0.15)',
-        clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%)',
+        minHeight: BAR_H,
+        borderBottom: `1px solid ${HOLO_DIM}`,
         display: 'flex', alignItems: 'center',
         paddingTop: 'env(safe-area-inset-top, 0px)',
-        padding: '0 16px',
-        gap: isMobile ? '8px' : '16px',
-        overflow: 'hidden',
+        paddingInline: 'clamp(14px, 3vw, 26px)',
+        gap: isMobile ? 12 : 22,
       }}
     >
-      <div aria-hidden="true" style={SCANLINE_STYLE} />
-      {!isMobile && (
-        <>
-          <img src="/gladiator-logo.svg" alt="Gladiator Studio" style={{ height: '24px', width: 'auto', flexShrink: 0, filter: 'drop-shadow(0 0 8px rgba(79,195,247,0.55))', position: 'relative', zIndex: 2 }} />
-          <span aria-hidden="true" style={{ width: '1px', height: '20px', background: CYAN_DIM, flexShrink: 0 }} />
-        </>
-      )}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '10px' : '20px', flex: 1, justifyContent: 'center', position: 'relative', zIndex: 2 }}>
-        <span style={{ ...HUD, display: 'flex', alignItems: 'center', gap: '6px', color: 'rgba(255,255,255,0.45)' }}>
-          <span aria-label={isConnected ? 'Connected' : 'Disconnected'} style={{ width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, background: isConnected ? '#00ff88' : '#ff4444', boxShadow: isConnected ? '0 0 8px #00ff88' : '0 0 8px #ff4444', animation: isConnected ? 'pulse 2s infinite' : 'none' }} />
-          {isConnected ? 'LIVE' : 'OFFLINE'}
+      <span className="sys-label" aria-label="Gladiator Studio">
+        <span className="sys-label__diamond" aria-hidden="true" />
+        Gladiator<span aria-hidden="true" style={{ color: 'var(--color-text-dim)' }}>·</span>Studio
+      </span>
+
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 12 : 22 }}>
+        <span className="readout" aria-label={isConnected ? 'Live feed connected' : 'Live feed offline'}>
+          <span
+            aria-hidden="true"
+            className={isConnected ? 'animate-live-pulse' : undefined}
+            style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: isConnected ? 'var(--color-live)' : 'var(--color-ember)',
+              boxShadow: `0 0 8px ${isConnected ? 'var(--color-live)' : 'var(--color-ember)'}`,
+            }}
+          />
+          {isConnected ? 'Live' : 'Offline'}
         </span>
+
         {!isMobile && (
           <>
-            <span aria-hidden="true" style={{ width: '1px', height: '12px', background: CYAN_DIM }} />
-            <span style={{ ...HUD, color: 'rgba(255,255,255,0.45)' }}>
-              EVENTS:{' '}
-              <span
-                style={{
-                  color: CYAN,
-                  display: 'inline-block',
-                  animation: eventsFlashing ? 'value-flash 0.6s ease-out' : 'none',
-                }}
-              >
+            <span className="hairline--v" aria-hidden="true" style={{ height: 16 }} />
+            <span className="readout">
+              Events
+              <span className="readout__value" style={{ animation: eventsFlashing ? 'value-glow 0.6s ease-out' : undefined }}>
                 {totalEvents.toLocaleString()}
               </span>
             </span>
-            <span aria-hidden="true" style={{ width: '1px', height: '12px', background: CYAN_DIM }} />
-            <span style={{ ...HUD, color: 'rgba(255,255,255,0.45)' }}>
-              WAGERED:{' '}
-              <span
-                style={{
-                  color: '#FFD54F',
-                  display: 'inline-block',
-                  animation: amountFlashing ? 'value-flash-amber 0.6s ease-out' : 'none',
-                }}
-              >
+            <span className="hairline--v" aria-hidden="true" style={{ height: 16 }} />
+            <span className="readout">
+              Wagered
+              <span className="readout__value readout__value--gold" style={{ animation: amountFlashing ? 'value-glow 0.6s ease-out' : undefined }}>
                 {wagered}
               </span>
             </span>
           </>
         )}
       </div>
-      <SoundToggle />
-      {!isMobile && (
-        <a
-          href={CLIENT_AREA_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          onMouseEnter={() => setCaHovered(true)}
-          onMouseLeave={() => setCaHovered(false)}
-          aria-label="Open client area in new tab"
-          style={{
-            ...HUD,
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-            padding: '5px 12px',
-            minHeight: '36px',
-            clipPath: BEVEL,
-            color: CYAN,
-            textDecoration: 'none',
-            background: caHovered ? 'rgba(79,195,247,0.14)' : 'rgba(79,195,247,0.06)',
-            border: `1px solid ${caHovered ? 'rgba(79,195,247,0.5)' : CYAN_DIM}`,
-            boxShadow: caHovered ? '0 0 12px rgba(79,195,247,0.2)' : 'none',
-            transition: 'background 0.2s, border-color 0.2s, box-shadow 0.2s',
-            outline: 'none',
-            flexShrink: 0,
-            position: 'relative', zIndex: 2,
-          }}
-        >
-          CLIENT AREA
-          <ExternalLink style={{ width: '10px', height: '10px', flexShrink: 0 }} aria-hidden="true" />
-        </a>
-      )}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <SoundToggle />
+        {!isMobile && (
+          <a
+            href={CLIENT_AREA_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn--primary"
+            style={{ minHeight: 36, padding: '0.5rem 1.1rem' }}
+            onMouseEnter={() => soundEngine.hover()}
+          >
+            Client Area
+            <ExternalLink size={12} aria-hidden="true" />
+          </a>
+        )}
+      </div>
     </header>
   );
 }
 
-// ─── Content panel ────────────────────────────────────────────────────────────
+// ─── Content panel (sliding glass drawer) ─────────────────────────────────────
 
 interface ContentPanelProps {
   readonly panelId: PanelId;
@@ -814,110 +190,122 @@ interface ContentPanelProps {
 
 function PanelSpinner() {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px', color: CYAN }}>
-      <div style={{ width: '24px', height: '24px', border: `2px solid ${CYAN_DIM}`, borderTopColor: CYAN, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, color: HOLO }}>
+      <div
+        aria-hidden="true"
+        className="animate-spin"
+        style={{ width: 24, height: 24, border: `2px solid ${HOLO_DIM}`, borderTopColor: HOLO, borderRadius: '50%' }}
+      />
+      <span className="sr-only">Loading</span>
     </div>
   );
 }
 
 function ContentPanel({ panelId, side, onClose, children, isMobile }: ContentPanelProps) {
   const isLeft = side === 'left';
+  const navItem = NAV_ITEMS.find(n => n.panelId === panelId);
+  const index = navItem ? NAV_ITEMS.indexOf(navItem) + 1 : 0;
+  const label = navItem?.label ?? panelId;
+  const indexLabel = `${String(index).padStart(2, '0')} / ${String(NAV_ITEMS.length).padStart(2, '0')}`;
 
   return (
     <motion.aside
       key={panelId}
-      initial={{ x: isLeft ? '-100%' : '100%', opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
-      exit={{ x: isLeft ? '-100%' : '100%', opacity: 0 }}
-      transition={{ type: 'spring', stiffness: 350, damping: 35 }}
-      aria-label={`${panelId} panel`}
+      initial={{ x: isLeft ? '-101%' : '101%' }}
+      animate={{ x: 0 }}
+      exit={{ x: isLeft ? '-101%' : '101%' }}
+      transition={{ type: 'spring', stiffness: 320, damping: 38 }}
+      aria-label={`${label} panel`}
+      className="glass"
       style={{
         position: 'fixed',
-        top: isMobile ? 0 : '40px',
-        bottom: isMobile ? 0 : '48px',
+        top: isMobile ? 0 : BAR_H,
+        bottom: isMobile ? 0 : BAR_H,
         [isLeft ? 'left' : 'right']: 0,
-        width: isMobile ? '100vw' : 'clamp(320px, 45vw, 680px)',
-        ...PANEL_3D,
-        backdropFilter: 'blur(16px)',
-        WebkitBackdropFilter: 'blur(16px)',
-        border: `1px solid ${CYAN_DIM}`,
-        borderTop: 'none',
-        borderBottom: 'none',
+        width: isMobile ? '100vw' : 'clamp(340px, 44vw, 660px)',
+        borderRadius: 0,
+        [isLeft ? 'borderRight' : 'borderLeft']: `1px solid ${HOLO_DIM}`,
+        borderTop: 'none', borderBottom: 'none',
         [isLeft ? 'borderLeft' : 'borderRight']: 'none',
-        clipPath: isLeft
-          ? 'polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 0 100%)'
-          : 'polygon(0 0, 100% 0, 100% 100%, 16px 100%, 0 calc(100% - 16px))',
         zIndex: 40,
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         pointerEvents: 'auto',
+        paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : 0,
       }}
     >
-      {/* Celestial body — unique planet per panel, peeks from outside edge */}
-      <PanelPlanet panelId={panelId} isLeft={isLeft} />
-
-      {/* Scanline overlay */}
-      <div aria-hidden="true" style={SCANLINE_STYLE} />
-
-      {/* HUD corner brackets — laser-draw animation on mount */}
-      <HudCorners size={18} thickness={2} />
-
-      {/* Scrolling scan sweep — horizontal beam top-to-bottom every 6s */}
-      <ScanSweep />
-
-      {/* Holographic noise overlay — feTurbulence at 4% opacity */}
-      <HoloNoise />
-
-      {/* Panel header */}
+      {/* Header */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '12px 16px 10px',
-        borderBottom: `1px solid ${CYAN_DIM}`,
-        flexShrink: 0,
-        position: 'relative', zIndex: 6,
+        padding: '16px 20px', borderBottom: `1px solid ${HOLO_DIM}`, flexShrink: 0,
       }}>
-        <span style={{ ...HUD, color: CYAN, fontSize: '11px' }}>
-          {panelId.toUpperCase()} CONSOLE
+        <span className="eyebrow">
+          <span className="eyebrow__dot animate-electric-pulse" aria-hidden="true" />
+          {label}
+          <span style={{ color: 'var(--color-text-dim)', marginLeft: 8 }}>{indexLabel}</span>
         </span>
-        <button
-          onClick={() => { soundEngine.click(); onClose(); }}
-          aria-label={`Close ${panelId} panel`}
-          style={{
-            background: 'rgba(79,195,247,0.08)', border: 'none', color: CYAN,
-            width: '28px', height: '28px', cursor: 'pointer', outline: 'none', display: 'flex',
-            alignItems: 'center', justifyContent: 'center', borderRadius: '50%',
-            transition: 'background 0.2s, color 0.2s',
-            opacity: 0.7,
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(79,195,247,0.2)'; e.currentTarget.style.opacity = '1'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(79,195,247,0.08)'; e.currentTarget.style.opacity = '0.7'; }}
-        >
-          <X size={14} aria-hidden="true" />
+        <button type="button" onClick={() => { soundEngine.click(); onClose(); }} className="icon-btn" aria-label={`Close ${label} panel`}>
+          <X size={15} aria-hidden="true" />
         </button>
       </div>
 
-      {/* Scrollable content — panel-content class enables 3D stagger animation */}
-      <div className="panel-content" style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', position: 'relative', zIndex: 6 }}>
+      {/* Scrollable content */}
+      <div
+        className="panel-content"
+        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', padding: 'clamp(20px, 3vw, 36px)' }}
+      >
         {children}
       </div>
     </motion.aside>
   );
 }
 
-// ─── Navigation menu items ────────────────────────────────────────────────────
+// ─── Desktop command bar ──────────────────────────────────────────────────────
 
-const NAV_ITEMS: readonly { label: string; panelId: PanelId; icon: React.ComponentType<{ size?: number }> }[] = [
-  { label: 'Games', panelId: 'games', icon: Gamepad2 },
-  { label: 'About', panelId: 'about', icon: Info },
-  { label: 'Team', panelId: 'team', icon: Users },
-  { label: 'Journey', panelId: 'journey', icon: Map },
-  { label: 'Live Feed', panelId: 'live', icon: Radio },
-  { label: 'Careers', panelId: 'careers', icon: Briefcase },
-  { label: 'Contact', panelId: 'contact', icon: Mail },
-] as const;
+interface CommandBarProps {
+  readonly activePanel: PanelId;
+  readonly onActivate: (id: PanelId) => void;
+}
 
-// ─── Mobile side drawer ───────────────────────────────────────────────────────
+function CommandBar({ activePanel, onActivate }: CommandBarProps) {
+  return (
+    <nav
+      aria-label="Primary"
+      className="shell-bar"
+      style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+        minHeight: BAR_H,
+        borderTop: `1px solid ${HOLO_DIM}`,
+        display: 'flex', alignItems: 'center',
+        paddingInline: 'clamp(14px, 3vw, 26px)',
+        gap: 18,
+      }}
+    >
+      <div className="cmd-nav-scroll" style={{ display: 'flex', alignItems: 'center', flex: 1, overflowX: 'auto' }}>
+        {NAV_ITEMS.map(({ label, panelId }) => (
+          <button
+            key={panelId}
+            type="button"
+            className="navbtn"
+            aria-pressed={activePanel === panelId}
+            onClick={() => { soundEngine.click(); onActivate(panelId); }}
+            onMouseEnter={() => soundEngine.hover()}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <span className="readout" style={{ flexShrink: 0, color: 'var(--color-text-dim)' }}>
+        © 2026 Gladiator Studio
+        <span aria-hidden="true">·</span>
+        <span>A MetaWin Company</span>
+      </span>
+    </nav>
+  );
+}
+
+// ─── Mobile drawer ─────────────────────────────────────────────────────────────
 
 interface MobileDrawerProps {
   readonly isOpen: boolean;
@@ -936,105 +324,51 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate }: MobileDrawer
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
           <motion.div
             key="drawer-backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             onClick={onClose}
-            style={{
-              position: 'fixed', inset: 0, zIndex: 60,
-              background: 'rgba(0,0,0,0.6)',
-              backdropFilter: 'blur(4px)',
-              WebkitBackdropFilter: 'blur(4px)',
-            }}
+            style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(3,4,8,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           />
-          {/* Drawer panel */}
           <motion.nav
             key="drawer-panel"
-            role="navigation"
-            aria-label="Mobile navigation"
-            initial={{ x: '100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 400, damping: 35 }}
+            aria-label="Primary"
+            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 360, damping: 36 }}
+            className="glass"
             style={{
-              position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 61,
-              width: '260px',
-              ...PANEL_3D,
-              borderLeft: '1px solid rgba(79,195,247,0.25)',
+              position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 61, width: 280,
+              borderRadius: 0, borderRight: 'none', borderTop: 'none', borderBottom: 'none',
               display: 'flex', flexDirection: 'column',
-              paddingTop: 'env(safe-area-inset-top, 12px)',
-              paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+              paddingTop: 'env(safe-area-inset-top, 12px)', paddingBottom: 'env(safe-area-inset-bottom, 12px)',
               overflow: 'hidden',
             }}
           >
-            <div aria-hidden="true" style={SCANLINE_STYLE} />
-
-            {/* Drawer header */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '16px 16px 12px',
-              borderBottom: '1px solid rgba(79,195,247,0.15)',
-              position: 'relative', zIndex: 2,
-            }}>
-              <span style={{ ...HUD, color: CYAN, fontSize: '11px' }}>▸ NAVIGATION</span>
-              <button
-                onClick={onClose}
-                aria-label="Close menu"
-                style={{
-                  ...BTN_3D, width: 32, height: 32,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: CYAN, cursor: 'pointer', border: 'none', borderRadius: 4,
-                }}
-              >
-                <X size={16} />
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 18px 14px', borderBottom: `1px solid ${HOLO_DIM}` }}>
+              <span className="eyebrow"><span className="eyebrow__dot" aria-hidden="true" />Navigation</span>
+              <button type="button" onClick={onClose} className="icon-btn" aria-label="Close menu">
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
 
-            {/* Nav items */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', position: 'relative', zIndex: 2 }}>
-              {NAV_ITEMS.map(({ label, panelId, icon: Icon }) => {
-                const isActive = activePanel === panelId;
-                return (
-                  <button
-                    key={panelId}
-                    onClick={() => handleSelect(panelId)}
-                    style={{
-                      ...HUD,
-                      width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
-                      padding: '14px 20px',
-                      background: isActive ? 'rgba(79,195,247,0.12)' : 'transparent',
-                      borderLeft: isActive ? `3px solid ${CYAN}` : '3px solid transparent',
-                      border: 'none',
-                      borderLeftStyle: 'solid',
-                      borderLeftWidth: '3px',
-                      borderLeftColor: isActive ? CYAN : 'transparent',
-                      color: isActive ? CYAN : 'rgba(255,255,255,0.6)',
-                      cursor: 'pointer',
-                      fontSize: '11px',
-                      letterSpacing: '1.5px',
-                      transition: 'all 0.15s',
-                      textAlign: 'left' as const,
-                    }}
-                  >
-                    <Icon size={16} />
-                    {label.toUpperCase()}
-                  </button>
-                );
-              })}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '8px 0', overscrollBehavior: 'contain' }}>
+              {NAV_ITEMS.map(({ label, panelId, icon: Icon }) => (
+                <button
+                  key={panelId}
+                  type="button"
+                  className="drawer-item"
+                  aria-pressed={activePanel === panelId}
+                  onClick={() => handleSelect(panelId)}
+                >
+                  <Icon size={16} aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
             </div>
 
-            {/* Footer */}
-            <div style={{
-              padding: '12px 16px', borderTop: '1px solid rgba(79,195,247,0.15)',
-              position: 'relative', zIndex: 2,
-            }}>
-              <span style={{ ...HUD, fontSize: '8px', color: 'rgba(255,255,255,0.2)' }}>
-                &copy; 2026 Gladiator Studio
-              </span>
+            <div style={{ padding: '14px 18px', borderTop: `1px solid ${HOLO_DIM}` }}>
+              <span className="readout" style={{ color: 'var(--color-text-dim)' }}>© 2026 Gladiator Studio</span>
             </div>
           </motion.nav>
         </>
@@ -1043,84 +377,111 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate }: MobileDrawer
   );
 }
 
-// ─── Mobile floating menu button ──────────────────────────────────────────────
-
 function MobileMenuButton({ onClick }: { readonly onClick: () => void }) {
   return (
     <motion.button
+      type="button"
       onClick={onClick}
       aria-label="Open menu"
-      whileTap={{ scale: 0.9 }}
+      whileTap={{ scale: 0.92 }}
+      className="glass"
       style={{
         position: 'absolute',
-        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))',
-        right: 20,
-        zIndex: 55,
-        width: 52, height: 52,
-        borderRadius: '50%',
-        ...BTN_3D,
-        border: '1px solid rgba(79,195,247,0.3)',
+        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', right: 20, zIndex: 55,
+        width: 54, height: 54, borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: CYAN,
-        cursor: 'pointer',
-        boxShadow: `${METAL_HIGHLIGHT}, ${METAL_SHADOW}, 0 0 20px rgba(79,195,247,0.15)`,
+        color: HOLO, cursor: 'pointer',
       }}
     >
-      <Menu size={22} />
+      <Menu size={22} aria-hidden="true" />
     </motion.button>
   );
 }
 
-// ─── Desktop bottom command bar ───────────────────────────────────────────────
+// ─── Game iframe overlay ───────────────────────────────────────────────────────
 
-interface CommandBarProps {
-  readonly activePanel: PanelId;
-  readonly onActivate: (id: PanelId) => void;
+interface GameOverlayProps {
+  readonly game: { readonly title: string; readonly link: string };
+  readonly isMobile: boolean;
+  readonly onClose: () => void;
 }
 
-function CommandBar({ activePanel, onActivate }: CommandBarProps) {
+function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
+  if (isMobile) {
+    return (
+      <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', zIndex: 10000, background: '#000', overflow: 'hidden' }}>
+        <iframe
+          src={game.link}
+          title={game.title}
+          style={{ position: 'absolute', inset: 0, width: '100vw', height: '100dvh', border: 'none' }}
+          allow="fullscreen; autoplay; screen-orientation"
+          allowFullScreen
+        />
+        <button
+          type="button"
+          onClick={onClose}
+          className="icon-btn"
+          aria-label="Close game"
+          style={{ position: 'absolute', top: 'calc(10px + env(safe-area-inset-top, 0px))', right: 10, zIndex: 10001 }}
+        >
+          <X size={16} aria-hidden="true" />
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <nav
-      role="navigation"
-      aria-label="Command bar"
-      style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
-        height: '48px',
-        ...BAR_3D,
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-        borderTop: '1px solid rgba(79,195,247,0.15)',
-        clipPath: 'polygon(8px 0, 100% 0, 100% 100%, 0 100%, 0 8px)',
-        display: 'flex', alignItems: 'center',
-        padding: '0 16px',
-        gap: '8px',
-        overflow: 'hidden',
-      }}
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      transition={{ duration: 0.3 }}
+      onClick={onClose}
+      style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(3,4,8,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
-      <div aria-hidden="true" style={SCANLINE_STYLE} />
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flex: 1, position: 'relative', zIndex: 2 }}>
-        {NAV_ITEMS.map(({ label, panelId }) => (
-          <CommandButton
-            key={panelId}
-            label={label}
-            panelId={panelId}
-            active={activePanel === panelId}
-            onClick={onActivate}
-          />
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, position: 'relative', zIndex: 2 }}>
-        <span aria-hidden="true" style={{ width: '1px', height: '20px', background: CYAN_DIM }} />
-        <span style={{ ...HUD, fontSize: '9px', color: 'rgba(255,255,255,0.25)', whiteSpace: 'nowrap' }}>&copy; 2026 Gladiator Studio &middot; A MetaWin Company</span>
-        <a href="#" style={{ ...HUD, fontSize: '9px', color: 'rgba(255,255,255,0.2)', textDecoration: 'underline', textUnderlineOffset: '2px', whiteSpace: 'nowrap', outline: 'none' }}>Resp. Gaming</a>
-      </div>
-    </nav>
+      <motion.div
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.9, opacity: 0 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+        className="glass"
+        data-game-container=""
+        onClick={(e: React.MouseEvent) => e.stopPropagation()}
+        style={{ width: '92vw', maxWidth: 1400, aspectRatio: '16 / 9', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${HOLO_DIM}`, flexShrink: 0 }}>
+          <span className="eyebrow"><span className="eyebrow__dot animate-electric-pulse" aria-hidden="true" />{game.title}</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              type="button"
+              className="icon-btn"
+              aria-label="Toggle fullscreen"
+              onClick={(e) => {
+                e.stopPropagation();
+                const container = e.currentTarget.closest('[data-game-container]') as HTMLElement | null;
+                if (!container) return;
+                if (document.fullscreenElement) document.exitFullscreen();
+                else container.requestFullscreen();
+              }}
+            >
+              <Maximize2 size={15} aria-hidden="true" />
+            </button>
+            <button type="button" className="icon-btn" aria-label="Close game" onClick={onClose}>
+              <X size={15} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <iframe
+          src={game.link}
+          title={game.title}
+          style={{ flex: 1, border: 'none', width: '100%', background: '#000' }}
+          allow="fullscreen; autoplay"
+          allowFullScreen
+        />
+      </motion.div>
+    </motion.div>
   );
 }
 
-// ─── App root ─────────────────────────────────────────────────────────────────
+// ─── App root ──────────────────────────────────────────────────────────────────
 
 export function App() {
   const { verified, verify, reject, showGate } = useAgeGate();
@@ -1134,40 +495,48 @@ export function App() {
   const { isConnected, totalAmount, gladiatorCount, originalCount } = useFeederSocket();
   const totalEvents = gladiatorCount + originalCount;
 
-
   useEffect(() => {
     fetchGameData().then(setGameData);
   }, []);
 
-  // Listen for game play events from GameCard
+  // Play-game events from GameCard
   useEffect(() => {
     const handler = (e: CustomEvent<{ title: string; link: string }>) => {
       if (isMobile) {
-        // Mobile: show game immediately in fullscreen iframe (no blackhole animation)
         setPlayingGame(e.detail);
         return;
       }
       sceneEvents.emitBlackhole(true);
-      // Wait for blackhole to fully complete before showing iframe
       setTimeout(() => setPlayingGame(e.detail), 1800);
     };
     window.addEventListener('play-game' as string, handler as EventListener);
     return () => window.removeEventListener('play-game' as string, handler as EventListener);
   }, [isMobile]);
 
-  // Listen for panel open events from Hero buttons
+  // Open-panel events from Hero buttons
   useEffect(() => {
-    const handler = (e: CustomEvent<string>) => {
-      setActivePanel(e.detail as PanelId);
-    };
+    const handler = (e: CustomEvent<string>) => setActivePanel(e.detail as PanelId);
     window.addEventListener('open-panel' as string, handler as EventListener);
     return () => window.removeEventListener('open-panel' as string, handler as EventListener);
   }, []);
 
+  // Close panel / game with Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
+      else if (activePanel !== 'none') { soundEngine.panelClose(); setActivePanel('none'); }
+      else if (drawerOpen) setDrawerOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [playingGame, activePanel, drawerOpen]);
+
   const handleActivate = useCallback((id: PanelId) => {
     setActivePanel(prev => {
       const next = prev === id ? 'none' : id;
-      if (next === 'none') { soundEngine.panelClose(); } else { soundEngine.panelOpen(); }
+      if (next === 'none') soundEngine.panelClose();
+      else soundEngine.panelOpen();
       return next;
     });
   }, []);
@@ -1177,202 +546,60 @@ export function App() {
     setActivePanel('none');
   }, []);
 
-  // Fly 3D camera to the celestial body associated with the active panel
+  const closeGame = useCallback(() => {
+    sceneEvents.emitBlackhole(false);
+    setPlayingGame(null);
+  }, []);
+
+  // Fly the 3D camera to the celestial body for the active panel
   useEffect(() => {
     sceneEvents.emitCameraTarget({ panelId: activePanel });
   }, [activePanel]);
 
   const activeSide: 'left' | 'right' = LEFT_PANELS.includes(activePanel) ? 'left' : 'right';
 
-  // Age gate — blocks everything until verified
   if (!verified) {
     return <AgeGate onVerify={verify} onReject={reject} rejected={!showGate} />;
   }
 
-  // Warp intro — plays once after age gate is passed, before main HUD appears
   if (!introComplete) {
     return <WarpIntro onComplete={() => { setIntroComplete(true); soundEngine.startAmbient(); }} />;
   }
 
   return (
-    <div
-      style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: '#0D0D0D' }}
-      aria-label="Gladiator Studio command center"
-    >
-      {/* Global keyframe styles */}
-      <style>{`
-        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
-        @keyframes spin { to { transform: rotate(360deg) } }
+    <MotionConfig reducedMotion="user">
+    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
+      <a href="#main" className="skip-to-content">Skip to content</a>
 
-        /* Effect 2: HUD corner bracket laser-draw */
-        @keyframes hud-draw { to { stroke-dashoffset: 0; } }
-
-        /* Effect 3: Scan sweep — beam travels from -15% to 115% of panel height */
-        @keyframes scan-sweep {
-          0%   { transform: translateY(-15%) }
-          100% { transform: translateY(115%) }
-        }
-
-        /* Effect 5: Holographic noise flicker — position jitter at steps(4) */
-        @keyframes holo-flicker {
-          0%   { transform: translate(0px,  0px)  }
-          25%  { transform: translate(-1px, 1px)  }
-          50%  { transform: translate(1px,  -1px) }
-          75%  { transform: translate(-1px, -1px) }
-          100% { transform: translate(1px,  1px)  }
-        }
-
-        /* Effect 4: Status bar value flash — cyan */
-        @keyframes value-flash {
-          0%   { transform: scale(1);    filter: drop-shadow(0 0 0px  rgba(79,195,247,0));   }
-          25%  { transform: scale(1.15); filter: drop-shadow(0 0 8px  rgba(79,195,247,0.9)); }
-          60%  { transform: scale(1.08); filter: drop-shadow(0 0 5px  rgba(79,195,247,0.55)); }
-          100% { transform: scale(1);    filter: drop-shadow(0 0 0px  rgba(79,195,247,0));   }
-        }
-
-        /* Effect 4: Status bar value flash — amber */
-        @keyframes value-flash-amber {
-          0%   { transform: scale(1);    filter: drop-shadow(0 0 0px  rgba(255,213,79,0));   }
-          25%  { transform: scale(1.15); filter: drop-shadow(0 0 8px  rgba(255,213,79,0.9)); }
-          60%  { transform: scale(1.08); filter: drop-shadow(0 0 5px  rgba(255,213,79,0.55)); }
-          100% { transform: scale(1);    filter: drop-shadow(0 0 0px  rgba(255,213,79,0));   }
-        }
-
-        /* ── HOLOGRAM BOOT SEQUENCE ── */
-
-        /* Panel content: hologram digitize-in with scan reveal */
-        .panel-content {
-          position: relative;
-        }
-        .panel-content::before {
-          content: '';
-          position: absolute;
-          top: 0; left: 0; right: 0;
-          height: 2px;
-          background: linear-gradient(90deg, transparent 0%, #4fc3f7 30%, #ffffff 50%, #4fc3f7 70%, transparent 100%);
-          box-shadow: 0 0 15px #4fc3f7, 0 0 30px rgba(79,195,247,0.4);
-          z-index: 100;
-          animation: holo-scan 0.8s ease-out forwards;
-          pointer-events: none;
-        }
-        @keyframes holo-scan {
-          0%   { top: 0; opacity: 1; }
-          80%  { opacity: 0.6; }
-          100% { top: 100%; opacity: 0; }
-        }
-
-        /* Children: start invisible, revealed by scan line */
-        .panel-content > * {
-          animation: holo-materialize 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-        }
-        @keyframes holo-materialize {
-          0%   { opacity: 0; transform: translateY(8px); filter: blur(4px) brightness(2); }
-          30%  { opacity: 0.7; filter: blur(1px) brightness(1.5); }
-          50%  { opacity: 1; filter: blur(0) brightness(1.2); }
-          70%  { opacity: 0.85; filter: brightness(1); }
-          80%  { opacity: 1; }
-          100% { opacity: 1; transform: translateY(0); filter: blur(0) brightness(1); }
-        }
-        .panel-content > *:nth-child(1) { animation-delay: 0.08s; }
-        .panel-content > *:nth-child(2) { animation-delay: 0.14s; }
-        .panel-content > *:nth-child(3) { animation-delay: 0.20s; }
-        .panel-content > *:nth-child(4) { animation-delay: 0.26s; }
-        .panel-content > *:nth-child(5) { animation-delay: 0.32s; }
-        .panel-content > *:nth-child(6) { animation-delay: 0.38s; }
-        .panel-content > *:nth-child(7) { animation-delay: 0.44s; }
-        .panel-content > *:nth-child(n+8) { animation-delay: 0.50s; }
-
-        /* Hologram flicker — entire panel content flickers on open */
-        .panel-content {
-          animation: holo-flicker-in 0.4s steps(6) forwards;
-        }
-        @keyframes holo-flicker-in {
-          0%   { opacity: 0; }
-          15%  { opacity: 0.7; }
-          30%  { opacity: 0.3; }
-          45%  { opacity: 0.9; }
-          60%  { opacity: 0.5; }
-          80%  { opacity: 0.95; }
-          100% { opacity: 1; }
-        }
-
-        /* RGB chromatic aberration on panel entry */
-        .panel-content > *:nth-child(1) {
-          text-shadow: -1px 0 rgba(255,0,0,0.15), 1px 0 rgba(0,100,255,0.15);
-          animation: holo-materialize 0.6s cubic-bezier(0.16,1,0.3,1) both, holo-aberration 0.5s ease-out forwards;
-        }
-        @keyframes holo-aberration {
-          0%   { text-shadow: -3px 0 rgba(255,0,0,0.4), 3px 0 rgba(0,150,255,0.4); }
-          40%  { text-shadow: -1px 0 rgba(255,0,0,0.2), 1px 0 rgba(0,150,255,0.2); }
-          100% { text-shadow: 0 0 transparent, 0 0 transparent; }
-        }
-
-        ::-webkit-scrollbar { width: 4px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: rgba(79,195,247,0.25); border-radius: 2px; }
-        ::-webkit-scrollbar-thumb:hover { background: rgba(79,195,247,0.45); }
-
-        /* Hide horizontal scrollbar on command bar nav row */
-        .cmd-nav-scroll::-webkit-scrollbar { display: none; }
-      `}</style>
-
-      {/* 3D scene — always visible behind everything */}
+      {/* 3D scene — always behind everything */}
       <StarfieldCanvas />
 
-      {/* Hero — full mode when no panel, mini corner logo when panel is open */}
-      <AnimatePresence mode="popLayout">
-        {activePanel === 'none' ? (
-          <motion.div
-            key="hero-full"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.2 } }}
-            transition={{ duration: 0.35 }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              zIndex: 10,
-              pointerEvents: 'auto',
-            }}
-          >
-            <Hero isPanelOpen={false} panelSide={activeSide} />
-          </motion.div>
-        ) : !isMobile ? (
-          <motion.div
-            key="hero-mini"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            onClick={handleClose}
-            role="button"
-            aria-label="Close panel"
-            tabIndex={0}
-            onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') handleClose(); }}
-            style={{
-              position: 'absolute',
-              top: 72,
-              // Position in the corner OPPOSITE to the panel side
-              ...(activeSide === 'left'
-                ? { right: 24, left: 'auto' }
-                : { left: 24, right: 'auto' }),
-              zIndex: 10,
-              pointerEvents: 'auto',
-              cursor: 'pointer',
-            }}
-          >
-            <Hero isPanelOpen={true} panelSide={activeSide} />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
+      <div className="fx-holo" aria-hidden="true" />
 
-      {/* Top HUD — hide on mobile when panel is open */}
+      <main id="main">
+        {/* Hero — full-screen holotable; hidden entirely while a panel is open */}
+        <AnimatePresence mode="popLayout">
+          {activePanel === 'none' && (
+            <motion.div
+              key="hero-full"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
+              transition={{ duration: 0.4 }}
+              style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+            >
+              <Hero panelSide={activeSide} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Top status bar — hidden on mobile when a panel is open */}
       {!(isMobile && activePanel !== 'none') && (
         <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} />
       )}
 
-      {/* Sliding content panels */}
+      {/* Sliding content panel */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
         <AnimatePresence mode="wait">
           {activePanel !== 'none' && (
@@ -1380,11 +607,7 @@ export function App() {
               <ErrorBoundary>
                 <Suspense fallback={<PanelSpinner />}>
                   {activePanel === 'games' && (
-                    <GameShowcase
-                      slotGames={gameData?.slotGames ?? []}
-                      miniGames={gameData?.miniGames ?? []}
-                      loading={gameData === null}
-                    />
+                    <GameShowcase slotGames={gameData?.slotGames ?? []} miniGames={gameData?.miniGames ?? []} loading={gameData === null} />
                   )}
                   {activePanel === 'about' && <AboutSection />}
                   {activePanel === 'team' && <TeamSection />}
@@ -1399,159 +622,23 @@ export function App() {
         </AnimatePresence>
       </div>
 
-      {/* Navigation — desktop: bottom bar, mobile: floating button + drawer */}
+      {/* Navigation */}
       {isMobile ? (
         <>
-          <MobileMenuButton onClick={() => setDrawerOpen(true)} />
-          <MobileDrawer
-            isOpen={drawerOpen}
-            onClose={() => setDrawerOpen(false)}
-            activePanel={activePanel}
-            onActivate={handleActivate}
-          />
+          <MobileMenuButton onClick={() => { soundEngine.click(); setDrawerOpen(true); }} />
+          <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} activePanel={activePanel} onActivate={handleActivate} />
         </>
       ) : (
         <CommandBar activePanel={activePanel} onActivate={handleActivate} />
       )}
 
-      {/* Game iframe overlay */}
+      {/* Game overlay */}
       <AnimatePresence>
         {playingGame && (
-          isMobile ? (
-            /* Mobile: pure fullscreen iframe — no animation, no title bar, 100dvh */
-            <div
-              key="game-overlay-mobile"
-              style={{
-                position: 'fixed',
-                top: 0, left: 0,
-                width: '100vw',
-                height: '100dvh',
-                zIndex: 10000,
-                background: '#000',
-                overflow: 'hidden',
-              }}
-            >
-              <iframe
-                src={playingGame.link}
-                title={playingGame.title}
-                style={{
-                  position: 'absolute', top: 0, left: 0,
-                  width: '100vw', height: '100dvh',
-                  border: 'none', display: 'block',
-                }}
-                allow="fullscreen; autoplay; screen-orientation"
-                allowFullScreen
-              />
-              {/* Floating close button */}
-              <button
-                onClick={() => setPlayingGame(null)}
-                style={{
-                  position: 'absolute', top: 'calc(8px + env(safe-area-inset-top, 0px))', right: 8,
-                  zIndex: 10001,
-                  background: 'rgba(0,0,0,0.6)',
-                  border: '1px solid rgba(79,195,247,0.3)',
-                  borderRadius: '50%',
-                  width: 36, height: 36,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  color: CYAN, cursor: 'pointer',
-                  backdropFilter: 'blur(4px)',
-                  WebkitBackdropFilter: 'blur(4px)',
-                }}
-              >
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            /* Desktop: animated overlay with title bar */
-            <motion.div
-              key="game-overlay"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              style={{
-                position: 'fixed', inset: 0, zIndex: 10000,
-                background: 'rgba(0,0,0,0.92)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}
-              onClick={() => { sceneEvents.emitBlackhole(false); setPlayingGame(null); }}
-            >
-              <motion.div
-                initial={{ scale: 0.7, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.85, opacity: 0 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                style={{
-                  width: '90vw', maxWidth: 1400, aspectRatio: '16/9',
-                  ...PANEL_3D,
-                  border: '1px solid rgba(79,195,247,0.4)',
-                  clipPath: BEVEL,
-                  overflow: 'hidden',
-                  display: 'flex', flexDirection: 'column',
-                }}
-                data-game-container=""
-                onClick={(e: React.MouseEvent) => e.stopPropagation()}
-              >
-                {/* Title bar */}
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '8px 16px',
-                  borderBottom: '1px solid rgba(79,195,247,0.25)',
-                  ...BAR_3D,
-                  flexShrink: 0,
-                }}>
-                  <span style={{ ...HUD, color: CYAN, fontSize: '11px' }}>
-                    ▸ {playingGame.title.toUpperCase()}
-                  </span>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const container = e.currentTarget.closest('[data-game-container]') as HTMLElement | null;
-                        if (container) {
-                          if (document.fullscreenElement) {
-                            document.exitFullscreen();
-                          } else {
-                            container.requestFullscreen();
-                          }
-                        }
-                      }}
-                      style={{
-                        ...HUD, color: CYAN, fontSize: '10px',
-                        ...BTN_3D,
-                        padding: '5px 14px', cursor: 'pointer',
-                        clipPath: 'polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))',
-                      }}
-                    >
-                      ⛶ FULLSCREEN
-                    </button>
-                    <button
-                      onClick={() => { sceneEvents.emitBlackhole(false); setPlayingGame(null); }}
-                      style={{
-                        ...HUD, color: CYAN, fontSize: '10px',
-                        ...BTN_3D,
-                        padding: '5px 14px', cursor: 'pointer',
-                        clipPath: 'polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))',
-                      }}
-                    >
-                      ✕ CLOSE
-                    </button>
-                  </div>
-                </div>
-                {/* Game iframe */}
-                <iframe
-                  src={playingGame.link}
-                  title={playingGame.title}
-                  data-game-container=""
-                  style={{ flex: 1, border: 'none', width: '100%', background: '#000' }}
-                  allow="fullscreen; autoplay"
-                  allowFullScreen
-                />
-              </motion.div>
-            </motion.div>
-          )
+          <GameOverlay key="game-overlay" game={playingGame} isMobile={isMobile} onClose={closeGame} />
         )}
       </AnimatePresence>
     </div>
+    </MotionConfig>
   );
 }

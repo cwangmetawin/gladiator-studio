@@ -1,8 +1,9 @@
 @import "../shared/design/fonts.css";
 @import "../shared/design/theme.css";
 @import "../shared/design/animations.css";
+@import "../shared/ui/ui.css";
 
-/* Base reset — MUST be inside @layer base so Tailwind utilities can override */
+/* Base reset — inside @layer base so Tailwind utilities can override */
 @layer base {
   *, *::before, *::after {
     margin: 0;
@@ -11,17 +12,18 @@
   }
 
   html {
+    color-scheme: dark;
     scroll-behavior: smooth;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
   }
 
   html, body {
     width: 100%;
     height: 100%;
     min-height: 100%;
-    background-color: #0a0a0f;
-    background-color: var(--color-void);
+    background-color: var(--color-void-800);
   }
 
   #root {
@@ -32,52 +34,86 @@
 
   body {
     font-family: var(--font-body);
-    color: var(--color-text-primary);
-    line-height: 1.6;
+    color: var(--color-text);
+    line-height: 1.65;
     overflow-x: hidden;
+    font-synthesis-weight: none;
+  }
+
+  img, svg, video, canvas {
+    display: block;
+    max-width: 100%;
+  }
+
+  /* Native interactive elements adopt the surrounding type by default */
+  button, input, select, textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  /* Snappier taps, no grey flash — per web-interface guidelines */
+  button, a, [role="button"], summary {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
 
   ::selection {
-    background: var(--color-electric);
-    color: white;
+    background: var(--color-holo-500);
+    color: var(--color-void-900);
   }
 
-  ::-webkit-scrollbar {
-    width: 6px;
+  /* Anchored sections clear the fixed top bar */
+  :where(section[id], [id].scroll-anchor) {
+    scroll-margin-top: 64px;
   }
-  ::-webkit-scrollbar-track {
-    background: var(--color-void);
-  }
+
+  /* Refined scrollbar — thin, holo thumb on a void track */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-electric);
-    border-radius: 3px;
+    background: var(--color-ice-800);
+    border-radius: var(--radius-pill);
+    border: 2px solid transparent;
+    background-clip: padding-box;
   }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-holo-700); background-clip: padding-box; }
+  * { scrollbar-width: thin; scrollbar-color: var(--color-ice-800) transparent; }
 
+  /* Visible focus for keyboard users only */
   :focus-visible {
-    outline: 2px solid var(--color-electric);
+    outline: 2px solid var(--color-holo-500);
     outline-offset: 2px;
+    border-radius: 2px;
   }
+  :focus:not(:focus-visible) { outline: none; }
 
   .skip-to-content {
     position: absolute;
-    top: -100%;
+    top: -200%;
     left: 50%;
     transform: translateX(-50%);
     padding: 0.75rem 1.5rem;
-    background: var(--color-electric);
-    color: white;
-    border-radius: var(--radius-md);
-    z-index: 100;
-    transition: top 0.2s;
+    font-family: var(--font-mono);
+    font-size: var(--text-2xs);
+    letter-spacing: var(--tracking-label);
+    text-transform: uppercase;
+    background: var(--color-holo-500);
+    color: var(--color-void-900);
+    border-radius: var(--radius-sm);
+    z-index: 200;
+    transition: top var(--dur-fast) var(--ease-out-expo);
   }
-  .skip-to-content:focus {
-    top: 1rem;
-  }
+  .skip-to-content:focus { top: 1rem; }
 
-  @media (max-width: 768px) {
-    button, a {
-      min-height: 44px;
-      min-width: 44px;
-    }
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 }
