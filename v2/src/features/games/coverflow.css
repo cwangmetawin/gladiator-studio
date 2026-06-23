@@ -1,0 +1,312 @@
+/* ── Full-screen 3D coverflow ────────────────────────────────────────────────── */
+
+.coverflow {
+  position: fixed;
+  inset: 0;
+  z-index: 46;                 /* above panels, below the command bar (50) */
+  display: flex;
+  flex-direction: column;
+  /* Light at the top so the warped-to planet + cosmos stay visible behind (the
+     catalogue lives *inside* the 3D world); darker toward the bottom for the
+     info legibility. A soft blur sits it just behind the foreground. */
+  background: linear-gradient(to bottom, rgba(5, 6, 10, 0.18) 0%, rgba(5, 6, 10, 0.30) 40%, rgba(5, 6, 10, 0.84) 100%);
+  -webkit-backdrop-filter: blur(3px) saturate(1.05);
+  backdrop-filter: blur(3px) saturate(1.05);
+  padding: 18px 18px calc(var(--bar-h, 64px) + 8px);
+  overflow: hidden;
+}
+
+.coverflow__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.coverflow__eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-holo-300);
+}
+.coverflow__close {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--color-line);
+  background: rgba(10, 14, 24, 0.6);
+  color: var(--color-text-soft);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+.coverflow__close:hover { color: #fff; border-color: var(--color-holo-300); background: rgba(79, 195, 247, 0.16); }
+
+/* View toggle — carousel ⟷ grid */
+.coverflow__right { display: flex; align-items: center; gap: 12px; }
+.coverflow__view {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: rgba(10, 14, 24, 0.5);
+}
+.coverflow__viewbtn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-mute);
+  cursor: pointer;
+  transition: color 0.2s, background 0.2s;
+}
+.coverflow__viewbtn:hover { color: var(--color-holo-300); }
+.coverflow__viewbtn.is-on { color: var(--color-void-900); background: var(--color-holo-300); }
+
+/* Tiled grid view */
+.coverflow__grid-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 6px calc(var(--bar-h, 64px) + 8px);
+}
+.coverflow__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* ── 3D stage ──────────────────────────────────────────────────────────────── */
+
+/* Centred content group so the stage + info + nav sit balanced on any height */
+.coverflow__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.coverflow__stage {
+  position: relative;
+  width: 100%;
+  height: min(54vh, 440px);
+  flex-shrink: 0;
+  perspective: 1800px;
+  transform-style: preserve-3d;
+}
+
+.cf-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;                  /* centred via translate(-50%,-50%) in the transform */
+  width: clamp(200px, 22vw, 300px);
+  aspect-ratio: 3 / 4;
+  padding: 0;
+  border: 1px solid rgba(79, 195, 247, 0.18);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-void-900);
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: transform 0.55s var(--ease-out-expo), opacity 0.55s var(--ease-out-expo), box-shadow 0.4s var(--ease-out-expo), border-color 0.4s var(--ease-out-expo);
+  box-shadow: 0 20px 48px -18px rgba(0, 0, 0, 0.85);
+}
+.cf-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.cf-card.is-centre {
+  border-color: rgba(79, 195, 247, 0.6);
+  box-shadow: 0 30px 70px -22px rgba(0, 0, 0, 0.9), 0 0 46px rgba(79, 195, 247, 0.42);
+}
+/* Dim the flanking cards so the focus pops */
+.cf-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(4, 6, 12, 0.45);
+  transition: opacity 0.5s var(--ease-out-expo);
+  pointer-events: none;
+}
+.cf-card.is-centre::after { opacity: 0; }
+
+.cf-card__sheen {
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 55%;
+  pointer-events: none;
+  z-index: 2;
+  background: linear-gradient(105deg, transparent, rgba(180, 235, 255, 0.35), transparent);
+  filter: blur(6px);
+  mix-blend-mode: screen;
+  transform: translateX(-140%) skewX(-12deg);
+  transition: transform 0.8s var(--ease-out-expo);
+}
+.cf-card.is-centre .cf-card__sheen { transform: translateX(240%) skewX(-12deg); }
+
+.cf-card__hot {
+  position: absolute;
+  top: 10px; right: 10px;
+  z-index: 3;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--color-gold);
+  color: var(--color-void-900);
+}
+
+.cf-card__fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 16px;
+  text-align: center;
+  background: linear-gradient(157deg, rgba(20, 26, 42, 0.9), rgba(9, 11, 20, 0.96));
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-mute);
+}
+.cf-card__fallback span:first-child { font-size: 38px; }
+
+.coverflow__loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+}
+
+/* ── Active game info ──────────────────────────────────────────────────────── */
+
+.coverflow__info {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  max-width: 620px;
+  margin: 6px auto 0;
+}
+.coverflow__tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-holo-300);
+}
+.coverflow__title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: clamp(22px, 3.4vw, 40px);
+  line-height: 1.05;
+  color: var(--color-ice-50);
+  margin: 0;
+  text-shadow: 0 2px 26px rgba(0, 0, 0, 0.6);
+}
+.coverflow__desc {
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text-soft);
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.coverflow__meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.coverflow__chip {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--color-text-mute);
+  padding: 3px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-line);
+}
+.coverflow__rtp {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-gold);
+}
+.coverflow__play {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ── Bottom nav ────────────────────────────────────────────────────────────── */
+
+.coverflow__nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  margin-top: 12px;
+}
+.coverflow__arrow {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--color-line);
+  background: rgba(10, 14, 24, 0.6);
+  color: var(--color-text-soft);
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s, background 0.2s, transform 0.2s;
+}
+.coverflow__arrow:hover:not(:disabled) { color: #fff; border-color: var(--color-holo-300); background: rgba(79, 195, 247, 0.16); transform: scale(1.06); }
+.coverflow__arrow:disabled { opacity: 0.3; cursor: default; }
+.coverflow__count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.14em;
+  color: var(--color-text-soft);
+  min-width: 64px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cf-card, .cf-card__sheen { transition: none; }
+}

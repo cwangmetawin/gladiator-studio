@@ -34,6 +34,8 @@ const CAMERA_LERP_SPEED = 0.02;
 const MOBILE_ZOOM = IS_MOBILE ? 4 : 0; // extra distance on mobile
 const CAMERA_TARGETS: Record<string, { readonly alpha: number; readonly beta: number; readonly radius: number }> = {
   'none':    { alpha: CAMERA_ALPHA,  beta: CAMERA_BETA, radius: (IS_MOBILE ? 36 : 30) },
+  'cosmos':  { alpha: -0.6,          beta: Math.PI / 2.25, radius: 52 }, // wide star-sea view (Games coverflow); matches no planet → all fade
+
   'games':   { alpha: -0.5,          beta: Math.PI / 3,   radius: 14 + MOBILE_ZOOM },
   'about':   { alpha: 0.8,           beta: Math.PI / 2.2, radius: 16 + MOBILE_ZOOM },
   'team':    { alpha: -1.2,          beta: Math.PI / 2.8, radius: 15 + MOBILE_ZOOM },
@@ -501,6 +503,7 @@ interface NavPlanet {
   readonly position: InstanceType<BabylonModule['Vector3']>;
   readonly viewRadius: number;
   readonly spin: number;
+  readonly ring?: InstanceType<BabylonModule['Mesh']>;
 }
 
 interface PlanetDef {
@@ -595,6 +598,7 @@ function buildSolarSystem(
     }
     mesh.material = mat;
 
+    let ringMesh: InstanceType<BabylonModule['Mesh']> | undefined;
     if (def.ring) {
       // A flat translucent banded sheet on a tilted plane — reads as a real ring,
       // not a geometric donut. Standalone (not parented) so the planet's axial
@@ -613,9 +617,10 @@ function buildSolarSystem(
       rmat.backFaceCulling = false;
       rmat.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
       ring.material = rmat;
+      ringMesh = ring;
     }
 
-    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: 0.0007 + Math.random() * 0.0006 };
+    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: 0.0007 + Math.random() * 0.0006, ring: ringMesh };
   });
 }
 
@@ -890,6 +895,7 @@ function buildScene(
   });
 
   // ── Camera lerp state — mutated by the camera target subscription ──────────
+  let focalPanelId       = 'none'; // which planet is currently framed (fade the rest)
   let cameraTargetAlpha  = CAMERA_ALPHA;
   let cameraTargetBeta   = CAMERA_BETA;
   let cameraTargetRadius = CAMERA_RADIUS;
@@ -919,6 +925,7 @@ function buildScene(
     const target = CAMERA_TARGETS[panelId] ?? CAMERA_TARGETS['none'] ?? { alpha: CAMERA_ALPHA, beta: Math.PI / 2.5, radius: CAMERA_RADIUS };
     cameraTargetAlpha  = target.alpha;
     cameraTargetBeta   = target.beta;
+    focalPanelId = panelId;
     // Fly the camera INTO the section's planet; overview returns to the core.
     const planet = PLANET_BY_PANEL.get(panelId);
     cameraTargetPos    = planet ? planet.position : BABYLON.Vector3.Zero();
@@ -1162,8 +1169,16 @@ function buildScene(
     planets.gasGiant.rotation.y += 0.00015;
     planets.iceMoon.rotation.y += 0.0008;
 
-    // Solar-system nav planets spin
-    for (const p of navPlanets) p.mesh.rotation.y += p.spin;
+    // Solar-system nav planets spin; fade out the non-focal ones while a panel is
+    // open so the framed planet stands alone (no others crowding the close-up).
+    for (const p of navPlanets) {
+      p.mesh.rotation.y += p.spin;
+      const targetVis = !cameraHasPanel || p.panelId === focalPanelId ? 1 : 0;
+      const vis = p.mesh.visibility + (targetVis - p.mesh.visibility) * 0.06;
+      p.mesh.visibility = vis;
+      p.mesh.setEnabled(vis > 0.012);
+      if (p.ring) { p.ring.visibility = vis; p.ring.setEnabled(vis > 0.012); }
+    }
 
     // Ice moon orbits earth
     const t = performance.now() * 0.00005;

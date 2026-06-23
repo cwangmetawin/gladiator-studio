@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState, useCallback, useRef } from 'react';
+import { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
 import {
   X, ExternalLink, Volume2, VolumeOff, Menu, Maximize2,
@@ -16,9 +16,12 @@ import { AgeGate, useAgeGate } from '@/shared/components/AgeGate';
 import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { FilmGrain } from '@/shared/ui/FilmGrain';
+import { CursorFX } from '@/shared/ui/CursorFX';
 
 const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
 const GameShowcase = lazy(() => import('@/features/games/GameShowcase').then(m => ({ default: m.GameShowcase })));
+const GameCoverflow = lazy(() => import('@/features/games/GameCoverflow').then(m => ({ default: m.GameCoverflow })));
 const AboutSection = lazy(() => import('@/features/about/AboutSection').then(m => ({ default: m.AboutSection })));
 const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => ({ default: m.TeamSection })));
 const JourneySection = lazy(() => import('@/features/journey/JourneySection').then(m => ({ default: m.JourneySection })));
@@ -555,12 +558,22 @@ export function App() {
     setPlayingGame(null);
   }, []);
 
-  // Fly the 3D camera to the celestial body for the active panel
+  // Fly the 3D camera to the celestial body for the active panel. Desktop Games
+  // browses against the open cosmos (star sea) rather than a single planet, so all
+  // planets fade out for it.
   useEffect(() => {
-    sceneEvents.emitCameraTarget({ panelId: activePanel });
-  }, [activePanel]);
+    const onCoverflow = activePanel === 'games' && !isMobile;
+    sceneEvents.emitCameraTarget({ panelId: onCoverflow ? 'cosmos' : activePanel });
+  }, [activePanel, isMobile]);
 
   const activeSide: 'left' | 'right' = LEFT_PANELS.includes(activePanel) ? 'left' : 'right';
+
+  // Desktop Games opens a full-screen 3D coverflow instead of the side panel.
+  const showCoverflow = activePanel === 'games' && !isMobile;
+  const allGames = useMemo(() => {
+    const all = [...(gameData?.slotGames ?? []), ...(gameData?.miniGames ?? [])];
+    return all.slice().sort((a, b) => b.timeline.localeCompare(a.timeline));
+  }, [gameData]);
 
   if (!verified) {
     return <AgeGate onVerify={verify} onReject={reject} rejected={!showGate} />;
@@ -581,6 +594,10 @@ export function App() {
       {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
       <div className="fx-holo" aria-hidden="true" />
 
+      {/* Cinematic film-grain overlay (desktop only; self-disables for reduced-motion) */}
+      {!isMobile && <FilmGrain />}
+      {!isMobile && <CursorFX />}
+
       <main id="main">
         {/* Hero — full-screen holotable; hidden entirely while a panel is open */}
         <AnimatePresence mode="popLayout">
@@ -598,15 +615,25 @@ export function App() {
         </AnimatePresence>
       </main>
 
-      {/* Top status bar — hidden on mobile when a panel is open */}
-      {!(isMobile && activePanel !== 'none') && (
+      {/* Top status bar — hidden on mobile when a panel is open, and for the
+          full-screen coverflow (whose own header carries the tabs + close). */}
+      {!(isMobile && activePanel !== 'none') && !showCoverflow && (
         <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} />
       )}
 
-      {/* Sliding content panel */}
+      {/* Full-screen 3D coverflow — desktop Games */}
+      <AnimatePresence>
+        {showCoverflow && (
+          <Suspense fallback={null}>
+            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+
+      {/* Sliding content panel (other sections + mobile Games) */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
         <AnimatePresence mode="wait">
-          {activePanel !== 'none' && (
+          {activePanel !== 'none' && !showCoverflow && (
             <ContentPanel key={activePanel} panelId={activePanel} side={activeSide} onClose={handleClose} isMobile={isMobile}>
               <ErrorBoundary>
                 <Suspense fallback={<PanelSpinner />}>

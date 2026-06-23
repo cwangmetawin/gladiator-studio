@@ -3,7 +3,7 @@ import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading } from '@/shared/ui';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
-import { GameCard } from './GameCard';
+import { GameCard, FeaturedCard } from './GameCard';
 
 type FilterTab = 'slot' | 'mini' | 'new';
 
@@ -22,10 +22,14 @@ function buildTabLabel(id: FilterTab, slotCount: number, miniCount: number): str
   return 'Hot';
 }
 
+// Purpose-designed wide hero art for the spotlight (falls back to the game cover
+// until the asset is present).
+const FEATURED_HERO = '/featured-hero.jpg';
+
 const GRID_STYLE: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-  gap: 12,
+  gridTemplateColumns: 'repeat(auto-fill, minmax(168px, 1fr))',
+  gap: 16,
 };
 
 // ─── Filter tabs ────────────────────────────────────────────────────────────────
@@ -110,8 +114,9 @@ function GameGrid({ games, loading, activeTab, onPlayGame }: GameGridProps) {
   }
 
   return (
-    <div id={`games-panel-${activeTab}`} role="tabpanel" aria-labelledby={`games-tab-${activeTab}`} style={GRID_STYLE}>
-      {games.map((game) => <GameCard key={game.id} game={game} onPlayGame={onPlayGame} />)}
+    // Re-key by tab so switching categories replays the staggered card entrance.
+    <div key={activeTab} id={`games-panel-${activeTab}`} role="tabpanel" aria-labelledby={`games-tab-${activeTab}`} style={GRID_STYLE}>
+      {games.map((game, i) => <GameCard key={game.id} game={game} index={i} onPlayGame={onPlayGame} />)}
     </div>
   );
 }
@@ -147,6 +152,17 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
     }
   }, [activeTab, slotGames, miniGames, hotGames]);
 
+  // The newest title (by release date) becomes the cinematic spotlight; the rest
+  // fill the grid below, newest first.
+  const featured = useMemo(
+    () => (currentGames.length ? currentGames.reduce((a, b) => (b.timeline > a.timeline ? b : a)) : undefined),
+    [currentGames],
+  );
+  const rest = useMemo(
+    () => currentGames.filter((g) => g.id !== featured?.id).slice().sort((a, b) => b.timeline.localeCompare(a.timeline)),
+    [currentGames, featured],
+  );
+
   return (
     <SectionWrapper id="games">
       <SectionHeading
@@ -166,7 +182,16 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
         )}
       </div>
 
-      <GameGrid games={currentGames} loading={loading} activeTab={activeTab} onPlayGame={handlePlayGame} />
+      {loading ? (
+        <GameGrid games={[]} loading activeTab={activeTab} onPlayGame={handlePlayGame} />
+      ) : currentGames.length === 0 ? (
+        <GameGrid games={[]} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} />
+      ) : (
+        <>
+          {featured && <FeaturedCard key={featured.id} game={featured} heroImage={FEATURED_HERO} onPlayGame={handlePlayGame} />}
+          {rest.length > 0 && <GameGrid games={rest} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} />}
+        </>
+      )}
     </SectionWrapper>
   );
 }

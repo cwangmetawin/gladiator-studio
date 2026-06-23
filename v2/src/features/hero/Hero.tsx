@@ -224,7 +224,7 @@ export function Hero(_props: HeroProps) {
         {NODES.map((n, i) => {
           const Icon = n.icon;
           return (
-            <button key={n.panelId} type="button" className="holo-node" aria-label={`Open ${n.label}`}
+            <button key={n.panelId} type="button" className="holo-node" aria-label={`Open ${n.label}`} data-cursor="OPEN"
               style={{ left: `${n.x}%`, top: `${n.y}%`, animationDelay: `${0.5 + i * 0.08}s`,
                 ['--dur' as string]: `${6 + (i % 4) * 0.9}s`, ['--delay' as string]: `${((i * 0.7) % 3).toFixed(2)}s` } as CSSProperties}
               onMouseEnter={() => { setHovered(n.panelId); soundEngine.hover(); }}
