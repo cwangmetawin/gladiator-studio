@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { soundEngine } from '@/shared/utils/soundEngine';
 
@@ -695,16 +695,18 @@ function buildScene(
     }
   };
 
-  // ── Deep-space nebula backdrop — baked astrophotography panorama behind all ─
+  // ── Deep-space nebula backdrop — baked astrophotography panorama ────────────
   const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.png`, scene, true);
   nebulaBg.color = new BABYLON.Color4(0.6, 0.6, 0.66, 1); // dim so foreground UI reads
 
-  // A fullscreen Layer stretches its texture to the viewport, which warps the
-  // cosmos on tall (portrait / mobile) screens. Crop the *sampled* region via the
-  // texture matrix so it always "covers" without distortion. Re-fit on resize.
+  // A fullscreen Layer stretches its texture to the viewport, warping the cosmos on
+  // tall (portrait) screens — crop the *sampled* region via the texture matrix so it
+  // always "covers" without distortion. A small extra inset leaves headroom so the
+  // backdrop can drift slowly each frame (see the render loop) without baring an edge.
   const NEBULA_ASPECT = 1376 / 768;
+  const NEBULA_INSET = 0.92;
+  let nebUScale = NEBULA_INSET, nebVScale = NEBULA_INSET;
   const fitNebula = (): void => {
-    // Layer.texture is typed as BaseTexture, but is a full Texture at runtime.
     const tex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
     if (!tex) return;
     tex.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
@@ -712,13 +714,11 @@ function buildScene(
     const eng = scene.getEngine();
     const screenAspect = eng.getRenderWidth() / Math.max(1, eng.getRenderHeight());
     if (screenAspect < NEBULA_ASPECT) {
-      const us = screenAspect / NEBULA_ASPECT; // crop the sides, keep full height
-      tex.uScale = us; tex.uOffset = (1 - us) / 2;
-      tex.vScale = 1;  tex.vOffset = 0;
+      nebUScale = (screenAspect / NEBULA_ASPECT) * NEBULA_INSET; // crop sides
+      nebVScale = NEBULA_INSET;
     } else {
-      const vs = NEBULA_ASPECT / screenAspect; // crop top/bottom, keep full width
-      tex.vScale = vs; tex.vOffset = (1 - vs) / 2;
-      tex.uScale = 1;  tex.uOffset = 0;
+      nebUScale = NEBULA_INSET;
+      nebVScale = (NEBULA_ASPECT / screenAspect) * NEBULA_INSET; // crop top/bottom
     }
   };
   fitNebula();
@@ -1014,6 +1014,7 @@ function buildScene(
   // ── Render loop ────────────────────────────────────────────────────────────
   let entryFrame = 0;
   let twinkleClock = 0;
+  let nebulaTime = 0;
   const ENTRY_DURATION = 120;
   scene.registerBeforeRender(() => {
     // ── Blackhole effect — camera zooms in, scene darkens, stars compress ───
@@ -1080,6 +1081,17 @@ function buildScene(
       scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
       if (starMesh) { starMesh.scaling.setAll(1); starMesh.visibility = 1; }
       if (glowLayer) glowLayer.intensity += (0.4 - glowLayer.intensity) * 0.05;
+    }
+
+    // Nebula slow drift — pan the baked backdrop within its inset headroom so the
+    // cosmos keeps breathing. Amplitudes stay under (1 - scale)/2 to never bare an edge.
+    const nebTex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
+    if (nebTex) {
+      nebulaTime += scene.getEngine().getDeltaTime() * 0.001;
+      nebTex.uScale = nebUScale;
+      nebTex.vScale = nebVScale;
+      nebTex.uOffset = (1 - nebUScale) / 2 + 0.025 * Math.sin(nebulaTime * 0.05);
+      nebTex.vOffset = (1 - nebVScale) / 2 + 0.020 * Math.cos(nebulaTime * 0.04);
     }
 
     // Stars: gentle drift + per-star twinkle (buffer update throttled to every 2nd frame)
@@ -1195,6 +1207,7 @@ function buildScene(
 export default function StarfieldBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1250,7 +1263,14 @@ export default function StarfieldBackground() {
       }
       window.addEventListener('resize', handleResize);
 
+      // Fade the cosmos in once the scene's meshes + textures are ready, instead
+      // of hard-cutting the backdrop in the instant Babylon finishes loading.
+      const reveal = (): void => { if (!disposed) setRevealed(true); };
+      scene.executeWhenReady(reveal);
+      const revealTimer = window.setTimeout(reveal, 2200); // safety net for slow textures
+
       cleanupRef.current = () => {
+        window.clearTimeout(revealTimer);
         window.removeEventListener('resize', handleResize);
         motionQuery.removeEventListener('change', startLoop);
         document.removeEventListener('visibilitychange', startLoop);
@@ -1281,6 +1301,8 @@ export default function StarfieldBackground() {
         height: '100vh',
         pointerEvents: 'none',
         display: 'block',
+        opacity: revealed ? 1 : 0,
+        transition: 'opacity 1.4s ease-out',
       }}
     />
   );

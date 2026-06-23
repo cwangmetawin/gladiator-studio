@@ -269,9 +269,13 @@ interface CommandBarProps {
 
 function CommandBar({ activePanel, onActivate }: CommandBarProps) {
   return (
-    <nav
+    <motion.nav
       aria-label="Primary"
       className="shell-bar"
+      initial={{ y: BAR_H, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      exit={{ y: BAR_H, opacity: 0 }}
+      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
         minHeight: BAR_H,
@@ -301,7 +305,7 @@ function CommandBar({ activePanel, onActivate }: CommandBarProps) {
         <span aria-hidden="true">·</span>
         <span>A MetaWin Company</span>
       </span>
-    </nav>
+    </motion.nav>
   );
 }
 
@@ -629,7 +633,13 @@ export function App() {
           <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} activePanel={activePanel} onActivate={handleActivate} />
         </>
       ) : (
-        <CommandBar activePanel={activePanel} onActivate={handleActivate} />
+        // Footer nav is redundant with the hero holo-nodes on home — show it only
+        // while a panel is open, where it's the quick way to switch sections.
+        <AnimatePresence>
+          {activePanel !== 'none' && (
+            <CommandBar key="cmdbar" activePanel={activePanel} onActivate={handleActivate} />
+          )}
+        </AnimatePresence>
       )}
 
       {/* Game overlay */}
