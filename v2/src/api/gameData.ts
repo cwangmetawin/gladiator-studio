@@ -104,9 +104,18 @@ function resolveImage(liveImage: string, meta: Game | undefined): string | undef
   return undefined;
 }
 
+/** Metadata for live-only titles not yet in the curated catalogue (new releases). */
+const EXTRA_META: Record<string, { readonly genre: string; readonly volatility?: 'HIGH' | 'ULTRA'; readonly isHot?: boolean }> = {
+  thundertavern: { genre: 'Norse', volatility: 'ULTRA', isHot: true },
+  candycash: { genre: 'Sweets', volatility: 'ULTRA', isHot: true },
+  eyesofmedusa: { genre: 'Mythology', volatility: 'ULTRA', isHot: true },
+  rekt: { genre: 'Crash', volatility: 'HIGH', isHot: true },
+};
+
 /** Merge an authoritative live game with curated cover/metadata where available. */
 function enrich(live: LiveGame, category: GameCategory): Game {
   const meta = findMeta(live.title);
+  const extra = EXTRA_META[titleKey(live.title)];
   return {
     id: live.id,
     title: live.title,
@@ -117,9 +126,9 @@ function enrich(live: LiveGame, category: GameCategory): Game {
     slug: meta?.slug,
     image: resolveImage(live.image, meta), // absolute API url → curated → CDN basename
     rtp: meta?.rtp, // hidden in the card when unknown
-    volatility: meta?.volatility ?? (category === 'slot' ? 'ULTRA' : 'HIGH'),
-    genre: meta?.genre ?? (category === 'slot' ? 'Slot' : 'Original'),
-    isHot: meta?.isHot,
+    volatility: meta?.volatility ?? extra?.volatility ?? (category === 'slot' ? 'ULTRA' : 'HIGH'),
+    genre: meta?.genre ?? extra?.genre ?? (category === 'slot' ? 'Slot' : 'Original'),
+    isHot: meta?.isHot ?? extra?.isHot,
   };
 }
 

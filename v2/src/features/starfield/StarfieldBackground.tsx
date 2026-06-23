@@ -9,8 +9,8 @@ type BabylonModule = typeof import('@babylonjs/core');
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth <= 767;
 
 // ─── Constants (scaled for mobile) ────────────────────────────────────────────
-const STAR_COUNT = IS_MOBILE ? 2000 : 6000;
-const SKY_RADIUS = 120;
+const STAR_COUNT = IS_MOBILE ? 1800 : 3000;
+const SKY_RADIUS = 220;
 const EARTH_RADIUS = IS_MOBILE ? 3.5 : 5;
 const EARTH_SEGMENTS = IS_MOBILE ? 32 : 64;
 const EARTH_ROTATION_SPEED = 0.0002;
@@ -25,14 +25,15 @@ const RING_ROTATION_SPEED = 0.0008;
 // Camera constants — push further back on mobile, center earth behind logo
 const CAMERA_ALPHA = -Math.PI / 2;
 const CAMERA_BETA = IS_MOBILE ? Math.PI / 2 : Math.PI / 2.5; // mobile: straight-on view, earth centered
-const CAMERA_RADIUS = IS_MOBILE ? 22 : 18;
-const CAMERA_AUTO_ROTATE = IS_MOBILE ? 0.00008 : 0.00015; // slower rotation on mobile
+const CAMERA_RADIUS = IS_MOBILE ? 36 : 30;
+const CAMERA_AUTO_ROTATE = IS_MOBILE ? 0.00035 : 0.00060; // idle drift through the cosmos
+const CAMERA_PANEL_DRIFT  = 0.00040; // gentle orbit kept alive while a planet is framed
 const CAMERA_LERP_SPEED = 0.02;
 
 // Per-panel camera fly-to targets (alpha, beta, radius for ArcRotateCamera)
 const MOBILE_ZOOM = IS_MOBILE ? 4 : 0; // extra distance on mobile
 const CAMERA_TARGETS: Record<string, { readonly alpha: number; readonly beta: number; readonly radius: number }> = {
-  'none':    { alpha: CAMERA_ALPHA,  beta: CAMERA_BETA, radius: (IS_MOBILE ? 22 : 18) },
+  'none':    { alpha: CAMERA_ALPHA,  beta: CAMERA_BETA, radius: (IS_MOBILE ? 36 : 30) },
   'games':   { alpha: -0.5,          beta: Math.PI / 3,   radius: 14 + MOBILE_ZOOM },
   'about':   { alpha: 0.8,           beta: Math.PI / 2.2, radius: 16 + MOBILE_ZOOM },
   'team':    { alpha: -1.2,          beta: Math.PI / 2.8, radius: 15 + MOBILE_ZOOM },
@@ -85,6 +86,9 @@ function buildStarField(
 ): InstanceType<BabylonModule['Mesh']> {
   const positions: number[] = [];
   const colors: number[] = [];
+  const baseAlpha = new Float32Array(STAR_COUNT); // rest brightness per star
+  const twPhase = new Float32Array(STAR_COUNT);   // twinkle phase offset
+  const twSpeed = new Float32Array(STAR_COUNT);   // twinkle rate
 
   for (let i = 0; i < STAR_COUNT; i++) {
     const theta = Math.random() * Math.PI * 2;
@@ -115,6 +119,9 @@ function buildStarField(
       cr = b; cg = b; cb = b; ca = b;
     }
     colors.push(cr, cg, cb, ca);
+    baseAlpha[i] = ca;
+    twPhase[i] = Math.random() * Math.PI * 2;
+    twSpeed[i] = 0.6 + Math.random() * 2.2;
   }
 
   const starMesh = new BABYLON.Mesh('stars', scene);
@@ -138,6 +145,7 @@ function buildStarField(
   mat.pointSize = 2.5;
   starMesh.material = mat;
   starMesh.hasVertexAlpha = true;
+  starMesh.metadata = { baseAlpha, twPhase, twSpeed, colors: Float32Array.from(colors) };
 
   return starMesh;
 }
@@ -485,467 +493,130 @@ function buildDistantPlanets(
   return { mars, gasGiant, iceMoon, nebula1, nebula2 };
 }
 
-// ─── Satellite system ─────────────────────────────────────────────────────────
+// ─── Solar-system nav planets — one per section, flown into on click ──────────
 
-const SAT_TRAIL_POINTS = 80;
-
-interface SatelliteConfig {
-  readonly orbitRadius: number;
-  readonly speed: number;
-  readonly inclination: number;
-  readonly phase: number;
-  readonly size: number;
-  readonly color: InstanceType<BabylonModule['Color3']>;
-  readonly trailWidth: number;
+interface NavPlanet {
+  readonly panelId: string;
+  readonly mesh: InstanceType<BabylonModule['Mesh']>;
+  readonly position: InstanceType<BabylonModule['Vector3']>;
+  readonly viewRadius: number;
+  readonly spin: number;
 }
 
-interface SatelliteInstance {
-  readonly node: InstanceType<BabylonModule['TransformNode']>;
-  readonly body: InstanceType<BabylonModule['Mesh']>;
-  readonly trailMesh: InstanceType<BabylonModule['Mesh']>;
-  readonly config: SatelliteConfig;
-  angle: number;
-  readonly history: InstanceType<BabylonModule['Vector3']>[];
+interface PlanetDef {
+  readonly id: string; readonly d: number; readonly r: number; readonly ang: number; readonly y: number;
+  readonly tex?: string;           // equirectangular surface map under /textures
+  readonly earth?: boolean;        // use the real Earth photographic texture stack
+  readonly ring?: boolean;         // Saturn-style equatorial ring
+  readonly tint: readonly [number, number, number]; // fallback colour if the texture is missing
 }
 
-interface SatelliteSystem {
-  readonly update: () => void;
-}
+// Recognisable solar-system bodies — each is a section the camera flies into on click.
+const PLANET_DEFS: readonly PlanetDef[] = [
+  { id: 'journey', d: 6.5, r: 30, ang: 8,   y: -6, tex: 'planet_jupiter.jpg', tint: [0.80, 0.66, 0.46] },
+  { id: 'games',   d: 5.0, r: 37, ang: 212, y: 5,  tex: 'planet_saturn.jpg',  ring: true, tint: [0.85, 0.75, 0.52] },
+  { id: 'about',   d: 4.2, r: 20, ang: 56,  y: 6,  earth: true,               tint: [0.20, 0.42, 0.70] },
+  { id: 'team',    d: 3.2, r: 16, ang: 142, y: -3, tex: 'planet_mars.jpg',    tint: [0.72, 0.34, 0.20] },
+  { id: 'live',    d: 4.0, r: 42, ang: 255, y: 8,  tex: 'planet_neptune.png', tint: [0.20, 0.38, 0.80] },
+  { id: 'careers', d: 3.8, r: 24, ang: 322, y: 3,  tex: 'planet_venus.jpg',   tint: [0.85, 0.72, 0.45] },
+  { id: 'contact', d: 2.6, r: 13, ang: 286, y: -5, tex: 'planet_moon.png',    tint: [0.70, 0.72, 0.78] },
+];
 
-function buildSatellites(
+// A flat, translucent ring sheet: hundreds of fine concentric bands with edge
+// fades and a dark Cassini-style gap. Drawn once, mapped onto a tilted plane.
+function ringTexture(
   BABYLON: BabylonModule,
   scene: InstanceType<BabylonModule['Scene']>,
-): SatelliteSystem {
-  const configs: SatelliteConfig[] = [
-    {
-      orbitRadius: EARTH_RADIUS + 0.8,
-      speed: 0.012,
-      inclination: 0.4,
-      phase: 0,
-      size: 0.06,
-      color: BABYLON.Color3.FromHexString('#4fc3f7'),
-      trailWidth: 0.035,
-    },
-    {
-      orbitRadius: EARTH_RADIUS + 0.9,
-      speed: -0.010,
-      inclination: 0.6,
-      phase: Math.PI * 0.7,
-      size: 0.05,
-      color: new BABYLON.Color3(0.3, 0.7, 1.0),
-      trailWidth: 0.03,
-    },
-    {
-      orbitRadius: EARTH_RADIUS + 1.5,
-      speed: 0.007,
-      inclination: 0.25,
-      phase: Math.PI * 1.3,
-      size: 0.08,
-      color: BABYLON.Color3.FromHexString('#ffd54f'),
-      trailWidth: 0.045,
-    },
-    {
-      orbitRadius: EARTH_RADIUS + 2.2,
-      speed: 0.004,
-      inclination: 0.8,
-      phase: Math.PI * 0.4,
-      size: 0.07,
-      color: BABYLON.Color3.FromHexString('#b39ddb'),
-      trailWidth: 0.04,
-    },
-    {
-      orbitRadius: EARTH_RADIUS + 1.2,
-      speed: 0.009,
-      inclination: 1.3,
-      phase: Math.PI * 1.8,
-      size: 0.055,
-      color: new BABYLON.Color3(1.0, 0.6, 0.3),
-      trailWidth: 0.032,
-    },
-  ];
-
-  const satellites: SatelliteInstance[] = [];
-
-  for (let idx = 0; idx < configs.length; idx++) {
-    const config = configs[idx];
-    if (!config) continue;
-
-    // Orbit pivot node — tilted for inclination
-    const node = new BABYLON.TransformNode('satOrbit_' + idx, scene);
-    node.rotation.x = config.inclination;
-    node.rotation.z = config.phase * 0.3;
-
-    // Satellite body
-    const body = BABYLON.MeshBuilder.CreateSphere(
-      'satBody_' + idx,
-      { diameter: config.size, segments: 6 },
-      scene,
-    );
-    body.parent = node;
-
-    const mat = new BABYLON.StandardMaterial('satMat_' + idx, scene);
-    mat.emissiveColor = BABYLON.Color3.Lerp(config.color, BABYLON.Color3.White(), 0.5);
-    mat.disableLighting = true;
-    mat.alpha = 0.9;
-    body.material = mat;
-    body.metadata = { glowEnabled: true };
-
-    // Solar panel wings
-    const pw = config.size * 2.5;
-    const ph = config.size * 0.15;
-    const pd = config.size * 1.2;
-
-    const leftPanel = BABYLON.MeshBuilder.CreateBox(
-      'satPL_' + idx,
-      { width: pw, height: ph, depth: pd },
-      scene,
-    );
-    leftPanel.position.x = -pw * 0.6;
-    leftPanel.parent = body;
-
-    const rightPanel = BABYLON.MeshBuilder.CreateBox(
-      'satPR_' + idx,
-      { width: pw, height: ph, depth: pd },
-      scene,
-    );
-    rightPanel.position.x = pw * 0.6;
-    rightPanel.parent = body;
-
-    const panelMat = new BABYLON.StandardMaterial('satPanelMat_' + idx, scene);
-    panelMat.emissiveColor = config.color.scale(0.4);
-    panelMat.disableLighting = true;
-    panelMat.alpha = 0.7;
-    leftPanel.material = panelMat;
-    rightPanel.material = panelMat;
-
-    // Trail ribbon mesh (updatable)
-    const trailMesh = new BABYLON.Mesh('satTrail_' + idx, scene);
-    const trailMat = new BABYLON.StandardMaterial('satTrailMat_' + idx, scene);
-    trailMat.emissiveColor = config.color;
-    trailMat.diffuseColor = BABYLON.Color3.Black();
-    trailMat.specularColor = BABYLON.Color3.Black();
-    trailMat.disableLighting = true;
-    trailMat.alpha = 0.6;
-    trailMat.backFaceCulling = false;
-    trailMesh.material = trailMat;
-    trailMesh.metadata = { glowEnabled: true };
-
-    // Pre-fill history: position body along past orbit to warm up the trail
-    const history: InstanceType<BabylonModule['Vector3']>[] = [];
-    for (let i = 0; i < SAT_TRAIL_POINTS; i++) {
-      const a = config.phase - config.speed * i;
-      body.position.set(
-        Math.cos(a) * config.orbitRadius,
-        0,
-        Math.sin(a) * config.orbitRadius,
-      );
-      body.computeWorldMatrix(true);
-      history.push(body.getAbsolutePosition().clone());
-    }
-
-    // Reset body to starting position
-    body.position.set(
-      Math.cos(config.phase) * config.orbitRadius,
-      0,
-      Math.sin(config.phase) * config.orbitRadius,
-    );
-
-    satellites.push({ node, body, trailMesh, config, angle: config.phase, history });
+  id: string,
+): InstanceType<BabylonModule['DynamicTexture']> {
+  const S = 1024;
+  const tex = new BABYLON.DynamicTexture('ringTex_' + id, S, scene, true);
+  const c = tex.getContext() as CanvasRenderingContext2D;
+  c.clearRect(0, 0, S, S);
+  const cx = S / 2, cy = S / 2;
+  const inner = S * 0.235; // clears the planet silhouette at plane size = d·2.4
+  const outer = S * 0.49;
+  c.lineWidth = 1.4;
+  for (let rr = inner; rr <= outer; rr += 1) {
+    const t = (rr - inner) / (outer - inner);
+    let a = 0.9;
+    a *= Math.min(1, t / 0.06);          // fade in at the inner edge
+    a *= Math.min(1, (1 - t) / 0.10);    // fade out at the outer edge
+    if (t > 0.52 && t < 0.60) a *= 0.12; // Cassini division
+    if (t > 0.30 && t < 0.33) a *= 0.45; // minor gaps
+    if (t > 0.78 && t < 0.80) a *= 0.55;
+    a *= 0.55 + 0.45 * Math.abs(Math.sin(rr * 0.6)); // fine ringlet banding
+    const shade = 178 + 42 * Math.sin(rr * 0.25);
+    c.strokeStyle = `rgba(${Math.round(shade)}, ${Math.round(shade * 0.9)}, ${Math.round(shade * 0.72)}, ${a.toFixed(3)})`;
+    c.beginPath();
+    c.arc(cx, cy, rr, 0, Math.PI * 2);
+    c.stroke();
   }
-
-  function updateTrailMesh(sat: SatelliteInstance): void {
-    const pts = sat.history;
-    if (pts.length < 3) return;
-
-    const count = pts.length;
-    const positions: number[] = [];
-    const colors: number[] = [];
-    const indices: number[] = [];
-    const c = sat.config.color;
-    const w = sat.config.trailWidth;
-
-    for (let i = 0; i < count; i++) {
-      const t = i / (count - 1); // 0 = head, 1 = tail
-      const fade = 1.0 - t;
-      const width = w * (1.0 - t * 0.8); // taper toward tail
-
-      const p = pts[i];
-      if (!p) continue;
-
-      let tangent: InstanceType<BabylonModule['Vector3']>;
-      if (i === 0) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        tangent = pts[0]!.subtract(pts[1]!);
-      } else if (i === count - 1) {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        tangent = pts[i - 1]!.subtract(pts[i]!);
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-        tangent = pts[i - 1]!.subtract(pts[i + 1]!);
-      }
-      tangent.normalize();
-
-      const radial = p.clone().normalize();
-      const perp = BABYLON.Vector3.Cross(tangent, radial).normalize().scale(width);
-
-      const left = p.add(perp);
-      const right = p.subtract(perp);
-
-      positions.push(left.x, left.y, left.z);
-      positions.push(right.x, right.y, right.z);
-
-      const alpha = fade * 0.7;
-      colors.push(c.r, c.g, c.b, alpha);
-      colors.push(c.r, c.g, c.b, alpha);
-
-      if (i > 0) {
-        const base = (i - 1) * 2;
-        indices.push(base, base + 1, base + 2);
-        indices.push(base + 1, base + 3, base + 2);
-      }
-    }
-
-    const vertexData = new BABYLON.VertexData();
-    vertexData.positions = positions;
-    vertexData.indices = indices;
-    vertexData.colors = colors;
-    vertexData.applyToMesh(sat.trailMesh, true);
-    sat.trailMesh.hasVertexAlpha = true;
-  }
-
-  function update(): void {
-    for (const sat of satellites) {
-      sat.angle += sat.config.speed;
-
-      const r = sat.config.orbitRadius;
-      sat.body.position.set(
-        Math.cos(sat.angle) * r,
-        0,
-        Math.sin(sat.angle) * r,
-      );
-      sat.body.rotation.y = -sat.angle + Math.PI / 2;
-
-      // Capture world position for trail
-      sat.body.computeWorldMatrix(true);
-      const worldPos = sat.body.getAbsolutePosition().clone();
-      sat.history.unshift(worldPos);
-      if (sat.history.length > SAT_TRAIL_POINTS) sat.history.pop();
-
-      updateTrailMesh(sat);
-    }
-  }
-
-  return { update };
+  tex.update();
+  tex.hasAlpha = true;
+  return tex;
 }
 
-// ─── Flyby ship system ────────────────────────────────────────────────────────
-
-interface FlybyShip {
-  readonly root: InstanceType<BabylonModule['TransformNode']>;
-  progress: number;
-  readonly duration: number;
-  readonly start: InstanceType<BabylonModule['Vector3']>;
-  readonly control: InstanceType<BabylonModule['Vector3']>;
-  readonly end: InstanceType<BabylonModule['Vector3']>;
-}
-
-interface FlybySystem {
-  readonly update: () => void;
-}
-
-function buildFlybyShips(
+function buildSolarSystem(
   BABYLON: BabylonModule,
   scene: InstanceType<BabylonModule['Scene']>,
-): FlybySystem {
-  const ships: FlybyShip[] = [];
+): NavPlanet[] {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const tx = (file: string) => new BABYLON.Texture(`${origin}/textures/${file}`, scene);
 
-  function createShip(): InstanceType<BabylonModule['TransformNode']> {
-    const id = Date.now().toString() + Math.random().toString(36).slice(2);
-    const root = new BABYLON.TransformNode('ship_' + id, scene);
+  return PLANET_DEFS.map((def) => {
+    const rad = (def.ang * Math.PI) / 180;
+    const position = new BABYLON.Vector3(Math.cos(rad) * def.r, def.y, Math.sin(rad) * def.r);
+    const mesh = BABYLON.MeshBuilder.CreateSphere('nav_' + def.id, { diameter: def.d, segments: 48 }, scene);
+    mesh.position = position;
 
-    // Hull — sleek elongated cone, taller than before
-    const hull = BABYLON.MeshBuilder.CreateCylinder(
-      'hull_' + id,
-      { height: 1.2, diameterTop: 0.03, diameterBottom: 0.18, tessellation: 8 },
-      scene,
-    );
-    hull.parent = root;
-    hull.rotation.x = Math.PI / 2;
-    const hullMat = new BABYLON.StandardMaterial('hullMat_' + id, scene);
-    hullMat.emissiveColor = new BABYLON.Color3(0.3, 0.5, 0.7);
-    hullMat.disableLighting = true;
-    hullMat.alpha = 0.9;
-    hull.material = hullMat;
+    const mat = new BABYLON.StandardMaterial('navMat_' + def.id, scene);
+    // Fallback colour shows through if the texture file is unavailable.
+    mat.diffuseColor = new BABYLON.Color3(def.tint[0], def.tint[1], def.tint[2]);
+    mat.specularColor = new BABYLON.Color3(0.06, 0.06, 0.08);
+    mat.specularPower = 48;
 
-    // Cockpit — small sphere at the nose
-    const cockpit = BABYLON.MeshBuilder.CreateSphere(
-      'cockpit_' + id,
-      { diameter: 0.09, segments: 6 },
-      scene,
-    );
-    cockpit.parent = root;
-    cockpit.position.z = 0.62;
-    const cockpitMat = new BABYLON.StandardMaterial('cockpitMat_' + id, scene);
-    cockpitMat.emissiveColor = new BABYLON.Color3(0.6, 0.85, 1.0);
-    cockpitMat.disableLighting = true;
-    cockpitMat.alpha = 0.95;
-    cockpit.material = cockpitMat;
-    cockpit.metadata = { glowEnabled: true };
+    if (def.earth) {
+      // Real Earth: day surface + bump relief + ocean specular + night city lights.
+      mat.diffuseColor = BABYLON.Color3.White();
+      mat.diffuseTexture = tx('earth_day.jpg');
+      const bump = tx('earth_bump.png'); bump.level = 0.35; mat.bumpTexture = bump;
+      mat.specularTexture = tx('earth_specular.png');
+      mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+      mat.emissiveTexture = tx('earth_night_2k.jpg');
+      mat.emissiveColor = new BABYLON.Color3(0.42, 0.38, 0.28);
+    } else if (def.tex) {
+      const surface = tx(def.tex);
+      mat.diffuseColor = BABYLON.Color3.White();
+      mat.diffuseTexture = surface;
+      // Re-use the surface as a dim self-illumination so the night side keeps its detail.
+      mat.emissiveTexture = surface;
+      mat.emissiveColor = new BABYLON.Color3(0.18, 0.18, 0.2);
+    }
+    mesh.material = mat;
 
-    // Wings — two angled flat boxes, one each side
-    const wingShape = { width: 0.55, height: 0.04, depth: 0.22 };
-    const leftWing = BABYLON.MeshBuilder.CreateBox('wingL_' + id, wingShape, scene);
-    leftWing.parent = root;
-    leftWing.position.set(-0.3, 0, 0.0);
-    leftWing.rotation.z = 0.35; // angled slightly upward
-    const wingMat = new BABYLON.StandardMaterial('wingMat_' + id, scene);
-    wingMat.emissiveColor = new BABYLON.Color3(0.2, 0.4, 0.6);
-    wingMat.disableLighting = true;
-    wingMat.alpha = 0.8;
-    leftWing.material = wingMat;
-
-    const rightWing = BABYLON.MeshBuilder.CreateBox('wingR_' + id, wingShape, scene);
-    rightWing.parent = root;
-    rightWing.position.set(0.3, 0, 0.0);
-    rightWing.rotation.z = -0.35;
-    rightWing.material = wingMat;
-
-    // Central engine glow
-    const engine = BABYLON.MeshBuilder.CreateSphere(
-      'engine_' + id,
-      { diameter: 0.1, segments: 6 },
-      scene,
-    );
-    engine.parent = root;
-    engine.position.z = -0.62;
-    const engMat = new BABYLON.StandardMaterial('engMat_' + id, scene);
-    engMat.emissiveColor = new BABYLON.Color3(0.4, 0.8, 1.0);
-    engMat.disableLighting = true;
-    engine.material = engMat;
-    engine.metadata = { glowEnabled: true };
-
-    // Wing-tip engine glows
-    const leftTipEng = BABYLON.MeshBuilder.CreateSphere(
-      'engTipL_' + id,
-      { diameter: 0.06, segments: 4 },
-      scene,
-    );
-    leftTipEng.parent = root;
-    leftTipEng.position.set(-0.52, 0, -0.18);
-    const tipEngMat = new BABYLON.StandardMaterial('engTipMat_' + id, scene);
-    tipEngMat.emissiveColor = new BABYLON.Color3(0.3, 0.7, 1.0);
-    tipEngMat.disableLighting = true;
-    leftTipEng.material = tipEngMat;
-    leftTipEng.metadata = { glowEnabled: true };
-
-    const rightTipEng = BABYLON.MeshBuilder.CreateSphere(
-      'engTipR_' + id,
-      { diameter: 0.06, segments: 4 },
-      scene,
-    );
-    rightTipEng.parent = root;
-    rightTipEng.position.set(0.52, 0, -0.18);
-    rightTipEng.material = tipEngMat;
-    rightTipEng.metadata = { glowEnabled: true };
-
-    // Trail — longer and slightly wider than before
-    const trail = BABYLON.MeshBuilder.CreateCylinder(
-      'trail_' + id,
-      { height: 3.0, diameterTop: 0.0, diameterBottom: 0.05, tessellation: 6 },
-      scene,
-    );
-    trail.parent = root;
-    trail.rotation.x = Math.PI / 2;
-    trail.position.z = -2.1;
-    const trailMat = new BABYLON.StandardMaterial('trailMat_' + id, scene);
-    trailMat.emissiveColor = new BABYLON.Color3(0.3, 0.6, 1.0);
-    trailMat.disableLighting = true;
-    trailMat.alpha = 0.35;
-    trailMat.backFaceCulling = false;
-    trail.material = trailMat;
-
-    return root;
-  }
-
-  function spawnShip(): void {
-    const side = Math.random() > 0.5 ? 1 : -1;
-    const height = (Math.random() - 0.5) * 20;
-
-    const start = new BABYLON.Vector3(
-      side * (25 + Math.random() * 15),
-      height,
-      -10 + Math.random() * 20,
-    );
-    const control = new BABYLON.Vector3(
-      (Math.random() - 0.5) * 10,
-      height + (Math.random() - 0.5) * 8,
-      Math.random() * 15,
-    );
-    const end = new BABYLON.Vector3(
-      -side * (25 + Math.random() * 15),
-      height + (Math.random() - 0.5) * 10,
-      -10 + Math.random() * 20,
-    );
-
-    const root = createShip();
-    root.position.copyFrom(start);
-
-    ships.push({
-      root,
-      progress: 0,
-      duration: 6 + Math.random() * 8,
-      start,
-      control,
-      end,
-    });
-  }
-
-  // Stagger the first three ships so they don't all appear simultaneously
-  for (let i = 0; i < 3; i++) {
-    setTimeout(() => { spawnShip(); }, i * 2000);
-  }
-
-  let nextSpawn = performance.now() + 5000;
-
-  function update(): void {
-    const now = performance.now();
-    const dt = Math.min(scene.getEngine().getDeltaTime() / 1000, 0.05);
-
-    if (now >= nextSpawn && ships.length < 4) {
-      spawnShip();
-      nextSpawn = now + 3000 + Math.random() * 5000;
+    if (def.ring) {
+      // A flat translucent banded sheet on a tilted plane — reads as a real ring,
+      // not a geometric donut. Standalone (not parented) so the planet's axial
+      // spin can't make the symmetric ring precess.
+      const ring = BABYLON.MeshBuilder.CreatePlane('navRing_' + def.id, { size: def.d * 2.4 }, scene);
+      ring.position = position.clone();
+      ring.rotation.x = Math.PI / 2 - 0.42; // lie ~flat, tilt ~24° toward the camera
+      const rtex = ringTexture(BABYLON, scene, def.id);
+      const rmat = new BABYLON.StandardMaterial('navRingMat_' + def.id, scene);
+      rmat.diffuseColor = new BABYLON.Color3(0.80, 0.72, 0.55);
+      rmat.diffuseTexture = rtex;
+      rmat.useAlphaFromDiffuseTexture = true;
+      rmat.emissiveTexture = rtex;            // self-lit so the ring reads on the night side
+      rmat.emissiveColor = new BABYLON.Color3(0.42, 0.37, 0.28);
+      rmat.specularColor = BABYLON.Color3.Black();
+      rmat.backFaceCulling = false;
+      rmat.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
+      ring.material = rmat;
     }
 
-    for (let i = ships.length - 1; i >= 0; i--) {
-      const ship = ships[i];
-      if (!ship) continue;
-      ship.progress += dt / ship.duration;
-
-      if (ship.progress >= 1) {
-        ship.root.dispose();
-        ships.splice(i, 1);
-        continue;
-      }
-
-      // Quadratic Bézier position
-      const t = ship.progress;
-      const t1 = 1 - t;
-      const px = t1 * t1 * ship.start.x + 2 * t1 * t * ship.control.x + t * t * ship.end.x;
-      const py = t1 * t1 * ship.start.y + 2 * t1 * t * ship.control.y + t * t * ship.end.y;
-      const pz = t1 * t1 * ship.start.z + 2 * t1 * t * ship.control.z + t * t * ship.end.z;
-      ship.root.position.set(px, py, pz);
-
-      // Orient toward the next point on the curve
-      const nt = Math.min(1, t + 0.02);
-      const nt1 = 1 - nt;
-      const nx = nt1 * nt1 * ship.start.x + 2 * nt1 * nt * ship.control.x + nt * nt * ship.end.x;
-      const ny = nt1 * nt1 * ship.start.y + 2 * nt1 * nt * ship.control.y + nt * nt * ship.end.y;
-      const nz = nt1 * nt1 * ship.start.z + 2 * nt1 * nt * ship.control.z + nt * nt * ship.end.z;
-      ship.root.lookAt(new BABYLON.Vector3(nx, ny, nz));
-    }
-  }
-
-  return { update };
+    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: 0.0007 + Math.random() * 0.0006 };
+  });
 }
 
 // ─── Main scene factory ───────────────────────────────────────────────────────
@@ -1024,27 +695,87 @@ function buildScene(
     }
   };
 
-  // ── Starfield ──────────────────────────────────────────────────────────────
+  // ── Deep-space nebula backdrop — baked astrophotography panorama behind all ─
+  const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.png`, scene, true);
+  nebulaBg.color = new BABYLON.Color4(0.6, 0.6, 0.66, 1); // dim so foreground UI reads
+
+  // A fullscreen Layer stretches its texture to the viewport, which warps the
+  // cosmos on tall (portrait / mobile) screens. Crop the *sampled* region via the
+  // texture matrix so it always "covers" without distortion. Re-fit on resize.
+  const NEBULA_ASPECT = 1376 / 768;
+  const fitNebula = (): void => {
+    // Layer.texture is typed as BaseTexture, but is a full Texture at runtime.
+    const tex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
+    if (!tex) return;
+    tex.wrapU = BABYLON.Texture.CLAMP_ADDRESSMODE;
+    tex.wrapV = BABYLON.Texture.CLAMP_ADDRESSMODE;
+    const eng = scene.getEngine();
+    const screenAspect = eng.getRenderWidth() / Math.max(1, eng.getRenderHeight());
+    if (screenAspect < NEBULA_ASPECT) {
+      const us = screenAspect / NEBULA_ASPECT; // crop the sides, keep full height
+      tex.uScale = us; tex.uOffset = (1 - us) / 2;
+      tex.vScale = 1;  tex.vOffset = 0;
+    } else {
+      const vs = NEBULA_ASPECT / screenAspect; // crop top/bottom, keep full width
+      tex.vScale = vs; tex.vOffset = (1 - vs) / 2;
+      tex.uScale = 1;  tex.uOffset = 0;
+    }
+  };
+  fitNebula();
+  scene.getEngine().onResizeObservable.add(fitNebula);
+
+  // ── Starfield — subtle parallax over the nebula backdrop ─────────────────────
   const starMesh = buildStarField(BABYLON, scene);
 
-  // ── Earth + clouds ─────────────────────────────────────────────────────────
+  // ── Earth + clouds — retired: built but hidden (superseded by the gold
+  //    gladiator galactic core). Refs kept so the render loop stays safe. ─────
   const { sphere: earthSphere, cloudSphere } = buildEarth(BABYLON, scene);
+  earthSphere.setEnabled(false);
+  cloudSphere.setEnabled(false);
 
-  // ── Atmosphere shader ──────────────────────────────────────────────────────
+  // ── Atmosphere shader — hidden with the earth ──────────────────────────────
   const atmosphereMaterial = buildAtmosphere(BABYLON, scene);
   const atmosphereMesh = scene.getMeshByName('atmosphere') as InstanceType<BabylonModule['Mesh']> | null;
+  if (atmosphereMesh) atmosphereMesh.setEnabled(false);
 
-  // ── Orbital ring ───────────────────────────────────────────────────────────
+  // ── Orbital ring — hidden with the earth ───────────────────────────────────
   const orbitalRing = buildOrbitalRing(BABYLON, scene);
+  for (const band of orbitalRing.bands) band.mesh.setEnabled(false);
+  for (const node of orbitalRing.energyNodes) node.mesh.setEnabled(false);
+
 
   // ── Distant planets + nebulas ──────────────────────────────────────────────
   const planets = buildDistantPlanets(BABYLON, scene);
 
-  // ── Flyby ship system ──────────────────────────────────────────────────────
-  const flybySystem = buildFlybyShips(BABYLON, scene);
+  // ── Solar-system nav planets (one per section) ─────────────────────────────
+  const navPlanets = buildSolarSystem(BABYLON, scene);
+  const PLANET_BY_PANEL = new Map(navPlanets.map((p) => [p.panelId, p] as const));
 
-  // ── Orbiting satellites with ribbon trails ─────────────────────────────────
-  const satelliteSystem = buildSatellites(BABYLON, scene);
+  // ── Soft sun-core glow at the system's heart — additive billboard sprite,
+  //    NOT glow-layer driven, so it stays a gentle halo (no bloom blob) ────────
+  const sunTex = new BABYLON.DynamicTexture('sunGlowTex', 256, scene, true);
+  const sctx = sunTex.getContext() as CanvasRenderingContext2D;
+  const sunGrad = sctx.createRadialGradient(128, 128, 0, 128, 128, 128);
+  sunGrad.addColorStop(0, 'rgba(255,228,170,0.85)');
+  sunGrad.addColorStop(0.22, 'rgba(255,196,110,0.45)');
+  sunGrad.addColorStop(0.55, 'rgba(255,160,70,0.12)');
+  sunGrad.addColorStop(1, 'rgba(255,150,60,0)');
+  sctx.fillStyle = sunGrad;
+  sctx.fillRect(0, 0, 256, 256);
+  sunTex.update();
+  sunTex.hasAlpha = true;
+
+  const sunGlow = BABYLON.MeshBuilder.CreatePlane('sunCore', { size: 10 }, scene);
+  sunGlow.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  const sunMat = new BABYLON.StandardMaterial('sunCoreMat', scene);
+  sunMat.disableLighting = true;
+  sunMat.emissiveColor = BABYLON.Color3.White();
+  sunMat.diffuseTexture = sunTex;
+  sunMat.diffuseTexture.hasAlpha = true;
+  sunMat.useAlphaFromDiffuseTexture = true;
+  sunMat.alphaMode = BABYLON.Constants.ALPHA_ADD;
+  sunMat.backFaceCulling = false;
+  sunGlow.material = sunMat;
 
   // ── Effects container — rotates with earth so beams stick to surface ───────
   const effectsContainer = new BABYLON.TransformNode('effectsContainer', scene);
@@ -1055,238 +786,107 @@ function buildScene(
   if (atmosphereMesh) atmosphereMesh.scaling.setAll(0.01);
   effectsContainer.scaling.setAll(0.01);
 
-  // ── Win beam system ────────────────────────────────────────────────────────
-  // Color constants (mirrors feeder Earth.ts COLOR3_* values)
-  const COLOR_CYAN   = new BABYLON.Color3(0.31, 0.76, 0.97);  // normal wins
-  const COLOR_GOLD   = new BABYLON.Color3(1.00, 0.84, 0.30);  // big wins ≥ 1000
-  const COLOR_AMBER  = new BABYLON.Color3(1.00, 0.65, 0.10);  // mega  ≥ 5000
-  const COLOR_RED    = new BABYLON.Color3(1.00, 0.25, 0.20);  // epic  ≥ 25000
-  const COLOR_WHITE  = BABYLON.Color3.White();
+  // ── Live-win sparkles ───────────────────────────────────────────────────────
+  // Every live win used to fire a beam on the Earth; now each one is born as a
+  // twinkling star somewhere out in the cosmos, then fades. Bigger wins burn
+  // brighter, larger and longer (cyan → gold → red).
+  const SPARKLE_CYAN = new BABYLON.Color3(0.55, 0.85, 1.0);
+  const SPARKLE_GOLD = new BABYLON.Color3(1.0, 0.85, 0.45);
+  const SPARKLE_RED  = new BABYLON.Color3(1.0, 0.45, 0.4);
 
-  /**
-   * Convert lat/lng degrees to a Babylon Vector3 on the earth sphere surface.
-   * Mirrors the latLngToVector3 helper used in feeder Earth.ts exactly.
-   */
-  function latLngToSurface(lat: number, lng: number): InstanceType<BabylonModule['Vector3']> {
-    const phi   = (90 - lat) * (Math.PI / 180);
-    const theta = (lng + 180) * (Math.PI / 180);
-    return new BABYLON.Vector3(
-      -(EARTH_RADIUS * Math.sin(phi) * Math.cos(theta)),
-        EARTH_RADIUS * Math.cos(phi),
-        EARTH_RADIUS * Math.sin(phi) * Math.sin(theta),
-    );
+  // One shared 4-point star-flare texture for every sparkle (drawn once).
+  const sparkleTex = new BABYLON.DynamicTexture('sparkleTex', 128, scene, true);
+  {
+    const c = sparkleTex.getContext() as CanvasRenderingContext2D;
+    const cx = 64, cy = 64;
+    c.clearRect(0, 0, 128, 128);
+    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 60);
+    core.addColorStop(0, 'rgba(255,255,255,1)');
+    core.addColorStop(0.18, 'rgba(255,255,255,0.82)');
+    core.addColorStop(0.5, 'rgba(255,255,255,0.16)');
+    core.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = core; c.beginPath(); c.arc(cx, cy, 60, 0, Math.PI * 2); c.fill();
+    c.globalCompositeOperation = 'lighter';
+    const hg = c.createLinearGradient(cx - 60, 0, cx + 60, 0);
+    hg.addColorStop(0, 'rgba(255,255,255,0)'); hg.addColorStop(0.5, 'rgba(255,255,255,0.9)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = hg; c.fillRect(cx - 60, cy - 2, 120, 4);
+    const vg = c.createLinearGradient(0, cy - 60, 0, cy + 60);
+    vg.addColorStop(0, 'rgba(255,255,255,0)'); vg.addColorStop(0.5, 'rgba(255,255,255,0.9)'); vg.addColorStop(1, 'rgba(255,255,255,0)');
+    c.fillStyle = vg; c.fillRect(cx - 2, cy - 60, 4, 120);
+    sparkleTex.update();
+  }
+  sparkleTex.hasAlpha = true;
+
+  interface Sparkle {
+    readonly mesh: InstanceType<BabylonModule['Mesh']>;
+    readonly mat: InstanceType<BabylonModule['StandardMaterial']>;
+    readonly born: number;
+    readonly life: number;
+    readonly size: number;
+    readonly twinkle: number;
+  }
+  const sparkles: Sparkle[] = [];
+  const MAX_SPARKLES = 28;
+  let sparkleSeq = 0;
+
+  function fireSparkle(amount: number): void {
+    while (sparkles.length > MAX_SPARKLES) {
+      const old = sparkles.shift();
+      if (old) { old.mesh.dispose(); old.mat.dispose(); }
+    }
+    let color = SPARKLE_CYAN, size = 1.6, life = 1800;
+    if (amount >= 25000)     { color = SPARKLE_RED;  size = 5.0; life = 3600; }
+    else if (amount >= 5000) { color = SPARKLE_GOLD; size = 3.6; life = 3200; }
+    else if (amount >= 1000) { color = SPARKLE_GOLD; size = 2.6; life = 2600; }
+
+    // Random point on a shell well beyond the planet orbits, biased flatter in Y.
+    const u = Math.random() * 2 - 1;
+    const t = Math.random() * Math.PI * 2;
+    const r = 55 + Math.random() * 70;
+    const s = Math.sqrt(1 - u * u);
+    const id = sparkleSeq++;
+
+    const mesh = BABYLON.MeshBuilder.CreatePlane('sparkle_' + id, { size: 1 }, scene);
+    mesh.position = new BABYLON.Vector3(s * Math.cos(t) * r, u * r * 0.6, s * Math.sin(t) * r);
+    mesh.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+    mesh.scaling.setAll(0.01);
+    const mat = new BABYLON.StandardMaterial('sparkleMat_' + id, scene);
+    mat.disableLighting = true;
+    mat.emissiveColor = color;
+    mat.diffuseTexture = sparkleTex;
+    mat.useAlphaFromDiffuseTexture = true;
+    mat.alphaMode = BABYLON.Constants.ALPHA_ADD;
+    mat.backFaceCulling = false;
+    mat.alpha = 0;
+    mesh.material = mat;
+
+    sparkles.push({ mesh, mat, born: Date.now(), life, size, twinkle: 6 + Math.random() * 6 });
   }
 
-  /** Align mesh local-Y to point along the given surface normal. */
-  function alignToNormal(
-    mesh: InstanceType<BabylonModule['Mesh']>,
-    normal: InstanceType<BabylonModule['Vector3']>,
-  ): void {
-    const up    = new BABYLON.Vector3(0, 1, 0);
-    const angle = Math.acos(BABYLON.Vector3.Dot(up, normal));
-    const axis  = BABYLON.Vector3.Cross(up, normal).normalize();
-    if (axis.length() > 0.001) {
-      mesh.rotationQuaternion = null;
-      mesh.rotate(axis, angle);
+  function updateSparkles(): void {
+    if (sparkles.length === 0) return;
+    const now = Date.now();
+    for (let i = sparkles.length - 1; i >= 0; i--) {
+      const sp = sparkles[i];
+      if (!sp) continue;
+      const p = (now - sp.born) / sp.life;
+      if (p >= 1) { sp.mesh.dispose(); sp.mat.dispose(); sparkles.splice(i, 1); continue; }
+      const grow = p < 0.25 ? p / 0.25 : 1;            // pop in over the first quarter
+      const fade = p < 0.25 ? 1 : 1 - (p - 0.25) / 0.75; // then ease out
+      const flick = 0.68 + 0.32 * Math.sin(((now - sp.born) / 1000) * sp.twinkle);
+      sp.mesh.scaling.setAll(sp.size * (0.4 + 0.6 * grow));
+      sp.mat.alpha = fade * flick;
     }
   }
 
-  // Active beam meshes — disposed in the render loop via expiry timestamp.
-  // Mirrors feeder Earth.ts activeBeams pattern exactly.
-  const MAX_ACTIVE_BEAMS = 12;
-  const activeBeams: InstanceType<BabylonModule['Mesh']>[] = [];
-
-  /**
-   * Fire a light beam at the given geographic position.
-   * Uses feeder Earth.ts expiry-based disposal (no Babylon Animation system).
-   * Materials have static alpha values so beams are immediately visible.
-   * needDepthPrePass + forceDepthWrite set directly on the material instance
-   * (not via cast) to guarantee depth-buffer correctness.
-   */
-  function fireBeam(lat: number, lng: number, amount: number): void {
-    // Cap active beams to prevent unbounded growth during rapid wins
-    while (activeBeams.length > MAX_ACTIVE_BEAMS) {
-      const oldest = activeBeams.shift();
-      if (oldest) oldest.dispose();
-    }
-
-    const surfacePoint = latLngToSurface(lat, lng);
-    const normal       = surfacePoint.clone().normalize();
-    const ts           = Date.now();
-
-    // Tier thresholds per user spec:
-    // $100 gold, $1000 amber, $2000 red, $5000/$10000/$100000 escalating
-    let beamHeight: number;
-    let beamWidth:  number;
-    let color:      InstanceType<BabylonModule['Color3']>;
-    let durationMs: number;
-
-    if (amount >= 100000) {
-      beamHeight = 18.0; beamWidth = 0.8;  color = COLOR_RED;   durationMs = 10000;
-    } else if (amount >= 10000) {
-      beamHeight = 14.0; beamWidth = 0.6;  color = COLOR_RED;   durationMs = 8000;
-    } else if (amount >= 5000) {
-      beamHeight = 11.0; beamWidth = 0.45; color = COLOR_RED;   durationMs = 7000;
-    } else if (amount >= 2000) {
-      beamHeight = 8.0;  beamWidth = 0.35; color = COLOR_RED;   durationMs = 5000;
-    } else if (amount >= 1000) {
-      beamHeight = 6.0;  beamWidth = 0.25; color = COLOR_AMBER; durationMs = 4000;
-    } else {
-      // $100+ — gold beam (minimum for beam to fire)
-      beamHeight = 4.0;  beamWidth = 0.15; color = COLOR_GOLD;  durationMs = 3000;
-    }
-
-    const expiry   = ts + durationMs;
-    const isBigWin = amount >= 1000;
-
-    // Helper: build a beam material with correct depth flags set directly on
-    // the material instance (not via cast) so the setter is actually invoked.
-    function makeBeamMat(
-      name: string,
-      emissive: InstanceType<BabylonModule['Color3']>,
-      alpha: number,
-    ): InstanceType<BabylonModule['StandardMaterial']> {
-      const mat = new BABYLON.StandardMaterial(name, scene);
-      mat.emissiveColor   = emissive;
-      mat.disableLighting = true;
-      mat.alpha           = alpha;
-      mat.backFaceCulling = false;
-      // Direct assignment invokes Babylon's property setters (Object.assign bypasses them!)
-      (mat as unknown as { needDepthPrePass: boolean }).needDepthPrePass = true;
-      (mat as unknown as { forceDepthWrite: boolean }).forceDepthWrite = true;
-      return mat;
-    }
-
-    // ── Core beam (bright white/gold inner cylinder) ─────────────────────────
-    const coreBeam = BABYLON.MeshBuilder.CreateCylinder(
-      'beamCore_' + ts,
-      { height: beamHeight, diameterTop: 0, diameterBottom: beamWidth * 0.6, tessellation: 12 },
-      scene,
-    );
-    coreBeam.position = surfacePoint.add(normal.scale(beamHeight / 2));
-    alignToNormal(coreBeam, normal);
-    coreBeam.material = makeBeamMat(
-      'beamCoreMat_' + ts,
-      isBigWin ? new BABYLON.Color3(1, 0.95, 0.7) : COLOR_WHITE,
-      0.95,
-    );
-    coreBeam.metadata = { expiry, glowEnabled: false };
-    coreBeam.parent   = effectsContainer;
-    activeBeams.push(coreBeam);
-
-    // ── Outer glow beam (coloured, wider, more transparent) ──────────────────
-    const outerBeam = BABYLON.MeshBuilder.CreateCylinder(
-      'beamOuter_' + ts,
-      { height: beamHeight * 1.02, diameterTop: 0, diameterBottom: beamWidth * 2.0, tessellation: 12 },
-      scene,
-    );
-    outerBeam.position = surfacePoint.add(normal.scale(beamHeight / 2));
-    alignToNormal(outerBeam, normal);
-    outerBeam.material = makeBeamMat(
-      'beamOuterMat_' + ts,
-      isBigWin ? new BABYLON.Color3(1, 0.75, 0.1) : color,
-      isBigWin ? 0.26 : 0.35,
-    );
-    outerBeam.metadata = { expiry, glowEnabled: false };
-    outerBeam.parent   = effectsContainer;
-    activeBeams.push(outerBeam);
-
-    // ── Wide haze beam (atmospheric scatter) ─────────────────────────────────
-    const hazeBeam = BABYLON.MeshBuilder.CreateCylinder(
-      'beamHaze_' + ts,
-      { height: beamHeight * 0.9, diameterTop: beamWidth * 0.3, diameterBottom: beamWidth * 2.5, tessellation: 12 },
-      scene,
-    );
-    hazeBeam.position = surfacePoint.add(normal.scale(beamHeight * 0.45));
-    alignToNormal(hazeBeam, normal);
-    hazeBeam.material = makeBeamMat(
-      'beamHazeMat_' + ts,
-      isBigWin ? COLOR_GOLD : color,
-      isBigWin ? 0.08 : 0.12,
-    );
-    hazeBeam.metadata = { expiry, glowEnabled: false };
-    hazeBeam.parent   = effectsContainer;
-    activeBeams.push(hazeBeam);
-
-    // ── Impact sphere at base ─────────────────────────────────────────────────
-    const impactSphere = BABYLON.MeshBuilder.CreateSphere(
-      'beamImpact_' + ts,
-      { diameter: beamWidth * 1.5, segments: 8 },
-      scene,
-    );
-    impactSphere.position = surfacePoint.add(normal.scale(0.03));
-    impactSphere.material = makeBeamMat(
-      'beamImpactMat_' + ts,
-      BABYLON.Color3.Lerp(color, COLOR_WHITE, 0.6),
-      0.9,
-    );
-    impactSphere.metadata = { expiry, glowEnabled: false };
-    impactSphere.parent   = effectsContainer;
-    activeBeams.push(impactSphere as unknown as InstanceType<BabylonModule['Mesh']>);
-  }
-
-  // ── Ring ripple for normal wins — copied from feeder Earth.ts createSurfaceWaveRing
-  function fireRing(lat: number, lng: number, amount: number): void {
-    const surfacePoint = latLngToSurface(lat, lng);
-    const normal = surfacePoint.clone().normalize();
-
-    const ring = BABYLON.MeshBuilder.CreateTorus('surfaceWaveRing_' + Date.now(), {
-      diameter: 0.22,
-      thickness: 0.012,
-      tessellation: 56,
-    }, scene);
-    ring.position = surfacePoint.add(normal.scale(0.02));
-    alignToNormal(ring, normal);
-    ring.parent = effectsContainer;
-
-    const ringMat = new BABYLON.StandardMaterial('surfaceWaveRingMat_' + Date.now(), scene);
-    ringMat.emissiveColor = BABYLON.Color3.Lerp(COLOR_CYAN, COLOR_WHITE, 0.2);
-    ringMat.disableLighting = true;
-    ringMat.alpha = 0;
-    ringMat.backFaceCulling = false;
-    ring.material = ringMat;
-
-    // Scale from small → big, alpha fade in → out (exact feeder values)
-    const intensity = Math.min(Math.max(amount / 50, 0.6), 2.2);
-    const maxScale = 1.8 + intensity * 0.8;
-    const totalFrames = 44;
-
-    const scaleAnim = new BABYLON.Animation('surfaceWaveScale', 'scaling', 30,
-      BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-    scaleAnim.setKeys([
-      { frame: 0, value: new BABYLON.Vector3(0.22, 0.22, 0.22) },
-      { frame: 8, value: new BABYLON.Vector3(0.95, 0.95, 0.95) },
-      { frame: 24, value: new BABYLON.Vector3(maxScale * 0.72, maxScale * 0.72, maxScale * 0.72) },
-      { frame: totalFrames, value: new BABYLON.Vector3(maxScale, maxScale, maxScale) },
-    ]);
-
-    const fadeAnim = new BABYLON.Animation('surfaceWaveFade', 'material.alpha', 30,
-      BABYLON.Animation.ANIMATIONTYPE_FLOAT, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-    fadeAnim.setKeys([
-      { frame: 0, value: 0 },
-      { frame: 4, value: 0.72 },
-      { frame: 16, value: 0.42 },
-      { frame: totalFrames, value: 0 },
-    ]);
-
-    ring.animations = [scaleAnim, fadeAnim];
-    scene.beginAnimation(ring, 0, totalFrames, false, 1, () => {
-      ring.dispose();
-      ringMat.dispose();
-    });
-  }
-
-  // Subscribe to BIG+ wins ($1000+) — full beam
   let lastWinSoundAt = 0;
-  const unsubscribeWins = sceneEvents.onWin(({ lat, lng, amount }) => {
-    fireBeam(lat, lng, amount);
+  const unsubscribeWins = sceneEvents.onWin(({ amount }) => {
+    fireSparkle(amount);
     const now = Date.now();
     if (now - lastWinSoundAt > 2500) { lastWinSoundAt = now; soundEngine.alert(); }
   });
-
-  // Subscribe to normal wins — expanding ring ripple (feeder surfaceWaveRing)
-  const unsubscribeRings = sceneEvents.onRing(({ lat, lng, amount }) => {
-    fireRing(lat, lng, amount);
+  const unsubscribeRings = sceneEvents.onRing(({ amount }) => {
+    fireSparkle(amount);
   });
 
   // ── Camera lerp state — mutated by the camera target subscription ──────────
@@ -1294,6 +894,7 @@ function buildScene(
   let cameraTargetBeta   = CAMERA_BETA;
   let cameraTargetRadius = CAMERA_RADIUS;
   let cameraHasPanel     = false;
+  let cameraTargetPos    = BABYLON.Vector3.Zero(); // orbit pivot — flies to the active planet
 
   // ── Panel glow colors — one per panelId ─────────────────────────────────────
   const PANEL_GLOW_COLORS: Record<string, string> = {
@@ -1318,7 +919,10 @@ function buildScene(
     const target = CAMERA_TARGETS[panelId] ?? CAMERA_TARGETS['none'] ?? { alpha: CAMERA_ALPHA, beta: Math.PI / 2.5, radius: CAMERA_RADIUS };
     cameraTargetAlpha  = target.alpha;
     cameraTargetBeta   = target.beta;
-    cameraTargetRadius = target.radius;
+    // Fly the camera INTO the section's planet; overview returns to the core.
+    const planet = PLANET_BY_PANEL.get(panelId);
+    cameraTargetPos    = planet ? planet.position : BABYLON.Vector3.Zero();
+    cameraTargetRadius = planet ? planet.viewRadius : target.radius;
     cameraHasPanel     = panelId !== 'none';
 
     // Offset earth to center of non-panel space (panel is ~45vw, desktop only)
@@ -1326,13 +930,18 @@ function buildScene(
       // Mobile: panels are fullscreen, no X offset needed
       targetScreenOffsetX = 0;
     } else {
+      // Shift the framed planet into the centre of the free (non-panel) half.
+      // Offset must scale with the view radius — the screen shift it produces is
+      // offset / (2·radius·tan(fov/2)·aspect), so a fixed value drifts off-screen
+      // at close-up radii. ~0.30·radius lands the planet ~72% across the viewport.
       const LEFT_CHECK = new Set(['games', 'about', 'team', 'journey']);
+      const shift = cameraTargetRadius * 0.30;
       if (panelId === 'none') {
         targetScreenOffsetX = 0;
       } else if (LEFT_CHECK.has(panelId)) {
-        targetScreenOffsetX = 8;  // earth shifts right when left panel open
+        targetScreenOffsetX = shift;   // planet sits in the right free space
       } else {
-        targetScreenOffsetX = -8; // earth shifts left when right panel open
+        targetScreenOffsetX = -shift;  // planet sits in the left free space
       }
     }
 
@@ -1403,8 +1012,8 @@ function buildScene(
   scene.onDisposeObservable.addOnce(() => { unsubscribeWins(); unsubscribeRings(); unsubscribeCameraTarget(); unsubscribeBlackhole(); });
 
   // ── Render loop ────────────────────────────────────────────────────────────
-  let trailFrameCount = 0;
   let entryFrame = 0;
+  let twinkleClock = 0;
   const ENTRY_DURATION = 120;
   scene.registerBeforeRender(() => {
     // ── Blackhole effect — camera zooms in, scene darkens, stars compress ───
@@ -1473,9 +1082,22 @@ function buildScene(
       if (glowLayer) glowLayer.intensity += (0.4 - glowLayer.intensity) * 0.05;
     }
 
-    // Stars slow rotation
+    // Stars: gentle drift + per-star twinkle (buffer update throttled to every 2nd frame)
     if (starMesh) {
-      starMesh.rotation.y += 0.00003;
+      starMesh.rotation.y += 0.00010;
+      twinkleClock++;
+      const md = starMesh.metadata as
+        | { baseAlpha: Float32Array; twPhase: Float32Array; twSpeed: Float32Array; colors: Float32Array }
+        | undefined;
+      if (md && (twinkleClock & 1) === 0) {
+        const { baseAlpha, twPhase, twSpeed, colors } = md;
+        const tms = twinkleClock * 0.05;
+        for (let i = 0; i < baseAlpha.length; i++) {
+          const tw = 0.5 + 0.5 * Math.sin(twPhase[i]! + tms * twSpeed[i]!);
+          colors[i * 4 + 3] = baseAlpha[i]! * (0.35 + 0.65 * tw);
+        }
+        starMesh.updateVerticesData('color', colors);
+      }
     }
 
     // Earth entry animation — spin-zoom from tiny to full scale over ENTRY_DURATION frames
@@ -1501,17 +1123,6 @@ function buildScene(
     cloudSphere.rotation.y += EARTH_ROTATION_SPEED * 1.15;
     // Sync effects container rotation with earth Y — mirrors feeder Earth.ts update()
     effectsContainer.rotation.y = earthSphere.rotation.y;
-
-    // Expire and dispose beam meshes — feeder-style expiry loop, no Animation system
-    const now = Date.now();
-    for (let i = activeBeams.length - 1; i >= 0; i--) {
-      const beam = activeBeams[i];
-      if (!beam) continue;
-      if (!beam.metadata?.expiry || now > beam.metadata.expiry) {
-        beam.dispose();
-        activeBeams.splice(i, 1);
-      }
-    }
 
     // Atmosphere eye position
     if (scene.activeCamera) {
@@ -1539,6 +1150,9 @@ function buildScene(
     planets.gasGiant.rotation.y += 0.00015;
     planets.iceMoon.rotation.y += 0.0008;
 
+    // Solar-system nav planets spin
+    for (const p of navPlanets) p.mesh.rotation.y += p.spin;
+
     // Ice moon orbits earth
     const t = performance.now() * 0.00005;
     planets.iceMoon.position.x = 12 * Math.cos(t);
@@ -1548,28 +1162,27 @@ function buildScene(
     planets.nebula1.rotation.y += 0.00005;
     planets.nebula2.rotation.y -= 0.00004;
 
-    // Camera auto-rotation — only when no panel is active
-    if (!cameraHasPanel) {
-      camera.alpha += CAMERA_AUTO_ROTATE;
-    }
+    // Continuous orbital drift so the cosmos never freezes — a faster free
+    // wander on the overview, a gentle keep-alive orbit while a planet is framed.
+    cameraTargetAlpha += cameraHasPanel ? CAMERA_PANEL_DRIFT : CAMERA_AUTO_ROTATE;
 
     // Smooth camera lerp to target position
     camera.alpha  += (cameraTargetAlpha  - camera.alpha)  * CAMERA_LERP_SPEED;
     camera.beta   += (cameraTargetBeta   - camera.beta)   * CAMERA_LERP_SPEED;
     camera.radius += (cameraTargetRadius - camera.radius) * CAMERA_LERP_SPEED;
 
+    // Fly the orbit pivot toward the active planet (or back to the core)
+    const ct = camera.target;
+    ct.x += (cameraTargetPos.x - ct.x) * CAMERA_LERP_SPEED;
+    ct.y += (cameraTargetPos.y - ct.y) * CAMERA_LERP_SPEED;
+    ct.z += (cameraTargetPos.z - ct.z) * CAMERA_LERP_SPEED;
+
     // Screen offset — shifts earth to center of non-panel space
     const currentOffsetX = camera.targetScreenOffset.x;
     camera.targetScreenOffset.x = currentOffsetX + (targetScreenOffsetX - currentOffsetX) * 0.04;
 
-    // Flyby ships
-    flybySystem.update();
-
-    // Orbiting satellites — throttle trail mesh rebuild to every 3 frames
-    trailFrameCount++;
-    if (trailFrameCount % 3 === 0) {
-      satelliteSystem.update();
-    }
+    // Live-win sparkles — twinkle and fade among the stars
+    updateSparkles();
 
     // Camera target fixed at origin (no mouse parallax)
   });

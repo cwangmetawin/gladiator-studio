@@ -88,30 +88,6 @@ function HudTicks() {
   );
 }
 
-const BOOT_LINES: readonly (readonly [string, string])[] = [
-  ['> init orbital uplink … ', 'ok'],
-  ['> sync 34 titles … ', 'ok'],
-  ['> link 7 markets … ', 'ok'],
-  ['> gladiator os … ', 'ready'],
-];
-
-function BootLog() {
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    if (prefersReducedMotion()) { setShown(BOOT_LINES.length); return; }
-    let i = 0;
-    const id = setInterval(() => { i += 1; setShown(i); if (i >= BOOT_LINES.length) clearInterval(id); }, 560);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div className="boot-log" aria-hidden="true" style={{ position: 'absolute', left: 26, bottom: 66, zIndex: 4 }}>
-      {BOOT_LINES.slice(0, shown).map((l, idx) => (
-        <div key={idx} className="boot-log__line">{l[0]}<span className="ok">{l[1]}</span></div>
-      ))}
-    </div>
-  );
-}
-
 // ─── Central identity hub ─────────────────────────────────────────────────────
 
 function IdentityHub({ compact }: { readonly compact?: boolean }) {
@@ -129,10 +105,6 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
           style={{ width: compact ? 'clamp(220px,74vw,300px)' : 'clamp(300px,32vw,470px)', height: 'auto',
             filter: 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,247,0.5)) drop-shadow(0 0 56px rgba(79,195,247,0.22))' }} />
       </h1>
-
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: 'clamp(0.6rem,1.1vw,0.76rem)', fontWeight: 500, letterSpacing: '0.34em', textTransform: 'uppercase', color: 'var(--color-text-mute)', margin: 0 }}>
-        Premium iGaming Studio
-      </p>
 
       <div aria-label="34 games, 97.5% max RTP, 7 markets" style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
         {STATS.map((s, i) => (
@@ -196,10 +168,7 @@ export function Hero(_props: HeroProps) {
       <div className="tech-grid" aria-hidden="true" />
       <div className="hero-aura" aria-hidden="true" />
       <div className="hero-flare" aria-hidden="true" style={{ top: '6%', right: '12%' }} />
-      <div className="hub-rings" aria-hidden="true" />
-      <div className="hub-radar" aria-hidden="true" />
       <HudTicks />
-      <BootLog />
 
       {/* Connector lines from hub to each node */}
       <svg className="holo-lines" aria-hidden="true">
@@ -223,7 +192,6 @@ export function Hero(_props: HeroProps) {
               <span className="holo-node__lock" aria-hidden="true" />
               <span className="holo-node__ring"><Icon size={20} /></span>
               <span className="holo-node__label">{n.label}</span>
-              <span className="holo-node__meta">{n.meta}</span>
             </button>
           );
         })}
@@ -234,9 +202,6 @@ export function Hero(_props: HeroProps) {
         <IdentityHub />
       </motion.div>
 
-      <div className="hud-coords" aria-hidden="true" style={{ position: 'absolute', bottom: 70, left: '50%', transform: 'translateX(-50%)', whiteSpace: 'nowrap', zIndex: 4 }}>
-        Gladiator Orbital Command · 51.5072°N 0.1276°W · ALT 408KM · Live
-      </div>
     </section>
   );
 }
