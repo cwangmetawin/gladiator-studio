@@ -8,7 +8,7 @@ const IMG_CDN = 'https://content.prod.platform.mwapp.io/games';
 
 // ─── Gladiator Slots (providerRef from feeder gameCatalogData.ts) ────────────
 
-const GLADIATOR_SLOTS: readonly Game[] = [
+export const GLADIATOR_SLOTS: readonly Game[] = [
   { id: 10000, slug: 'gladiator-eyes-of-medusa', title: 'Eyes of Medusa', description: 'Gorgon-themed fantasy slot — tumbling reels, scatters, and free-spin multipliers that turn wins to stone.', image: `${IMG_CDN}/eyes-of-medusa-vertical.jpg`, landscapeImage: `${IMG_CDN}/eyes-of-medusa-horizontal.png`, link: `${GLADIATOR_CDN}/medusa`, timeline: '2025-12-01', rtp: 96.5, volatility: 'ULTRA', genre: 'Mythology', isHot: true, category: 'slot' },
   { id: 9785, slug: 'gladiator-candy-cash-100k', title: 'Candy Cash', description: 'Sweet cluster-pays slot bursting with cascading multipliers and a bonus buy.', image: `${IMG_CDN}/candy-cash-new.jpg`, landscapeImage: `${IMG_CDN}/candy-cash-horizontal.png`, link: `${GLADIATOR_CDN}/sweety-cluster-100k`, timeline: '2025-11-01', rtp: 97, volatility: 'ULTRA', genre: 'Sweets', isHot: true, category: 'slot' },
   { id: 9727, slug: 'thunder-tavern', title: 'Thunder Tavern', description: 'Norse tavern brawl — wilds, scatters, and stacked multipliers across thunderous free spins.', image: `${IMG_CDN}/thunder-tavern-vertical.jpg`, landscapeImage: `${IMG_CDN}/thunder-tavern-new5.png`, link: `${GLADIATOR_CDN}/valhalla-100k`, timeline: '2025-10-01', rtp: 96.8, volatility: 'ULTRA', genre: 'Norse', isHot: true, category: 'slot' },
@@ -24,7 +24,7 @@ const GLADIATOR_SLOTS: readonly Game[] = [
 
 // ─── MetaWin Originals (providerRef from feeder gameCatalogData.ts) ──────────
 
-const METAWIN_ORIGINALS: readonly Game[] = [
+export const METAWIN_ORIGINALS: readonly Game[] = [
   { id: 9999, slug: 'mw-plinko-100k', title: 'Plinko - World Cup Edition', description: 'World-Cup Plinko — drop the ball and bounce through the pins for multiplying payouts.', image: `${IMG_CDN}/plinko-world-cup-edition.jpg`, link: `${METAWIN_CDN}/plinko-100k?provider=metawin&version=wc`, timeline: '2025-12-01', rtp: 98, volatility: 'ULTRA', genre: 'Plinko', isHot: true, category: 'mini' },
   { id: 9715, slug: 'mw-prime-dice', title: 'Prime Dice', description: 'Roll the dice with customizable odds and instant payouts.', image: `${IMG_CDN}/PRIME-DICE-new.png`, link: `${METAWIN_CDN}/prime-dice?provider=metawin`, timeline: '2025-10-01', rtp: 98, volatility: 'HIGH', genre: 'Dice', category: 'mini' },
   { id: 9714, slug: 'mw-roulette-pro', title: 'Roulette Pro', description: 'Pro-grade crypto roulette — place your bets and spin the wheel.', image: `${IMG_CDN}/ROULETTE-PRO-new.png`, link: `${METAWIN_CDN}/roulette1?provider=metawin`, timeline: '2025-09-01', rtp: 97.3, volatility: 'HIGH', genre: 'Roulette', category: 'mini' },

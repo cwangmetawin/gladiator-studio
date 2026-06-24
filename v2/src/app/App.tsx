@@ -18,6 +18,7 @@ import { soundEngine } from '@/shared/utils/soundEngine';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
 import { CursorFX } from '@/shared/ui/CursorFX';
+import { LiveTicker } from '@/features/live-feed/LiveTicker';
 
 const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
 const GameShowcase = lazy(() => import('@/features/games/GameShowcase').then(m => ({ default: m.GameShowcase })));
@@ -499,7 +500,7 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const isMobile = useIsMobile();
 
-  const { isConnected, totalAmount, gladiatorCount, originalCount } = useFeederSocket();
+  const { events, isConnected, totalAmount, gladiatorCount, originalCount } = useFeederSocket();
   const totalEvents = gladiatorCount + originalCount;
 
   useEffect(() => {
@@ -620,6 +621,10 @@ export function App() {
       {!(isMobile && activePanel !== 'none') && !showCoverflow && (
         <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} />
       )}
+
+      {/* Homepage live-wins ticker — horizontal crawl across the hero's bottom edge.
+          Shares App's single feeder socket (no second connection). */}
+      {activePanel === 'none' && <LiveTicker events={events} isConnected={isConnected} />}
 
       {/* Full-screen 3D coverflow — desktop Games */}
       <AnimatePresence>

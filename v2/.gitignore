@@ -6,3 +6,7 @@ dist/
 *.log
 .DS_Store
 ERROR_HANDLING_AUDIT.md
+
+# Local-only working files (raw source data + design references — not built into the app)
+game.json
+docs/refs/

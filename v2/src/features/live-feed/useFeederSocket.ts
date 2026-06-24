@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { classifyProvider } from './liveCatalogue';
 
 const SOCKET_URL = 'https://socket.prod.platform.metawin.com';
 const CHANNEL = 'Activity:Globe';
@@ -19,38 +20,8 @@ export interface FeedEvent {
   readonly lng: number | null;
 }
 
-// Known Gladiator game names (lowercase for matching)
-// Exact match lists from feeder gameClassifier.ts
-const GLADIATOR_GAMES = new Set([
-  'legend of tartarus', 'rise of cetus', 'star nudge',
-  'all about the fish', 'disco dazzle', 'man eater',
-  'maneater', 'sweety treaty', 'to the top',
-]);
-
-const METAWIN_ORIGINALS = new Set([
-  'metawin blackjack', 'roulette', 'metawin baccarat', 'plinko',
-  'navigator', 'limbo', 'mines', 'dice', 'roulette zero',
-  'coin flip', 'crash', 'limbo zero', 'darts', 'dragon tower',
-  'pump', 'mines zero', 'snakes', "pepe's river run",
-  'dragon tower zero', 'keno', 'video poker', 'hi-lo',
-  'diamonds', 'slide', 'wheel', 'blackjack', 'baccarat',
-  'dice zero',
-]);
-
-function normalizeGameName(name: string): string {
-  return name.normalize('NFKD').toLowerCase().trim()
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .replace(/\s+/g, ' ');
-}
-
-function classifyProvider(name: string): FeedEvent['provider'] {
-  const lower = normalizeGameName(name);
-  if (GLADIATOR_GAMES.has(lower)) return 'gladiator';
-  if (METAWIN_ORIGINALS.has(lower)) return 'original';
-  if (lower.includes('metawin')) return 'original';
-  return 'other'; // Third-party — filtered out like feeder
-}
+// Provider classification comes from the real curated catalogue (./liveCatalogue),
+// so every game we ship is recognised, shown in the feed, and beamed onto the globe.
 
 function toFiniteNumber(value: unknown): number | null {
   if (typeof value === 'number' && Number.isFinite(value)) return value;
