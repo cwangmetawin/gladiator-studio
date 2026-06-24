@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
-import { SectionHeading, Button, Divider } from '@/shared/ui';
+import { SectionHeading, Button, Divider, CountUp } from '@/shared/ui';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -377,6 +377,11 @@ export function CareersSection() {
         title="Open Positions"
         lede="Gladiator Studio is a small, senior team building the games behind MetaWin — one of the world's most-played crypto casinos. We hire for craft, move fast, and ship to production constantly."
       />
+
+      <p className="readout" style={{ marginTop: -10, display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span className="pulse-node" aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-live)', boxShadow: '0 0 8px var(--color-live)' }} />
+        <CountUp to={JOB_LISTINGS.length} className="readout__value" /> open roles · hiring on a rolling basis
+      </p>
 
       {/* Job cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

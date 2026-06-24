@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
-import { SectionHeading } from '@/shared/ui';
+import { SectionHeading, Reveal } from '@/shared/ui';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
 
@@ -98,19 +98,22 @@ export function ContactSection() {
       />
 
       {/* Partner protocols */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {PARTNER_TYPES.map((p) => (
-          <div key={p.label} className="card" style={{ padding: '0.85rem 1rem' }}>
-            <span className="card__label" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
-            <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{p.description}</p>
-          </div>
-        ))}
-      </div>
+      <Reveal delay={0}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {PARTNER_TYPES.map((p) => (
+            <div key={p.label} className="card card--hover" style={{ padding: '0.85rem 1rem' }}>
+              <span className="card__label" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
+              <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{p.description}</p>
+            </div>
+          ))}
+        </div>
+      </Reveal>
 
       {/* Direct channels */}
+      <Reveal delay={0.06}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
         {DIRECT_CHANNELS.map((c) => (
-          <div key={c.label} className="card" style={{ padding: '0.7rem 0.85rem' }}>
+          <div key={c.label} className="card card--hover" style={{ padding: '0.7rem 0.85rem' }}>
             <span className="field-label" style={{ marginBottom: '0.25rem' }}>{c.label}</span>
             {c.href ? (
               <a href={c.href} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ice-200)', wordBreak: 'break-word', textDecoration: 'none', borderBottom: '1px solid var(--color-line)' }}>{c.value}</a>
@@ -120,8 +123,10 @@ export function ContactSection() {
           </div>
         ))}
       </div>
+      </Reveal>
 
       {/* Enquiry form */}
+      <Reveal delay={0.12}>
       <div className="card" style={{ padding: '1.1rem 1.25rem' }}>
         <span className="card__label">Send an enquiry</span>
         <AnimatePresence mode="wait">
@@ -196,6 +201,7 @@ export function ContactSection() {
           )}
         </AnimatePresence>
       </div>
+      </Reveal>
     </SectionWrapper>
   );
 }

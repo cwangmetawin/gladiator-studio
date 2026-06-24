@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Eyebrow, Divider } from '@/shared/ui';
 import { useFeederSocket, type FeedEvent } from './useFeederSocket';
 
@@ -51,8 +51,18 @@ interface StatPanelProps {
   readonly valueColor?: string;
 }
 
-/** Compact glass mini-stat card with a mono telemetry value over a Title Case label. */
+/** Compact glass mini-stat card with a mono telemetry value over a Title Case label.
+ * The border briefly glows whenever the value ticks — a live-terminal pulse. */
 function StatPanel({ label, value, valueColor = 'var(--color-holo-500)' }: StatPanelProps) {
+  const [flash, setFlash] = useState(false);
+  const prev = useRef(value);
+  useEffect(() => {
+    if (prev.current === value) return;
+    prev.current = value;
+    setFlash(true);
+    const t = window.setTimeout(() => setFlash(false), 380);
+    return () => window.clearTimeout(t);
+  }, [value]);
   return (
     <div
       className="card"
@@ -63,6 +73,9 @@ function StatPanel({ label, value, valueColor = 'var(--color-holo-500)' }: StatP
         justifyContent: 'space-between',
         gap: 4,
         minHeight: 54,
+        borderColor: flash ? 'rgba(79,195,247,0.55)' : undefined,
+        boxShadow: flash ? 'inset 0 1px 0 var(--color-line-bright), 0 0 16px rgba(79,195,247,0.18)' : undefined,
+        transition: 'border-color 0.4s var(--ease-out-expo), box-shadow 0.4s var(--ease-out-expo)',
       }}
     >
       <span

@@ -1,6 +1,6 @@
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
-import { SectionHeading, Stat, Button, Divider } from '@/shared/ui';
+import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
 
 const LEAD = {
   initials: 'CW',
@@ -33,11 +33,11 @@ const LEAD = {
   },
 } as const;
 
-const TEAM_STATS: readonly { readonly value: string; readonly label: string }[] = [
-  { value: '10+', label: 'Years Exp' },
-  { value: '34', label: 'Games Shipped' },
-  { value: '8', label: 'Live Slots' },
-  { value: '7', label: 'Markets' },
+const TEAM_STATS: readonly { readonly to: number; readonly suffix: string; readonly label: string }[] = [
+  { to: 10, suffix: '+', label: 'Years Exp' },
+  { to: 34, suffix: '', label: 'Games Shipped' },
+  { to: 8, suffix: '', label: 'Live Slots' },
+  { to: 7, suffix: '', label: 'Markets' },
 ];
 
 const CULTURE_VALUES: readonly { readonly tag: string; readonly text: string }[] = [
@@ -85,7 +85,7 @@ function LeadershipCard() {
               </span>
             </div>
           </div>
-          <div style={{
+          <div className="pulse-node" style={{
             position: 'absolute', bottom: -2, right: -2,
             width: 14, height: 14, borderRadius: '50%',
             background: 'var(--color-live)', border: '2px solid var(--color-void-800)',
@@ -157,7 +157,10 @@ function TeamStatsCard() {
         {TEAM_STATS.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 4vw, 28px)' }}>
             {i > 0 && <Divider vertical />}
-            <Stat value={s.value} label={s.label} accent={i === 0} />
+            <div className="stat">
+              <CountUp className={i === 0 ? 'stat__value stat__value--accent' : 'stat__value'} to={s.to} suffix={s.suffix} />
+              <span className="stat__label">{s.label}</span>
+            </div>
           </div>
         ))}
       </div>
@@ -169,11 +172,11 @@ function CultureCard() {
   return (
     <div className="card">
       <span className="card__label">How We Work</span>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 4 }}>
         {CULTURE_VALUES.map((v) => (
-          <div key={v.tag}>
-            <h3 className="card__title" style={{ fontSize: '0.95rem', marginBottom: 4 }}>{v.tag}</h3>
-            <p className="body-text">{v.text}</p>
+          <div key={v.tag} className="card card--hover" style={{ padding: '0.8rem 0.9rem' }}>
+            <h3 className="card__title" style={{ fontSize: '0.92rem', marginBottom: 4 }}>{v.tag}</h3>
+            <p className="body-text" style={{ fontSize: '0.82rem' }}>{v.text}</p>
           </div>
         ))}
       </div>
@@ -203,10 +206,10 @@ export function TeamSection() {
         title="Built by people who understand the game"
         lede="Deep expertise in game mathematics, WebGL rendering, distributed systems, and crypto-native product design — a small senior team shipping titles played by hundreds of thousands daily."
       />
-      <LeadershipCard />
-      <TeamStatsCard />
-      <CultureCard />
-      <JoinTeamCard />
+      <Reveal delay={0}><LeadershipCard /></Reveal>
+      <Reveal delay={0.08}><TeamStatsCard /></Reveal>
+      <Reveal delay={0.12}><CultureCard /></Reveal>
+      <Reveal delay={0.16}><JoinTeamCard /></Reveal>
     </SectionWrapper>
   );
 }

@@ -103,7 +103,10 @@
   flex-shrink: 0;
   perspective: 1800px;
   transform-style: preserve-3d;
+  touch-action: none;   /* horizontal drag drives navigation, not page scroll */
+  cursor: grab;
 }
+.coverflow__stage:active { cursor: grabbing; }
 
 .cf-card {
   position: absolute;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, Play, LayoutGrid, Layers } from 'lucide-react';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
@@ -135,6 +135,37 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
     }
   }, [go]);
 
+  // ── Pointer drag / swipe — grab the deck and slide it ───────────────────────
+  const STEP = 170; // px of drag per card step
+  const stageRef = useRef<HTMLDivElement>(null);
+  const dragStartX = useRef(0);
+  const dragging = useRef(false);
+  const dragged = useRef(false); // true once moved enough — suppresses the ending click
+
+  const onPointerDown = useCallback((e: React.PointerEvent) => {
+    dragging.current = true;
+    dragged.current = false;
+    dragStartX.current = e.clientX;
+    const el = stageRef.current;
+    if (el) { el.style.transition = 'none'; el.setPointerCapture?.(e.pointerId); }
+  }, []);
+  const onPointerMove = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    const dx = Math.max(-STEP * 3, Math.min(STEP * 3, e.clientX - dragStartX.current));
+    if (Math.abs(dx) > 8) dragged.current = true;
+    const el = stageRef.current;
+    if (el) el.style.transform = `translateX(${dx}px)`;
+  }, []);
+  const onPointerUp = useCallback((e: React.PointerEvent) => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    const dx = e.clientX - dragStartX.current;
+    const el = stageRef.current;
+    if (el) { el.style.transition = 'transform 0.4s var(--ease-out-expo)'; el.style.transform = 'translateX(0px)'; }
+    const steps = Math.round(dx / STEP);
+    if (steps !== 0) { soundEngine.click(); setActive((a) => clamp(a - steps)); }
+  }, [clamp]);
+
   const activeGame = list[active];
 
   return (
@@ -174,61 +205,76 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
         </div>
       </header>
 
+      <AnimatePresence mode="wait">
       {view === 'coverflow' ? (
-      <div className="coverflow__body">
-      <div className="coverflow__stage" aria-hidden={loading ? true : undefined}>
-        {!loading && list.map((g, i) => {
-          const offset = i - active;
-          if (Math.abs(offset) > WINDOW) return null;
-          return (
-            <CoverflowCard
-              key={g.id}
-              game={g}
-              offset={offset}
-              onActivate={() => { soundEngine.click(); setActive(i); }}
-              onPlay={() => playGame(g)}
-            />
-          );
-        })}
-        {loading && <div className="coverflow__loading">Loading catalogue…</div>}
-        {!loading && list.length === 0 && <div className="coverflow__loading">No titles in this category</div>}
-      </div>
-
-      {activeGame && (
-        <motion.div className="coverflow__info" key={activeGame.id}
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          <span className="coverflow__tag">{activeGame.category === 'slot' ? 'Gladiator Original' : 'MetaWin Original'}</span>
-          <h2 className="coverflow__title">{activeGame.title}</h2>
-          <p className="coverflow__desc">{activeGame.description}</p>
-          <div className="coverflow__meta">
-            {activeGame.genre && <span className="coverflow__chip">{activeGame.genre}</span>}
-            {activeGame.volatility && <span className="coverflow__chip">{activeGame.volatility} volatility</span>}
-            {activeGame.rtp != null && <span className="coverflow__rtp">RTP {activeGame.rtp}%</span>}
+        <motion.div key="cf-view" className="coverflow__body"
+          initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
+          <div
+            ref={stageRef}
+            className="coverflow__stage"
+            data-cursor="DRAG"
+            aria-hidden={loading ? true : undefined}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerLeave={onPointerUp}
+          >
+            {!loading && list.map((g, i) => {
+              const offset = i - active;
+              if (Math.abs(offset) > WINDOW) return null;
+              return (
+                <CoverflowCard
+                  key={g.id}
+                  game={g}
+                  offset={offset}
+                  onActivate={() => { if (dragged.current) return; soundEngine.click(); setActive(i); }}
+                  onPlay={() => { if (dragged.current) return; playGame(g); }}
+                />
+              );
+            })}
+            {loading && <div className="coverflow__loading">Loading catalogue…</div>}
+            {!loading && list.length === 0 && <div className="coverflow__loading">No titles in this category</div>}
           </div>
-          <button type="button" className="btn btn--primary coverflow__play" data-cursor="PLAY" onClick={() => playGame(activeGame)}>
-            <Play size={15} /> Play Demo
-          </button>
-        </motion.div>
-      )}
 
-      <nav className="coverflow__nav" aria-label="Browse games">
-        <button type="button" className="coverflow__arrow" data-cursor="PREV" aria-label="Previous" onClick={() => go(-1)} disabled={active === 0}>
-          <ChevronLeft size={22} />
-        </button>
-        <span className="coverflow__count">{list.length ? active + 1 : 0} / {list.length}</span>
-        <button type="button" className="coverflow__arrow" data-cursor="NEXT" aria-label="Next" onClick={() => go(1)} disabled={active >= list.length - 1}>
-          <ChevronRight size={22} />
-        </button>
-      </nav>
-      </div>
+          {activeGame && (
+            <motion.div className="coverflow__info" key={activeGame.id}
+              initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
+              <span className="coverflow__tag">{activeGame.category === 'slot' ? 'Gladiator Original' : 'MetaWin Original'}</span>
+              <h2 className="coverflow__title">{activeGame.title}</h2>
+              <p className="coverflow__desc">{activeGame.description}</p>
+              <div className="coverflow__meta">
+                {activeGame.genre && <span className="coverflow__chip">{activeGame.genre}</span>}
+                {activeGame.volatility && <span className="coverflow__chip">{activeGame.volatility} volatility</span>}
+                {activeGame.rtp != null && <span className="coverflow__rtp">RTP {activeGame.rtp}%</span>}
+              </div>
+              <button type="button" className="btn btn--primary coverflow__play" data-cursor="PLAY" onClick={() => playGame(activeGame)}>
+                <Play size={15} /> Play Demo
+              </button>
+            </motion.div>
+          )}
+
+          <nav className="coverflow__nav" aria-label="Browse games">
+            <button type="button" className="coverflow__arrow" data-cursor="PREV" aria-label="Previous" onClick={() => go(-1)} disabled={active === 0}>
+              <ChevronLeft size={22} />
+            </button>
+            <span className="coverflow__count">{list.length ? active + 1 : 0} / {list.length}</span>
+            <button type="button" className="coverflow__arrow" data-cursor="NEXT" aria-label="Next" onClick={() => go(1)} disabled={active >= list.length - 1}>
+              <ChevronRight size={22} />
+            </button>
+          </nav>
+        </motion.div>
       ) : (
-        <div className="coverflow__grid-scroll">
+        <motion.div key="grid-view" className="coverflow__grid-scroll"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}>
           <div className="coverflow__grid">
             {!loading && list.map((g, i) => <GameCard key={g.id} game={g} index={i} onPlayGame={NOOP} />)}
           </div>
           {!loading && list.length === 0 && <div className="coverflow__loading">No titles in this category</div>}
-        </div>
+        </motion.div>
       )}
+      </AnimatePresence>
     </motion.div>
   );
 }
