@@ -69,6 +69,37 @@ function DeckCard({ game, cellW, cellH, target, grid, centre, onClick }: DeckCar
   );
 }
 
+// Landscape key-art showcase for the focused game, shown at its TRUE proportions
+// (never cropped). Only games that actually ship landscape art get a banner —
+// games without it (and any that fail to load) render nothing. Re-keyed per game
+// so the art crossfades as the focus changes.
+function HeroBanner({ game, onPlay }: { readonly game: Game; readonly onPlay: () => void }) {
+  const [failed, setFailed] = useState(false);
+  if (!game.landscapeImage || failed) return null;
+  return (
+    <motion.div
+      className="coverflow__hero"
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+    >
+      <img
+        className="coverflow__hero-art"
+        src={game.landscapeImage}
+        alt={`${game.title} key art`}
+        draggable={false}
+        onError={() => setFailed(true)}
+      />
+      <div className="coverflow__hero-actions">
+        {game.rtp != null && <span className="coverflow__rtp">RTP {game.rtp}%</span>}
+        <button type="button" className="btn btn--primary coverflow__play" data-cursor="PLAY" onClick={onPlay}>
+          <Play size={15} /> Play Demo
+        </button>
+      </div>
+    </motion.div>
+  );
+}
+
 interface GameCoverflowProps {
   readonly games: readonly Game[];
   readonly loading: boolean;
@@ -176,12 +207,19 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
     if (view !== 'coverflow') return;
     dragging.current = true; dragged.current = false; dragStartX.current = e.clientX;
     const el = deckRef.current;
-    if (el) { el.style.transition = 'none'; el.setPointerCapture?.(e.pointerId); }
+    // NB: do NOT capture the pointer here — capturing retargets the synthesized
+    // `click` to the deck, so a card tap would never reach the card's onClick.
+    if (el) el.style.transition = 'none';
   }, [view]);
   const onPointerMove = useCallback((e: React.PointerEvent) => {
     if (!dragging.current) return;
     const dx = Math.max(-STEP * 3, Math.min(STEP * 3, e.clientX - dragStartX.current));
-    if (Math.abs(dx) > 8) dragged.current = true;
+    // Capture only once a real drag starts, so taps stay taps and drags keep
+    // tracking even if the pointer leaves the deck.
+    if (Math.abs(dx) > 8 && !dragged.current) {
+      dragged.current = true;
+      deckRef.current?.setPointerCapture?.(e.pointerId);
+    }
     const el = deckRef.current;
     if (el) el.style.transform = `translateX(${dx}px)`;
   }, []);
@@ -190,6 +228,7 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
     dragging.current = false;
     const dx = e.clientX - dragStartX.current;
     const el = deckRef.current;
+    if (el?.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
     if (el) { el.style.transition = 'transform 0.35s var(--ease-out-expo)'; el.style.transform = 'translateX(0px)'; }
     const steps = Math.round(dx / STEP);
     if (steps !== 0) { soundEngine.click(); setActive((a) => clamp(a - steps)); }
@@ -268,22 +307,13 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
         {!loading && list.length === 0 && <div className="coverflow__loading">No titles in this category</div>}
       </div>
 
-      {/* Active-game info + nav — carousel only */}
-      {!grid && activeGame && (
-        <motion.div className="coverflow__info" key={activeGame.id}
-          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}>
-          <span className="coverflow__tag">{activeGame.category === 'slot' ? 'Gladiator Original' : 'MetaWin Original'}</span>
-          <h2 className="coverflow__title">{activeGame.title}</h2>
-          <p className="coverflow__desc">{activeGame.description}</p>
-          <div className="coverflow__meta">
-            {activeGame.genre && <span className="coverflow__chip">{activeGame.genre}</span>}
-            {activeGame.volatility && <span className="coverflow__chip">{activeGame.volatility} volatility</span>}
-            {activeGame.rtp != null && <span className="coverflow__rtp">RTP {activeGame.rtp}%</span>}
-          </div>
-          <button type="button" className="btn btn--primary coverflow__play" data-cursor="PLAY" onClick={() => playGame(activeGame)}>
-            <Play size={15} /> Play Demo
-          </button>
-        </motion.div>
+      {/* Reserved banner zone (carousel only) — fixed height so the deck never
+          resizes and the fan never shifts vertically, whether or not the focused
+          game shows a banner. Re-keyed by id so the art crossfades on focus. */}
+      {!grid && (
+        <div className="coverflow__hero-zone">
+          {activeGame && <HeroBanner key={activeGame.id} game={activeGame} onPlay={() => playGame(activeGame)} />}
+        </div>
       )}
 
       {!grid && (

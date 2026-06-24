@@ -188,7 +188,7 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
         <GameGrid games={[]} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} />
       ) : (
         <>
-          {featured && <FeaturedCard key={featured.id} game={featured} heroImage={FEATURED_HERO} onPlayGame={handlePlayGame} />}
+          {featured && <FeaturedCard key={featured.id} game={featured} heroImage={featured.landscapeImage ?? FEATURED_HERO} onPlayGame={handlePlayGame} />}
           {rest.length > 0 && <GameGrid games={rest} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} />}
         </>
       )}

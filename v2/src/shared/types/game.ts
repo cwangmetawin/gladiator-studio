@@ -6,6 +6,8 @@ export interface Game {
   readonly description: string;
   /** Cover art URL. Optional — a fallback cover renders when absent or broken. */
   readonly image?: string;
+  /** Wide (landscape) key-art — used for the featured spotlight. Optional. */
+  readonly landscapeImage?: string;
   readonly link: string;
   readonly timeline: string;
   readonly category: GameCategory;
