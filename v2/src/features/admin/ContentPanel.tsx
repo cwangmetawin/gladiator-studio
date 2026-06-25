@@ -183,7 +183,33 @@ function SelectField({ value, onChange, label, hint, options }: { readonly value
   );
 }
 
+// ─── Quarter + year period picker (roadmap timelines: "Q3 2023", "2025", "2026+") ───
+function PeriodField({ value, onChange, label, hint }: { readonly value: unknown; readonly onChange: (v: string) => void; readonly label: string; readonly hint?: string }) {
+  const raw = String(value ?? '').trim();
+  const m = raw.match(/^(Q[1-4])\s+(.*)$/i); // "Q3 2023" → quarter + remainder; else year-only
+  const quarter = m ? (m[1] ?? '').toUpperCase() : '';
+  const year = m ? (m[2] ?? '') : raw;
+  const compose = (q: string, y: string) => (q ? `${q} ${y}`.trim() : y.trim());
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <select className="select" style={{ flex: '0 0 132px' }} value={quarter} onChange={(e) => onChange(compose(e.target.value, year))} aria-label={`${label} — quarter`}>
+          <option value="">— (year only)</option>
+          <option value="Q1">Q1</option>
+          <option value="Q2">Q2</option>
+          <option value="Q3">Q3</option>
+          <option value="Q4">Q4</option>
+        </select>
+        <input className="input" style={{ flex: 1 }} type="text" value={year} placeholder="2025 · 2026+" onChange={(e) => onChange(compose(quarter, e.target.value))} aria-label={`${label} — year`} />
+      </div>
+      {hint && <span className="hint">{hint}</span>}
+    </div>
+  );
+}
+
 function Field({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
+  if (def.type === 'period') return <PeriodField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
   if (def.type === 'select') return <SelectField value={value} onChange={onChange} label={def.label} hint={def.hint} options={def.options ?? []} />;
   if (def.type === 'tags') return <TagInput value={value} onChange={onChange} label={def.label} hint={def.hint} />;
   if (def.type === 'bullets') return <BulletEditor value={value} onChange={onChange} label={def.label} hint={def.hint} itemLabel={def.itemLabel} />;

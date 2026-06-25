@@ -9,7 +9,7 @@ import journeyDefault from './journeyDefault.json';
 // falls back to. Fields can be scalars or `list`s of sub-objects (e.g. team
 // members), so any page can be edited to its own structure.
 
-export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'list' | 'tags' | 'bullets' | 'select';
+export type FieldType = 'text' | 'textarea' | 'number' | 'image' | 'list' | 'tags' | 'bullets' | 'select' | 'period';
 
 export interface FieldDef {
   readonly key: string;
@@ -134,7 +134,7 @@ export const SECTIONS: readonly SectionSchema[] = [
       {
         key: 'milestones', label: 'Milestones', type: 'list', itemLabel: 'Milestone',
         fields: [
-          { key: 'date', label: 'Date', type: 'text' },
+          { key: 'date', label: 'Date', type: 'period', hint: 'Pick a quarter (or — for year-only), e.g. “Q3 2023” or “2025”.' },
           { key: 'title', label: 'Title', type: 'text' },
           { key: 'description', label: 'Description', type: 'textarea' },
           { key: 'status', label: 'Status', type: 'select', options: ['COMPLETE', 'ACTIVE', 'QUEUED'] },
