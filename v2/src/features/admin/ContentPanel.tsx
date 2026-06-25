@@ -7,6 +7,7 @@ function blankItem(fields: readonly FieldDef[]): SectionValue {
   return Object.fromEntries(fields.map((f) => {
     if (f.type === 'number') return [f.key, 0];
     if (f.type === 'tags' || f.type === 'bullets') return [f.key, []];
+    if (f.type === 'select') return [f.key, f.options?.[0] ?? ''];
     return [f.key, ''];
   }));
 }
@@ -165,7 +166,25 @@ function ImageField({ value, onChange, label, hint }: { readonly value: unknown;
   );
 }
 
+// ─── Fixed-choice dropdown (e.g. milestone status) ───────────────────────────
+function SelectField({ value, onChange, label, hint, options }: { readonly value: unknown; readonly onChange: (v: string) => void; readonly label: string; readonly hint?: string; readonly options: readonly string[] }) {
+  const v = String(value ?? '');
+  const known = options.includes(v);
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <select className="select" value={known ? v : ''} onChange={(e) => onChange(e.target.value)}>
+        {/* Surface an empty or legacy/typo'd value so it's visible until a valid one is picked. */}
+        {!known && <option value="" disabled>{v ? `${v} — pick a valid value` : 'Select…'}</option>}
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+      {hint && <span className="hint">{hint}</span>}
+    </div>
+  );
+}
+
 function Field({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
+  if (def.type === 'select') return <SelectField value={value} onChange={onChange} label={def.label} hint={def.hint} options={def.options ?? []} />;
   if (def.type === 'tags') return <TagInput value={value} onChange={onChange} label={def.label} hint={def.hint} />;
   if (def.type === 'bullets') return <BulletEditor value={value} onChange={onChange} label={def.label} hint={def.hint} itemLabel={def.itemLabel} />;
   if (def.type === 'image') return <ImageField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
