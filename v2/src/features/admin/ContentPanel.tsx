@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
 import { SECTIONS, fetchSiteContent, saveSection, importDefaultContent, type ContentMap, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
 import { lines } from '@/shared/utils/text';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -229,6 +229,50 @@ function Field({ def, value, onChange }: { readonly def: FieldDef; readonly valu
   );
 }
 
+// Collapsible accordion for sections with many fields (e.g. Team's lead profile).
+function FieldGroup({ title, defaultOpen, children }: { readonly title: string; readonly defaultOpen?: boolean; readonly children: ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="field-group col-span">
+      <button type="button" className="field-group__head" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <span className="field-group__caret" aria-hidden="true">{open ? '▾' : '▸'}</span>{title}
+      </button>
+      {open && <div className="form-grid field-group__body">{children}</div>}
+    </div>
+  );
+}
+
+// Render fields, collapsing consecutive same-group fields into one accordion.
+function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, onField: (key: string, v: unknown) => void): ReactNode[] {
+  const out: ReactNode[] = [];
+  let i = 0;
+  while (i < fields.length) {
+    const cur = fields[i];
+    if (!cur) break;
+    if (cur.group) {
+      const g = cur.group;
+      const groupFields: FieldDef[] = [];
+      let open = false;
+      while (i < fields.length) {
+        const f = fields[i];
+        if (!f || f.group !== g) break;
+        if (f.groupOpen) open = true;
+        groupFields.push(f);
+        i++;
+      }
+      out.push(
+        <FieldGroup key={`group-${g}`} title={g} defaultOpen={open}>
+          {groupFields.map((gf) => <Field key={gf.key} def={gf} value={value[gf.key]} onChange={(v) => onField(gf.key, v)} />)}
+        </FieldGroup>,
+      );
+    } else {
+      out.push(<Field key={cur.key} def={cur} value={value[cur.key]} onChange={(v) => onField(cur.key, v)} />);
+      i++;
+    }
+  }
+  return out;
+}
+
 function SectionCard({ schema, initial }: { readonly schema: SectionSchema; readonly initial: SectionValue }) {
   // Normalise the seed so value & saved start in the canonical shape (arrays for
   // tags/bullets, numbers for number fields) and the dirty-check compares like-for-like.
@@ -258,9 +302,7 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
         <button className="btn btn--primary btn--sm" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}</button>
       </div>
       <div className="form-grid">
-        {schema.fields.map((f) => (
-          <Field key={f.key} def={f} value={value[f.key]} onChange={(v) => setValue((p) => ({ ...p, [f.key]: v }))} />
-        ))}
+        {renderSectionFields(schema.fields, value, (k, v) => setValue((p) => ({ ...p, [k]: v })))}
       </div>
     </div>
   );

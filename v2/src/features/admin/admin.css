@@ -144,6 +144,17 @@ button { font-family: inherit; }
 .list-item__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 12px; font-weight: 700; color: var(--a-dim); }
 .list-empty { font-size: 12px; color: var(--a-mute); padding: 6px 2px; }
 
+/* Collapsible field group (accordion) */
+.field-group { border: 1px solid var(--a-line); border-radius: 10px; overflow: hidden; }
+.field-group__head {
+  width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
+  padding: 11px 14px; background: var(--a-panel-2); border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: var(--a-text);
+}
+.field-group__head:hover { background: var(--a-line); }
+.field-group__caret { color: var(--a-mute); font-size: 11px; width: 12px; flex: 0 0 auto; }
+.field-group__body { padding: 14px; }
+
 /* Chip / tag input */
 .chip-input {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center; cursor: text; min-height: 40px;

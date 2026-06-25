@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
@@ -111,6 +113,8 @@ function LeadershipCard({ team }: { readonly team: TeamData }) {
     { href: team.lead_email, label: 'Send email', icon: <Mail size={16} /> },
     { href: team.lead_github, label: 'GitHub organisation', icon: <Github size={16} /> },
   ].filter((s) => s.href);
+  const [expanded, setExpanded] = useState(false);
+  const hasMore = bio.length > 1 || missions.length > 0;
   return (
     <div className="card" role="article" aria-label={`Leadership: ${team.lead_name}`}>
       <span className="card__label">Leadership</span>
@@ -162,10 +166,8 @@ function LeadershipCard({ team }: { readonly team: TeamData }) {
         </div>
       </div>
 
-      {/* Bio */}
-      {bio.map((p, i) => (
-        <p key={i} className="body-text" style={{ marginBottom: i < bio.length - 1 ? 12 : 0, overflowWrap: 'anywhere' }}>{p}</p>
-      ))}
+      {/* Intro — first paragraph always visible; the rest expands on demand */}
+      {bio[0] && <p className="body-text" style={{ overflowWrap: 'anywhere' }}>{bio[0]}</p>}
 
       {expertise.length > 0 && (
         <>
@@ -179,19 +181,42 @@ function LeadershipCard({ team }: { readonly team: TeamData }) {
         </>
       )}
 
-      {missions.length > 0 && (
-        <>
-          <Divider className="my-4" />
-          <span className="card__label">Highlights</span>
-          <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-            {missions.map((m) => (
-              <li key={m} style={{ display: 'flex', gap: 10 }}>
-                <span aria-hidden="true" style={{ color: 'var(--color-holo-300)', fontFamily: 'var(--font-mono)', flexShrink: 0, lineHeight: 1.65 }}>—</span>
-                <span className="body-text" style={{ overflowWrap: 'anywhere' }}>{m}</span>
-              </li>
+      <AnimatePresence initial={false}>
+        {expanded && hasMore && (
+          <motion.div
+            key="more"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
+            style={{ overflow: 'hidden' }}
+          >
+            {bio.slice(1).map((p, i) => (
+              <p key={i} className="body-text" style={{ marginTop: 12, overflowWrap: 'anywhere' }}>{p}</p>
             ))}
-          </ul>
-        </>
+            {missions.length > 0 && (
+              <>
+                <Divider className="my-4" />
+                <span className="card__label">Highlights</span>
+                <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {missions.map((m) => (
+                    <li key={m} style={{ display: 'flex', gap: 10 }}>
+                      <span aria-hidden="true" style={{ color: 'var(--color-holo-300)', fontFamily: 'var(--font-mono)', flexShrink: 0, lineHeight: 1.65 }}>—</span>
+                      <span className="body-text" style={{ overflowWrap: 'anywhere' }}>{m}</span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {hasMore && (
+        <button type="button" onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}
+          style={{ marginTop: 14, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-holo-300)', fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', letterSpacing: '0.14em', textTransform: 'uppercase', padding: 0 }}>
+          {expanded ? 'Show less ▴' : 'Read more ▾'}
+        </button>
       )}
 
       {socials.length > 0 && (

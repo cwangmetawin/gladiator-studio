@@ -18,6 +18,8 @@ export interface FieldDef {
   readonly hint?: string;
   readonly itemLabel?: string;   // list: singular noun e.g. "Member"
   readonly fields?: readonly FieldDef[]; // list: item sub-fields
+  readonly group?: string;       // consecutive same-group fields → a collapsible accordion
+  readonly groupOpen?: boolean;  // default-open this group
 }
 
 export interface SectionSchema {
@@ -54,19 +56,19 @@ export const SECTIONS: readonly SectionSchema[] = [
     key: 'team',
     label: 'Team',
     fields: [
-      { key: 'lead_name', label: 'Lead — name', type: 'text' },
-      { key: 'lead_role', label: 'Lead — role', type: 'text' },
-      { key: 'lead_callsign', label: 'Lead — callsign', type: 'text' },
-      { key: 'lead_location', label: 'Lead — location', type: 'text' },
-      { key: 'lead_company', label: 'Lead — company', type: 'text' },
-      { key: 'lead_experience', label: 'Lead — experience', type: 'text' },
-      { key: 'lead_initials', label: 'Lead — initials', type: 'text' },
-      { key: 'lead_bio', label: 'Lead — bio', type: 'textarea', hint: 'Separate paragraphs with a blank line.' },
-      { key: 'lead_expertise', label: 'Lead — expertise', type: 'tags' },
-      { key: 'lead_missions', label: 'Lead — highlights', type: 'bullets', itemLabel: 'Highlight' },
-      { key: 'lead_linkedin', label: 'Lead — LinkedIn URL', type: 'text' },
-      { key: 'lead_email', label: 'Lead — email', type: 'text' },
-      { key: 'lead_github', label: 'Lead — GitHub URL', type: 'text' },
+      { key: 'lead_name', label: 'Name', type: 'text', group: 'Lead profile', groupOpen: true },
+      { key: 'lead_role', label: 'Role', type: 'text', group: 'Lead profile' },
+      { key: 'lead_callsign', label: 'Callsign', type: 'text', group: 'Lead profile' },
+      { key: 'lead_location', label: 'Location', type: 'text', group: 'Lead profile' },
+      { key: 'lead_company', label: 'Company', type: 'text', group: 'Lead profile' },
+      { key: 'lead_experience', label: 'Experience', type: 'text', group: 'Lead profile' },
+      { key: 'lead_initials', label: 'Initials', type: 'text', group: 'Lead profile' },
+      { key: 'lead_bio', label: 'Bio', type: 'textarea', hint: 'Separate paragraphs with a blank line.', group: 'Lead profile' },
+      { key: 'lead_expertise', label: 'Expertise', type: 'tags', group: 'Lead profile' },
+      { key: 'lead_missions', label: 'Highlights', type: 'bullets', itemLabel: 'Highlight', group: 'Lead profile' },
+      { key: 'lead_linkedin', label: 'LinkedIn URL', type: 'text', group: 'Lead profile' },
+      { key: 'lead_email', label: 'Email', type: 'text', group: 'Lead profile' },
+      { key: 'lead_github', label: 'GitHub URL', type: 'text', group: 'Lead profile' },
       {
         key: 'members', label: 'Additional members', type: 'list', itemLabel: 'Member',
         hint: 'Shown as a grid beneath the lead. Add as many as you like.',
