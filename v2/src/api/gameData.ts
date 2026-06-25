@@ -1,5 +1,6 @@
 import type { Game, GameData, GameCategory } from '@/shared/types/game';
 import { GameDataResponseSchema } from './schemas';
+import { fetchCatalogueFromDb } from './catalogueDb';
 
 // ─── Game URL builders (from feeder providerRef) ─────────────────────────────
 const GLADIATOR_CDN = 'https://cdn-dev.gladiatorgames.io/games';
@@ -160,6 +161,10 @@ function mergeCatalogue(curated: readonly Game[], live: readonly Game[]): Game[]
  * Falls back to the curated list on network or validation failure.
  */
 export async function fetchGameData(): Promise<GameData> {
+  // Supabase (admin-managed) is the source of truth when it has any games;
+  // otherwise fall back to the live lobby feed merged onto the curated roster.
+  const fromDb = await fetchCatalogueFromDb();
+  if (fromDb) return fromDb;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

@@ -2,6 +2,13 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Reveal } from '@/shared/ui';
+import { useSection } from '@/shared/content/SiteContentContext';
+import journeyDefault from '@/api/journeyDefault.json';
+
+interface JourneyContent {
+  readonly milestones: readonly { readonly date: string; readonly title: string; readonly description: string; readonly status: string }[];
+}
+const VALID_STATUS = new Set(['COMPLETE', 'ACTIVE', 'QUEUED']);
 
 interface Mission {
   readonly date: string;
@@ -10,50 +17,6 @@ interface Mission {
   readonly status: 'COMPLETE' | 'ACTIVE' | 'QUEUED';
 }
 
-const MISSIONS: readonly Mission[] = [
-  {
-    date: 'Q3 2023',
-    title: 'STUDIO FOUNDED',
-    description: 'Gladiator Studio established as in-house game division of MetaWin. Mandate: build crypto-native, high-volatility slot content for MetaWin and third-party operators.',
-    status: 'COMPLETE',
-  },
-  {
-    date: 'Q4 2023',
-    title: 'FIRST TITLE DEPLOYED',
-    description: '“To The Top” launched as inaugural slot — introduced the studio signature escalating-multiplier mechanic and established ULTRA-volatility market positioning.',
-    status: 'COMPLETE',
-  },
-  {
-    date: 'Q1 2024',
-    title: 'CATALOGUE EXPANSION',
-    description: 'Five additional slots shipped: Legend of Tartarus, Rise of Cetus, Star Nudge, Disco Dazzle, Sweety Treaty. Gladiator cemented as a prolific, quality-first content producer.',
-    status: 'COMPLETE',
-  },
-  {
-    date: 'Q2 2024',
-    title: 'OPERATOR PARTNERSHIPS',
-    description: 'Distribution agreements secured with Rolla and WowVegas. Gladiator catalogue extended beyond MetaWin to third-party platforms — B2B commercial model validated.',
-    status: 'COMPLETE',
-  },
-  {
-    date: 'Q4 2024',
-    title: 'INFRASTRUCTURE SCALE',
-    description: 'Feeder system upgraded for global real-time bet data. Live integration across 7 markets with sub-100ms round-trip performance benchmarks met in production.',
-    status: 'COMPLETE',
-  },
-  {
-    date: '2025',
-    title: '34 GAMES MILESTONE',
-    description: '8 Gladiator slots + 26 MetaWin Originals live across the platform. Full catalogue available through single API integration for all operator partners.',
-    status: 'COMPLETE',
-  },
-  {
-    date: '2026+',
-    title: 'GLOBAL ROLLOUT',
-    description: 'Active expansion into new regulated markets. Additional titles in production. Aggregator partnerships in negotiation. Entering highest-output phase.',
-    status: 'ACTIVE',
-  },
-] as const;
 
 /** Maps a milestone status to its semantic accent token + display label. */
 const STATUS_CONFIG: Record<Mission['status'], { readonly color: string; readonly label: string }> = {
@@ -126,6 +89,15 @@ function MilestoneRow({ m, index, isLast }: { readonly m: Mission; readonly inde
 }
 
 export function JourneySection() {
+  const journey = useSection('journey', journeyDefault as JourneyContent);
+  const milestones: Mission[] = (journey.milestones ?? [])
+    .filter((m) => m && m.title)
+    .map((m) => ({
+      date: m.date,
+      title: m.title,
+      description: m.description,
+      status: (VALID_STATUS.has(m.status) ? m.status : 'QUEUED') as Mission['status'],
+    }));
   return (
     <SectionWrapper id="journey">
       <SectionHeading
@@ -136,8 +108,8 @@ export function JourneySection() {
       />
 
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-        {MISSIONS.map((m, i) => (
-          <MilestoneRow key={m.date} m={m} index={i} isLast={i === MISSIONS.length - 1} />
+        {milestones.map((m, i) => (
+          <MilestoneRow key={`${m.date}-${i}`} m={m} index={i} isLast={i === milestones.length - 1} />
         ))}
       </ol>
     </SectionWrapper>

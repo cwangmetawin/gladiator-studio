@@ -7,6 +7,8 @@ import { Gamepad2, Info, Users, Map as MapIcon, Radio, Briefcase, Mail } from 'l
 import { Eyebrow, Button, Divider } from '@/shared/ui';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { useSection } from '@/shared/content/SiteContentContext';
+import { useStudioStats } from '@/shared/content/StudioStats';
 import './hero.css';
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -27,12 +29,6 @@ const NODES: readonly {
   { label: 'Live',    panelId: 'live',    icon: Radio,     x: 26, y: 72, meta: 'Real-time' },
   { label: 'Careers', panelId: 'careers', icon: Briefcase, x: 74, y: 70, meta: 'Join us' },
   { label: 'Contact', panelId: 'contact', icon: Mail,      x: 50, y: 81, meta: 'Partner' },
-] as const;
-
-const STATS = [
-  { end: 34, decimals: 0, suffix: '', label: 'Games', accent: true },
-  { end: 97.5, decimals: 1, suffix: '%', label: 'Max RTP', accent: false },
-  { end: 7, decimals: 0, suffix: '', label: 'Markets', accent: false },
 ] as const;
 
 const prefersReducedMotion = () =>
@@ -91,10 +87,18 @@ function HudTicks() {
 // ─── Central identity hub ─────────────────────────────────────────────────────
 
 function IdentityHub({ compact }: { readonly compact?: boolean }) {
+  const hero = useSection('hero', { tagline: 'A MetaWin Studio' });
+  // Games = auto-counted from the catalogue; RTP/Markets = shared Studio Stats.
+  const s = useStudioStats();
+  const stats = [
+    { end: s.games, decimals: 0, suffix: '', label: 'Games', accent: true },
+    { end: s.rtp, decimals: 1, suffix: '%', label: 'Max RTP', accent: false },
+    { end: s.markets, decimals: 0, suffix: '', label: 'Markets', accent: false },
+  ];
   return (
     <>
       <Eyebrow dot>
-        A MetaWin Studio
+        {String(hero.tagline)}
         <span aria-hidden="true" style={{ color: 'var(--color-text-dim)' }}>—</span>
         <a href="https://metawin.com" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-holo-300)', textDecorationLine: 'underline', textUnderlineOffset: 3 }}>metawin.com</a>
       </Eyebrow>
@@ -107,7 +111,7 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
       </h1>
 
       <div aria-label="34 games, 97.5% max RTP, 7 markets" style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
-        {STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
             {i > 0 && <Divider vertical />}
             <CountStat {...s} delay={700 + i * 160} />

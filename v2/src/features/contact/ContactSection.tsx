@@ -4,6 +4,7 @@ import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Reveal } from '@/shared/ui';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
+import { useSection } from '@/shared/content/SiteContentContext';
 
 type EnquiryType = '' | 'Game Integration' | 'Request a Demo' | 'Distribution Partnership' | 'Press and Media' | 'Careers' | 'Other';
 interface FormFields { readonly name: string; readonly company: string; readonly email: string; readonly enquiryType: EnquiryType; readonly message: string; }
@@ -45,6 +46,8 @@ function FieldError({ id, msg }: { readonly id: string; readonly msg: string | u
 }
 
 export function ContactSection() {
+  const { email } = useSection('contact', { email: CONTACT.email });
+  const channels = DIRECT_CHANNELS.map((c) => (c.label === 'Email' ? { ...c, value: email, href: `mailto:${email}` } : c));
   const [fields, setFields] = useState<FormFields>(() => {
     try { const raw = sessionStorage.getItem('contact-draft'); return raw ? { ...INITIAL_FORM, ...JSON.parse(raw) } : INITIAL_FORM; }
     catch { return INITIAL_FORM; }
@@ -112,7 +115,7 @@ export function ContactSection() {
       {/* Direct channels */}
       <Reveal delay={0.06}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
-        {DIRECT_CHANNELS.map((c) => (
+        {channels.map((c) => (
           <div key={c.label} className="card card--hover" style={{ padding: '0.7rem 0.85rem' }}>
             <span className="field-label" style={{ marginBottom: '0.25rem' }}>{c.label}</span>
             {c.href ? (

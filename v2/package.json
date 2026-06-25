@@ -13,6 +13,7 @@
     "@babylonjs/core": "^8.56.0",
     "@babylonjs/loaders": "^8.56.0",
     "@babylonjs/materials": "^8.56.0",
+    "@supabase/supabase-js": "^2.108.2",
     "framer-motion": "^12.0.0",
     "lucide-react": "^0.470.0",
     "react": "^19.0.0",

@@ -1,12 +1,14 @@
 import { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import '@/styles/index.css';
 import {
   X, ExternalLink, Volume2, VolumeOff, Menu, Maximize2,
   Gamepad2, Info, Users, Map, Radio, Briefcase, Mail,
 } from 'lucide-react';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { Hero } from '@/features/hero/Hero';
-import { fetchGameData } from '@/api/gameData';
+import { fetchGameData, GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
+import { CatalogueStatsProvider } from '@/shared/content/StudioStats';
 import type { GameData } from '@/shared/types/game';
 import { StarfieldCanvas } from '@/features/starfield/StarfieldCanvas';
 import { useFeederSocket } from '@/features/live-feed/useFeederSocket';
@@ -576,6 +578,13 @@ export function App() {
     return all.slice().sort((a, b) => b.timeline.localeCompare(a.timeline));
   }, [gameData]);
 
+  // Auto-derived studio counts (fallback to the curated roster while loading).
+  const counts = useMemo(() => {
+    const slots = gameData?.slotGames.length ?? GLADIATOR_SLOTS.length;
+    const originals = gameData?.miniGames.length ?? METAWIN_ORIGINALS.length;
+    return { games: slots + originals, slots, originals };
+  }, [gameData]);
+
   if (!verified) {
     return <AgeGate onVerify={verify} onReject={reject} rejected={!showGate} />;
   }
@@ -585,6 +594,7 @@ export function App() {
   }
 
   return (
+    <CatalogueStatsProvider counts={counts}>
     <MotionConfig reducedMotion="user">
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
       <a href="#main" className="skip-to-content">Skip to content</a>
@@ -682,5 +692,6 @@ export function App() {
       </AnimatePresence>
     </div>
     </MotionConfig>
+    </CatalogueStatsProvider>
   );
 }

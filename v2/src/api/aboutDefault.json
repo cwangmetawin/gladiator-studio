@@ -1,0 +1,42 @@
+{
+  "tech": "WebGL\nTypeScript\nPixi.js\nBabylon.js\nNode.js\nAWS\nGCP\nBigQuery",
+  "metrics": [
+    {
+      "value": 34,
+      "suffix": "",
+      "label": "Games"
+    },
+    {
+      "value": 97.5,
+      "suffix": "%",
+      "label": "Max RTP"
+    },
+    {
+      "value": 7,
+      "suffix": "",
+      "label": "Markets"
+    }
+  ],
+  "features": [
+    {
+      "tag": "Volatility",
+      "title": "ULTRA volatility, by design",
+      "body": "Every Gladiator game is built to ULTRA volatility specification. Our maths team calibrates each title for peak win ceilings that create the social moments high-value players seek — and that operators use to drive acquisition."
+    },
+    {
+      "tag": "Integrity",
+      "title": "Provably fair mathematics",
+      "body": "All Gladiator titles use certified RNG with full audit trails. RTPs are published, testable, and consistent across every integration. Compliance documentation ready on request for licensed jurisdictions."
+    },
+    {
+      "tag": "Infrastructure",
+      "title": "Powered by MetaWin infrastructure",
+      "body": "Games run on the same AWS and GCP infrastructure that handles MetaWin global casino traffic. Sub-100ms round-trip times, 99.99% uptime SLA, and real-time bet data via our feeder system across every integrated market."
+    },
+    {
+      "tag": "Integration",
+      "title": "One integration, full catalogue",
+      "body": "A single API connection gives operators access to all 8 Gladiator slots and 26 MetaWin Originals. JSON-based integration docs, a sandbox environment, and a dedicated technical account manager with every partner onboarding."
+    }
+  ]
+}

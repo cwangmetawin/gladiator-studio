@@ -1,0 +1,77 @@
+{
+  "apply_email": "cwang@metawin.inc",
+  "positions": [
+    {
+      "id": "lead-ai-game-engineer",
+      "title": "LEAD AI GAME ENGINEER",
+      "department": "Engineering — AI Division",
+      "location": "Remote / London",
+      "type": "Full-time",
+      "summary": "Lead the development of AI-powered game systems — the first role of its kind in iGaming.",
+      "description": "Architect intelligent game mechanics, ML-driven player experience optimization, and autonomous agent systems for next-generation slot titles. You'll build the AI infrastructure that gives Gladiator Studio its competitive edge — from LLM-powered content generation to real-time adaptive game balancing.",
+      "requirements": "5+ years game development with AI/ML integration\nStrong ML/AI background (PyTorch, TensorFlow, LLM APIs)\nExperience with autonomous agent systems and multi-agent orchestration\nReal-time systems and low-latency inference\nGame mathematics and RNG knowledge",
+      "niceToHave": "Experience with Claude API, OpenAI, or similar LLM platforms\nReinforcement learning for game balancing\niGaming regulatory compliance experience",
+      "applyUrl": "https://careers.arenaentertainment.com/jobs/7371186-lead-ai-game-engineer"
+    },
+    {
+      "id": "senior-pixijs-dev",
+      "title": "SENIOR PIXI.JS DEVELOPER",
+      "department": "Engineering",
+      "location": "London, UK (Hybrid)",
+      "type": "Full-time",
+      "summary": "Build the front-end rendering layer for ULTRA-volatility slot games played by hundreds of thousands of MetaWin users.",
+      "description": "Own the Pixi.js rendering pipeline for Gladiator slot titles — reel animation state machines, particle effects, symbol transitions, and bonus round sequences. Ship real titles to a production player base. Build new mechanics and push what the browser can do.",
+      "requirements": "5+ years JavaScript/TypeScript development\n3+ years Pixi.js in production game environment\nDeep understanding of WebGL and GPU-accelerated 2D rendering\nExperience shipping browser-based games\nStrong eye for animation quality and frame-rate performance",
+      "niceToHave": "Slot game mechanics experience (reels, paylines, bonus rounds)\nWebAssembly for performance-critical rendering paths\nOpen-source contributions (Pixi.js community valued)",
+      "applyUrl": "mailto:cwang@metawin.inc?subject=Application%20%E2%80%94%20Senior%20Pixi.js%20Developer"
+    },
+    {
+      "id": "game-math-engineer",
+      "title": "GAME MATHEMATICIAN / RNG SPECIALIST",
+      "department": "Mathematics & Compliance",
+      "location": "Remote (UK/EU)",
+      "type": "Full-time / Contract",
+      "summary": "Design the probability models and paytable mathematics for ULTRA-volatility slot titles.",
+      "description": "Own the mathematical design of Gladiator slots — RTP distributions, volatility profiles, feature trigger frequencies, and peak win ceilings. Validate maths through simulation (10^9+ rounds). Produce audit-ready documentation for operator partners.",
+      "requirements": "Degree in Mathematics, Statistics, or equivalent quantitative field\n3+ years slot game mathematics experience\nProficiency in simulation tools (custom or industry-standard)\nFamiliarity with regulatory RTP certification (MGA, UKGC)\nClear communication of mathematical designs to non-specialists",
+      "niceToHave": "Experience with provably fair / blockchain-based RNG\nBigQuery or similar for production telemetry analysis",
+      "applyUrl": "mailto:cwang@metawin.inc?subject=Application%20%E2%80%94%20Game%20Mathematician"
+    },
+    {
+      "id": "art-director",
+      "title": "ART DIRECTOR",
+      "department": "Creative",
+      "location": "London, UK (Hybrid)",
+      "type": "Full-time",
+      "summary": "Define the visual language of next-generation slot titles and lead the creative team.",
+      "description": "Set the visual standard for every new Gladiator title — concept and character design through to final asset delivery and in-engine integration. Manage artists and freelance contributors. Own creative briefs with game designers. Report directly to the CTO.",
+      "requirements": "7+ years game art direction with slot game portfolio\nFull game art pipeline: concept, 2D illustration, animation brief, UI\nExperience managing artists within production schedules\nKnowledge of Pixi.js or equivalent 2D game engine asset integration\nAbility to context-switch between multiple concurrent titles",
+      "niceToHave": "Crypto casino or social casino environment experience\nMotion design skills (After Effects or equivalent)\nUnderstanding of art style impact on player conversion",
+      "applyUrl": "mailto:cwang@metawin.inc?subject=Application%20%E2%80%94%20Art%20Director"
+    },
+    {
+      "id": "backend-engineer",
+      "title": "BACKEND ENGINEER",
+      "department": "Engineering",
+      "location": "Remote / London",
+      "type": "Full-time",
+      "summary": "Build and scale the game server infrastructure behind 34 live titles across 7 markets.",
+      "description": "Architect and maintain game backend services — bet processing, RNG integration, real-time feeder data pipeline, and operator API layer. Work with AWS and GCP across multiple regions. Sub-100ms round-trip is the baseline, not the goal.",
+      "requirements": "5+ years backend development (Node.js / TypeScript preferred)\nExperience with AWS (EC2, Lambda, CloudFront, RDS) or GCP\nStrong understanding of distributed systems and high-throughput APIs\nDatabase design and optimization (SQL + NoSQL)\nExperience with real-time data streaming",
+      "niceToHave": "iGaming or fintech backend experience\nBigQuery / data pipeline architecture\nBlockchain / crypto transaction processing",
+      "applyUrl": "mailto:cwang@metawin.inc?subject=Application%20%E2%80%94%20Backend%20Engineer"
+    },
+    {
+      "id": "qa-engineer",
+      "title": "QA ENGINEER",
+      "department": "Quality Assurance",
+      "location": "Remote / London",
+      "type": "Full-time",
+      "summary": "Ensure every game ships at the quality standard MetaWin players expect.",
+      "description": "Own the QA process for Gladiator slot titles — functional testing, RTP validation, performance benchmarking, cross-browser/device compatibility, and regression testing. Build automated test frameworks for game mechanics and integration endpoints.",
+      "requirements": "3+ years QA experience in gaming or interactive applications\nExperience with automated testing frameworks\nUnderstanding of game mechanics testing and edge cases\nCross-browser and mobile device testing expertise\nStrong attention to detail and systematic approach",
+      "niceToHave": "iGaming QA experience (slot games, RNG validation)\nPerformance profiling tools (Chrome DevTools, Lighthouse)\nStatistical validation of game mathematics",
+      "applyUrl": "mailto:cwang@metawin.inc?subject=Application%20%E2%80%94%20QA%20Engineer"
+    }
+  ]
+}

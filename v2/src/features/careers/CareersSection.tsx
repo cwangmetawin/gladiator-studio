@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, CountUp } from '@/shared/ui';
+import { useSection } from '@/shared/content/SiteContentContext';
+import { lines, safeHref } from '@/shared/utils/text';
+import careersDefault from '@/api/careersDefault.json';
 
 // ---------------------------------------------------------------------------
 // Types & constants
@@ -20,141 +23,20 @@ interface JobListing {
   readonly applyUrl: string;
 }
 
-const APPLY_EMAIL = 'cwang@metawin.inc';
+// Editable (DB) shape — requirements/niceToHave are newline strings.
+interface ContentPosition {
+  readonly id?: string;
+  readonly title: string;
+  readonly department: string;
+  readonly location: string;
+  readonly type: string;
+  readonly summary: string;
+  readonly description: string;
+  readonly requirements: string;
+  readonly niceToHave: string;
+  readonly applyUrl: string;
+}
 
-const JOB_LISTINGS: readonly JobListing[] = [
-  {
-    id: 'lead-ai-game-engineer',
-    title: 'LEAD AI GAME ENGINEER',
-    department: 'Engineering — AI Division',
-    location: 'Remote / London',
-    type: 'Full-time',
-    summary: 'Lead the development of AI-powered game systems — the first role of its kind in iGaming.',
-    description: "Architect intelligent game mechanics, ML-driven player experience optimization, and autonomous agent systems for next-generation slot titles. You'll build the AI infrastructure that gives Gladiator Studio its competitive edge — from LLM-powered content generation to real-time adaptive game balancing.",
-    requirements: [
-      '5+ years game development with AI/ML integration',
-      'Strong ML/AI background (PyTorch, TensorFlow, LLM APIs)',
-      'Experience with autonomous agent systems and multi-agent orchestration',
-      'Real-time systems and low-latency inference',
-      'Game mathematics and RNG knowledge',
-    ],
-    niceToHave: [
-      'Experience with Claude API, OpenAI, or similar LLM platforms',
-      'Reinforcement learning for game balancing',
-      'iGaming regulatory compliance experience',
-    ],
-    applyUrl: 'https://careers.arenaentertainment.com/jobs/7371186-lead-ai-game-engineer',
-  },
-  {
-    id: 'senior-pixijs-dev',
-    title: 'SENIOR PIXI.JS DEVELOPER',
-    department: 'Engineering',
-    location: 'London, UK (Hybrid)',
-    type: 'Full-time',
-    summary: 'Build the front-end rendering layer for ULTRA-volatility slot games played by hundreds of thousands of MetaWin users.',
-    description: 'Own the Pixi.js rendering pipeline for Gladiator slot titles — reel animation state machines, particle effects, symbol transitions, and bonus round sequences. Ship real titles to a production player base. Build new mechanics and push what the browser can do.',
-    requirements: [
-      '5+ years JavaScript/TypeScript development',
-      '3+ years Pixi.js in production game environment',
-      'Deep understanding of WebGL and GPU-accelerated 2D rendering',
-      'Experience shipping browser-based games',
-      'Strong eye for animation quality and frame-rate performance',
-    ],
-    niceToHave: [
-      'Slot game mechanics experience (reels, paylines, bonus rounds)',
-      'WebAssembly for performance-critical rendering paths',
-      'Open-source contributions (Pixi.js community valued)',
-    ],
-    applyUrl: `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Application — Senior Pixi.js Developer')}`,
-  },
-  {
-    id: 'game-math-engineer',
-    title: 'GAME MATHEMATICIAN / RNG SPECIALIST',
-    department: 'Mathematics & Compliance',
-    location: 'Remote (UK/EU)',
-    type: 'Full-time / Contract',
-    summary: 'Design the probability models and paytable mathematics for ULTRA-volatility slot titles.',
-    description: 'Own the mathematical design of Gladiator slots — RTP distributions, volatility profiles, feature trigger frequencies, and peak win ceilings. Validate maths through simulation (10^9+ rounds). Produce audit-ready documentation for operator partners.',
-    requirements: [
-      'Degree in Mathematics, Statistics, or equivalent quantitative field',
-      '3+ years slot game mathematics experience',
-      'Proficiency in simulation tools (custom or industry-standard)',
-      'Familiarity with regulatory RTP certification (MGA, UKGC)',
-      'Clear communication of mathematical designs to non-specialists',
-    ],
-    niceToHave: [
-      'Experience with provably fair / blockchain-based RNG',
-      'BigQuery or similar for production telemetry analysis',
-    ],
-    applyUrl: `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Application — Game Mathematician')}`,
-  },
-  {
-    id: 'art-director',
-    title: 'ART DIRECTOR',
-    department: 'Creative',
-    location: 'London, UK (Hybrid)',
-    type: 'Full-time',
-    summary: 'Define the visual language of next-generation slot titles and lead the creative team.',
-    description: 'Set the visual standard for every new Gladiator title — concept and character design through to final asset delivery and in-engine integration. Manage artists and freelance contributors. Own creative briefs with game designers. Report directly to the CTO.',
-    requirements: [
-      '7+ years game art direction with slot game portfolio',
-      'Full game art pipeline: concept, 2D illustration, animation brief, UI',
-      'Experience managing artists within production schedules',
-      'Knowledge of Pixi.js or equivalent 2D game engine asset integration',
-      'Ability to context-switch between multiple concurrent titles',
-    ],
-    niceToHave: [
-      'Crypto casino or social casino environment experience',
-      'Motion design skills (After Effects or equivalent)',
-      'Understanding of art style impact on player conversion',
-    ],
-    applyUrl: `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Application — Art Director')}`,
-  },
-  {
-    id: 'backend-engineer',
-    title: 'BACKEND ENGINEER',
-    department: 'Engineering',
-    location: 'Remote / London',
-    type: 'Full-time',
-    summary: 'Build and scale the game server infrastructure behind 34 live titles across 7 markets.',
-    description: 'Architect and maintain game backend services — bet processing, RNG integration, real-time feeder data pipeline, and operator API layer. Work with AWS and GCP across multiple regions. Sub-100ms round-trip is the baseline, not the goal.',
-    requirements: [
-      '5+ years backend development (Node.js / TypeScript preferred)',
-      'Experience with AWS (EC2, Lambda, CloudFront, RDS) or GCP',
-      'Strong understanding of distributed systems and high-throughput APIs',
-      'Database design and optimization (SQL + NoSQL)',
-      'Experience with real-time data streaming',
-    ],
-    niceToHave: [
-      'iGaming or fintech backend experience',
-      'BigQuery / data pipeline architecture',
-      'Blockchain / crypto transaction processing',
-    ],
-    applyUrl: `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Application — Backend Engineer')}`,
-  },
-  {
-    id: 'qa-engineer',
-    title: 'QA ENGINEER',
-    department: 'Quality Assurance',
-    location: 'Remote / London',
-    type: 'Full-time',
-    summary: 'Ensure every game ships at the quality standard MetaWin players expect.',
-    description: 'Own the QA process for Gladiator slot titles — functional testing, RTP validation, performance benchmarking, cross-browser/device compatibility, and regression testing. Build automated test frameworks for game mechanics and integration endpoints.',
-    requirements: [
-      '3+ years QA experience in gaming or interactive applications',
-      'Experience with automated testing frameworks',
-      'Understanding of game mechanics testing and edge cases',
-      'Cross-browser and mobile device testing expertise',
-      'Strong attention to detail and systematic approach',
-    ],
-    niceToHave: [
-      'iGaming QA experience (slot games, RNG validation)',
-      'Performance profiling tools (Chrome DevTools, Lighthouse)',
-      'Statistical validation of game mathematics',
-    ],
-    applyUrl: `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Application — QA Engineer')}`,
-  },
-] as const;
 
 // ---------------------------------------------------------------------------
 // Display helpers
@@ -367,7 +249,20 @@ export function CareersSection() {
     });
   }
 
-  const cvHref = `mailto:${APPLY_EMAIL}?subject=${encodeURIComponent('Speculative Application — Gladiator Studio')}`;
+  const careers = useSection('careers', careersDefault as { apply_email: string; positions: ContentPosition[] });
+  const applyEmail = careers.apply_email || 'cwang@metawin.inc';
+  // Build render-ready jobs from editable content; skip blank rows, split lists,
+  // and sanitise the apply link (it's admin-editable now).
+  const jobs: JobListing[] = (careers.positions ?? [])
+    .filter((p) => p && p.title)
+    .map((p, i) => ({
+      id: p.id || `pos-${i}`,
+      title: p.title, department: p.department, location: p.location, type: p.type,
+      summary: p.summary, description: p.description,
+      requirements: lines(p.requirements), niceToHave: lines(p.niceToHave),
+      applyUrl: safeHref(p.applyUrl),
+    }));
+  const cvHref = safeHref(`mailto:${applyEmail}?subject=${encodeURIComponent('Speculative Application — Gladiator Studio')}`);
 
   return (
     <SectionWrapper id="careers">
@@ -380,12 +275,12 @@ export function CareersSection() {
 
       <p className="readout" style={{ marginTop: -10, display: 'flex', alignItems: 'center', gap: 6 }}>
         <span className="pulse-node" aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-live)', boxShadow: '0 0 8px var(--color-live)' }} />
-        <CountUp to={JOB_LISTINGS.length} className="readout__value" /> open roles · hiring on a rolling basis
+        <CountUp to={jobs.length} className="readout__value" /> open roles · hiring on a rolling basis
       </p>
 
       {/* Job cards */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        {JOB_LISTINGS.map((job, index) => (
+        {jobs.map((job, index) => (
           <JobCard
             key={job.id}
             job={job}

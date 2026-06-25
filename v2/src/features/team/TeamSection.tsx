@@ -1,6 +1,40 @@
 import { Github, Linkedin, Mail } from 'lucide-react';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
+import { useSection } from '@/shared/content/SiteContentContext';
+import { useStudioStats } from '@/shared/content/StudioStats';
+import { lines, paras, safeHref } from '@/shared/utils/text';
+
+interface Member { readonly name: string; readonly role: string; readonly image: string; readonly bio: string; }
+
+/** Additional team members (editable in the admin). Hidden while empty — today
+ *  it's just the lead; this grid grows as members are added. */
+function MembersGrid({ team }: { readonly team: TeamData }) {
+  // Skip blank rows the admin may have added but not filled in.
+  const members = (team.members ?? []).filter((m) => m && (m.name || m.role || m.bio || m.image));
+  if (members.length === 0) return null;
+  return (
+    <Reveal delay={0.06}>
+      <div className="card">
+        <span className="card__label">The Team</span>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginTop: 6 }}>
+          {members.map((m, i) => (
+            <div key={i} className="card card--hover" style={{ padding: '1rem' }}>
+              {m.image && (
+                <img src={m.image} alt="" loading="lazy"
+                  style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', marginBottom: 10, border: '1px solid var(--color-line)' }}
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+              )}
+              {m.name && <h3 className="card__title" style={{ fontSize: '0.95rem', marginBottom: 2, overflowWrap: 'anywhere' }}>{m.name}</h3>}
+              {m.role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-holo-300)', marginBottom: m.bio ? 6 : 0, letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{m.role}</div>}
+              {m.bio && <p className="body-text" style={{ fontSize: '0.82rem', overflowWrap: 'anywhere' }}>{m.bio}</p>}
+            </div>
+          ))}
+        </div>
+      </div>
+    </Reveal>
+  );
+}
 
 const LEAD = {
   initials: 'CW',
@@ -33,19 +67,24 @@ const LEAD = {
   },
 } as const;
 
-const TEAM_STATS: readonly { readonly to: number; readonly suffix: string; readonly label: string }[] = [
-  { to: 10, suffix: '+', label: 'Years Exp' },
-  { to: 34, suffix: '', label: 'Games Shipped' },
-  { to: 8, suffix: '', label: 'Live Slots' },
-  { to: 7, suffix: '', label: 'Markets' },
-];
-
 const CULTURE_VALUES: readonly { readonly tag: string; readonly text: string }[] = [
   { tag: 'Craft', text: 'Small senior team. Every engineer ships to production. No bureaucracy.' },
   { tag: 'Velocity', text: 'Concept to live deployment in weeks, not quarters. Ship fast, iterate faster.' },
   { tag: 'Ownership', text: 'Full-stack ownership from game mathematics to cloud infrastructure.' },
   { tag: 'Impact', text: 'Our games are played by hundreds of thousands of real players daily.' },
 ];
+
+// Fallback = the current hardcoded content; the admin (DB) overrides any field.
+const TEAM_FALLBACK = {
+  lead_name: LEAD.name, lead_role: LEAD.role, lead_callsign: LEAD.callsign,
+  lead_location: LEAD.location, lead_company: LEAD.company, lead_experience: LEAD.experience, lead_initials: LEAD.initials,
+  lead_bio: [LEAD.bio, LEAD.bio2, LEAD.bio3].join('\n\n'),
+  lead_expertise: LEAD.expertise.join('\n'), lead_missions: LEAD.missions.join('\n'),
+  lead_linkedin: LEAD.social.linkedin, lead_email: LEAD.social.email, lead_github: LEAD.social.github,
+  members: [] as Member[],
+  culture: CULTURE_VALUES as readonly { tag: string; text: string }[],
+};
+type TeamData = typeof TEAM_FALLBACK;
 
 function openCareers() {
   window.dispatchEvent(new CustomEvent('open-panel', { detail: 'careers' }));
@@ -54,15 +93,26 @@ function openCareers() {
 function SocialBtn({ href, label, icon }: { readonly href: string; readonly label: string; readonly icon: React.ReactNode }) {
   const resolved = !href.startsWith('http') && href.includes('@') ? `mailto:${href}` : href;
   return (
-    <a className="icon-btn" href={resolved} aria-label={label} target="_blank" rel="noopener noreferrer">
+    <a className="icon-btn" href={safeHref(resolved)} aria-label={label} target="_blank" rel="noopener noreferrer">
       {icon}
     </a>
   );
 }
 
-function LeadershipCard() {
+function LeadershipCard({ team }: { readonly team: TeamData }) {
+  // Defensive: dynamic content may be empty — never render dangling labels,
+  // empty separators, or empty links that would break the page layout.
+  const metaLine = [team.lead_location, team.lead_experience, team.lead_company].filter(Boolean).join(' · ');
+  const expertise = lines(team.lead_expertise);
+  const missions = lines(team.lead_missions);
+  const bio = paras(team.lead_bio);
+  const socials = [
+    { href: team.lead_linkedin, label: 'LinkedIn profile', icon: <Linkedin size={16} /> },
+    { href: team.lead_email, label: 'Send email', icon: <Mail size={16} /> },
+    { href: team.lead_github, label: 'GitHub organisation', icon: <Github size={16} /> },
+  ].filter((s) => s.href);
   return (
-    <div className="card" role="article" aria-label={`Leadership: ${LEAD.name}`}>
+    <div className="card" role="article" aria-label={`Leadership: ${team.lead_name}`}>
       <span className="card__label">Leadership</span>
 
       {/* Identity */}
@@ -81,7 +131,7 @@ function LeadershipCard() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, color: 'var(--color-holo-300)', letterSpacing: 2 }}>
-                {LEAD.initials}
+                {team.lead_initials}
               </span>
             </div>
           </div>
@@ -93,68 +143,86 @@ function LeadershipCard() {
           }} />
         </div>
         <div>
-          <div className="card__title" style={{ marginBottom: 2 }}>{LEAD.name}</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-holo-300)' }}>
-            {LEAD.role}
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-gold)', marginTop: 4, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-            {LEAD.callsign}
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-text-mute)', marginTop: 4, letterSpacing: '0.08em' }}>
-            {LEAD.location} · {LEAD.experience} · {LEAD.company}
-          </div>
+          <div className="card__title" style={{ marginBottom: 2, overflowWrap: 'anywhere' }}>{team.lead_name || 'Unnamed'}</div>
+          {team.lead_role && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-holo-300)', overflowWrap: 'anywhere' }}>
+              {team.lead_role}
+            </div>
+          )}
+          {team.lead_callsign && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-gold)', marginTop: 4, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
+              {team.lead_callsign}
+            </div>
+          )}
+          {metaLine && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-text-mute)', marginTop: 4, letterSpacing: '0.08em' }}>
+              {metaLine}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Bio */}
-      <p className="body-text" style={{ marginBottom: 12 }}>{LEAD.bio}</p>
-      <p className="body-text" style={{ marginBottom: 12 }}>{LEAD.bio2}</p>
-      <p className="body-text">{LEAD.bio3}</p>
+      {bio.map((p, i) => (
+        <p key={i} className="body-text" style={{ marginBottom: i < bio.length - 1 ? 12 : 0, overflowWrap: 'anywhere' }}>{p}</p>
+      ))}
 
-      <Divider className="my-4" />
+      {expertise.length > 0 && (
+        <>
+          <Divider className="my-4" />
+          <span className="card__label">Expertise</span>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {expertise.map((tag) => (
+              <span key={tag} className="chip" translate="no" style={{ overflowWrap: 'anywhere' }}>{tag}</span>
+            ))}
+          </div>
+        </>
+      )}
 
-      {/* Expertise */}
-      <span className="card__label">Expertise</span>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-        {LEAD.expertise.map((tag) => (
-          <span key={tag} className="chip" translate="no">{tag}</span>
-        ))}
-      </div>
+      {missions.length > 0 && (
+        <>
+          <Divider className="my-4" />
+          <span className="card__label">Highlights</span>
+          <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {missions.map((m) => (
+              <li key={m} style={{ display: 'flex', gap: 10 }}>
+                <span aria-hidden="true" style={{ color: 'var(--color-holo-300)', fontFamily: 'var(--font-mono)', flexShrink: 0, lineHeight: 1.65 }}>—</span>
+                <span className="body-text" style={{ overflowWrap: 'anywhere' }}>{m}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
-      <Divider className="my-4" />
-
-      {/* Highlights */}
-      <span className="card__label">Highlights</span>
-      <ul role="list" style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {LEAD.missions.map((m) => (
-          <li key={m} style={{ display: 'flex', gap: 10 }}>
-            <span aria-hidden="true" style={{ color: 'var(--color-holo-300)', fontFamily: 'var(--font-mono)', flexShrink: 0, lineHeight: 1.65 }}>—</span>
-            <span className="body-text">{m}</span>
-          </li>
-        ))}
-      </ul>
-
-      <Divider className="my-4" />
-
-      {/* Social */}
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-        <span className="readout">Contact</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <SocialBtn href={LEAD.social.linkedin} label="LinkedIn profile" icon={<Linkedin size={16} />} />
-          <SocialBtn href={LEAD.social.email} label="Send email" icon={<Mail size={16} />} />
-          <SocialBtn href={LEAD.social.github} label="GitHub organisation" icon={<Github size={16} />} />
-        </div>
-      </div>
+      {socials.length > 0 && (
+        <>
+          <Divider className="my-4" />
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span className="readout">Contact</span>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {socials.map((s) => <SocialBtn key={s.label} href={s.href} label={s.label} icon={s.icon} />)}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
 
 function TeamStatsCard() {
+  const st = useStudioStats();
+  // Games Shipped & Live Slots auto-count from the catalogue; Years & Markets are Studio Stats.
+  const stats = [
+    { to: st.years, suffix: '+', label: 'Years Exp' },
+    { to: st.games, suffix: '', label: 'Games Shipped' },
+    { to: st.slots, suffix: '', label: 'Live Slots' },
+    { to: st.markets, suffix: '', label: 'Markets' },
+  ];
   return (
     <div className="card">
       <span className="card__label">By the Numbers</span>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: 12 }}>
-        {TEAM_STATS.map((s, i) => (
+        {stats.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 'clamp(12px, 4vw, 28px)' }}>
             {i > 0 && <Divider vertical />}
             <div className="stat">
@@ -168,12 +236,12 @@ function TeamStatsCard() {
   );
 }
 
-function CultureCard() {
+function CultureCard({ team }: { readonly team: TeamData }) {
   return (
     <div className="card">
       <span className="card__label">How We Work</span>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 4 }}>
-        {CULTURE_VALUES.map((v) => (
+        {team.culture.map((v) => (
           <div key={v.tag} className="card card--hover" style={{ padding: '0.8rem 0.9rem' }}>
             <h3 className="card__title" style={{ fontSize: '0.92rem', marginBottom: 4 }}>{v.tag}</h3>
             <p className="body-text" style={{ fontSize: '0.82rem' }}>{v.text}</p>
@@ -198,6 +266,7 @@ function JoinTeamCard() {
 }
 
 export function TeamSection() {
+  const team = useSection('team', TEAM_FALLBACK);
   return (
     <SectionWrapper id="team">
       <SectionHeading
@@ -206,9 +275,10 @@ export function TeamSection() {
         title="Built by people who understand the game"
         lede="Deep expertise in game mathematics, WebGL rendering, distributed systems, and crypto-native product design — a small senior team shipping titles played by hundreds of thousands daily."
       />
-      <Reveal delay={0}><LeadershipCard /></Reveal>
+      <Reveal delay={0}><LeadershipCard team={team} /></Reveal>
+      <MembersGrid team={team} />
       <Reveal delay={0.08}><TeamStatsCard /></Reveal>
-      <Reveal delay={0.12}><CultureCard /></Reveal>
+      <Reveal delay={0.12}><CultureCard team={team} /></Reveal>
       <Reveal delay={0.16}><JoinTeamCard /></Reveal>
     </SectionWrapper>
   );
