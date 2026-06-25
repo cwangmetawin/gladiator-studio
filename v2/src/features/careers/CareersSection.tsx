@@ -32,8 +32,8 @@ interface ContentPosition {
   readonly type: string;
   readonly summary: string;
   readonly description: string;
-  readonly requirements: string;
-  readonly niceToHave: string;
+  readonly requirements: string | readonly string[];
+  readonly niceToHave: string | readonly string[];
   readonly applyUrl: string;
 }
 
@@ -52,8 +52,8 @@ const TITLE_ACRONYMS: Readonly<Record<string, string>> = {
 };
 
 /** Convert a SCREAMING title to Title Case while preserving known acronyms. */
-function toTitleCase(title: string): string {
-  return title
+function toTitleCase(raw: unknown): string {
+  return String(raw ?? '')
     .split(' ')
     .map((word) => {
       const acronym = TITLE_ACRONYMS[word];

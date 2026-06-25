@@ -24,7 +24,12 @@ function normalizeForSave(fields: readonly FieldDef[], value: SectionValue): Sec
   const out: SectionValue = { ...value };
   for (const f of fields) {
     const v = out[f.key];
-    if (f.type === 'number') { const n = Number(v); out[f.key] = Number.isFinite(n) && v !== '' ? n : 0; }
+    if (f.type === 'number') {
+      const raw = String(v ?? '').trim();
+      const n = Number(raw);
+      if (raw === '' || !Number.isFinite(n)) delete out[f.key]; // omit → code default re-applies on merge
+      else out[f.key] = n;
+    }
     else if (f.type === 'tags' || f.type === 'bullets') { out[f.key] = lines(v); }
     else if (f.type === 'list') { out[f.key] = (Array.isArray(v) ? v : []).map((item) => normalizeForSave(f.fields ?? [], item as SectionValue)); }
   }
@@ -84,7 +89,7 @@ function TagInput({ value, onChange, label, hint }: { readonly value: unknown; r
             else if (e.key === 'Backspace' && draft === '' && tags.length) { e.preventDefault(); removeAt(tags.length - 1); }
           }}
           onPaste={(e) => { const txt = e.clipboardData.getData('text'); if (/[,\n]/.test(txt)) { e.preventDefault(); commit(draft + txt); } }}
-          onBlur={() => commit(draft)}
+          onBlur={() => { if (!composing.current) commit(draft); }}
         />
       </div>
       <span className="sr-only" aria-live="polite">{live}</span>
@@ -280,7 +285,8 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
   const [saved, setSaved] = useState<SectionValue>(() => normalizeForSave(schema.fields, initial));
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
-  const dirty = JSON.stringify(value) !== JSON.stringify(saved);
+  // Compare canonical (normalized) shapes so typing a number back to its original isn't "dirty".
+  const dirty = JSON.stringify(normalizeForSave(schema.fields, value)) !== JSON.stringify(saved);
 
   async function save() {
     setSaving(true); setMsg(null);

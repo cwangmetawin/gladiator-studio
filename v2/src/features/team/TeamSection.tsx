@@ -5,7 +5,7 @@ import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
-import { lines, paras, safeHref } from '@/shared/utils/text';
+import { lines, paras, safeHref, safeImageSrc } from '@/shared/utils/text';
 
 interface Member { readonly name: string; readonly role: string; readonly image: string; readonly bio: string; }
 
@@ -23,7 +23,7 @@ function MembersGrid({ team }: { readonly team: TeamData }) {
           {members.map((m, i) => (
             <div key={i} className="card card--hover" style={{ padding: '1rem' }}>
               {m.image && (
-                <img src={m.image} alt="" loading="lazy"
+                <img src={safeImageSrc(m.image)} alt="" loading="lazy"
                   style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', marginBottom: 10, border: '1px solid var(--color-line)' }}
                   onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
               )}
@@ -93,7 +93,8 @@ function openCareers() {
 }
 
 function SocialBtn({ href, label, icon }: { readonly href: string; readonly label: string; readonly icon: React.ReactNode }) {
-  const resolved = !href.startsWith('http') && href.includes('@') ? `mailto:${href}` : href;
+  const h = String(href ?? '');
+  const resolved = !h.startsWith('http') && h.includes('@') ? `mailto:${h}` : h;
   return (
     <a className="icon-btn" href={safeHref(resolved)} aria-label={label} target="_blank" rel="noopener noreferrer">
       {icon}

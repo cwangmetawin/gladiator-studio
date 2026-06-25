@@ -6,7 +6,7 @@ import { lines } from '@/shared/utils/text';
 import aboutDefault from '@/api/aboutDefault.json';
 
 interface AboutContent {
-  readonly tech: string;
+  readonly tech: string | readonly string[]; // newline-string (default) or string[] (after edit)
   readonly features: readonly { readonly tag: string; readonly title: string; readonly body: string }[];
 }
 

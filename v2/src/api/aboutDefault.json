@@ -1,22 +1,5 @@
 {
   "tech": "WebGL\nTypeScript\nPixi.js\nBabylon.js\nNode.js\nAWS\nGCP\nBigQuery",
-  "metrics": [
-    {
-      "value": 34,
-      "suffix": "",
-      "label": "Games"
-    },
-    {
-      "value": 97.5,
-      "suffix": "%",
-      "label": "Max RTP"
-    },
-    {
-      "value": 7,
-      "suffix": "",
-      "label": "Markets"
-    }
-  ],
   "features": [
     {
       "tag": "Volatility",

@@ -26,8 +26,8 @@ const STATUS_CONFIG: Record<Mission['status'], { readonly color: string; readonl
 } as const;
 
 /** Converts a SCREAMING title (e.g. "STUDIO FOUNDED") to Title Case. */
-function toTitleCase(value: string): string {
-  return value.toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
+function toTitleCase(value: unknown): string {
+  return String(value ?? '').toLowerCase().replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 const EXPO = [0.16, 1, 0.3, 1] as const;

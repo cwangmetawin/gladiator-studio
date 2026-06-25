@@ -65,7 +65,7 @@ export function ContactSection() {
     if (errors[k]) setErrors((p) => { const { [k]: _omit, ...rest } = p; return rest as FormErrors; });
   }
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const errs = validate(fields);
     if (Object.keys(errs).length > 0) {
@@ -75,20 +75,23 @@ export function ContactSection() {
       return;
     }
     setErrors({});
-    setStatus('submitting');
     soundEngine.transmission();
-    try {
-      const fd = new FormData(e.currentTarget);
-      const res = await fetch('/', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fd as unknown as Record<string, string>).toString() });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
-      setStatus('success');
-      soundEngine.alert();
-      setFields(INITIAL_FORM);
-      try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ }
-    } catch (err) {
-      console.error('[ContactSection]', err);
-      setStatus('error');
-    }
+    // Open the visitor's mail client, pre-addressed to the (admin-editable) studio
+    // inbox with the enquiry filled in — zero-backend, always reaches your email.
+    const subject = `Enquiry — ${fields.enquiryType || 'General'} — ${fields.company || fields.name}`;
+    const body = [
+      `Name: ${fields.name}`,
+      `Company: ${fields.company}`,
+      `Reply-to: ${fields.email}`,
+      `Type: ${fields.enquiryType}`,
+      '',
+      fields.message,
+    ].join('\n');
+    window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    setStatus('success');
+    soundEngine.alert();
+    setFields(INITIAL_FORM);
+    try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ }
   }
 
   return (
@@ -136,8 +139,8 @@ export function ContactSection() {
           {status === 'success' ? (
             <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
               style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-soft)', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>
-              Message received — we’ll respond within one business day. For urgent integration queries, email{' '}
-              <a href={`mailto:${CONTACT.email}`} style={{ color: 'var(--color-holo-300)' }}>{CONTACT.email}</a> directly.
+              Your email app just opened with your enquiry — hit send and we’ll reply within one business day. If nothing opened, email{' '}
+              <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.
               <button type="button" onClick={() => { setStatus('idle'); setFields(INITIAL_FORM); try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ } }}
                 style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-holo-300)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                 Send another

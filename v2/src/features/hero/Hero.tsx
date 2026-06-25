@@ -110,7 +110,7 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
             filter: 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,247,0.5)) drop-shadow(0 0 56px rgba(79,195,247,0.22))' }} />
       </h1>
 
-      <div aria-label="34 games, 97.5% max RTP, 7 markets" style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
+      <div aria-label={stats.map((st) => `${st.end}${st.suffix} ${st.label}`).join(', ')} style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
         {stats.map((s, i) => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
             {i > 0 && <Divider vertical />}

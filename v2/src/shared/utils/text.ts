@@ -18,3 +18,11 @@ export const safeHref = (u: unknown): string => {
   try { return SAFE_SCHEMES.includes(new URL(s, window.location.origin).protocol) ? s : '#'; }
   catch { return '#'; }
 };
+
+/** Only allow http(s) image URLs from editable content; '' otherwise (triggers onError). */
+export const safeImageSrc = (u: unknown): string => {
+  const s = String(u ?? '').trim();
+  if (!s) return '';
+  try { const p = new URL(s, window.location.origin).protocol; return p === 'http:' || p === 'https:' ? s : ''; }
+  catch { return ''; }
+};
