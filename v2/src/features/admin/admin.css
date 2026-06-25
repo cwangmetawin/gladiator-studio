@@ -202,3 +202,18 @@ button { font-family: inherit; }
 .msg--ok { background: #ecfdf3; color: var(--a-green); border: 1px solid #abefc6; }
 .link-btn { background: none; border: none; color: var(--a-accent); cursor: pointer; font-size: 12px; padding: 0; font: inherit; font-weight: 600; }
 .center-note { text-align: center; padding: 60px 0; color: var(--a-dim); }
+
+/* Enquiries */
+.enq-list { display: flex; flex-direction: column; gap: 10px; }
+.enq { padding: 14px 16px; }
+.enq__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.enq__who { font-weight: 600; font-size: 14px; }
+.enq__co { color: var(--a-mute); font-weight: 400; }
+.enq__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.enq__date { color: var(--a-mute); font-size: 11px; font-family: ui-monospace, monospace; }
+.enq__email { margin-top: 4px; font-family: ui-monospace, monospace; font-size: 12px; }
+.enq__email a { color: var(--a-accent); text-decoration: none; }
+.enq__email a:hover { text-decoration: underline; }
+.enq__msg { margin: 10px 0 0; color: var(--a-dim); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.enq__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.tag--ok { color: var(--a-green); border-color: #abefc6; background: #ecfdf3; }

@@ -2,9 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { useAdminAuth, signIn, signOut } from './useAdminAuth';
 import { GamesPanel } from './GamesPanel';
 import { ContentPanel } from './ContentPanel';
+import { EnquiriesPanel } from './EnquiriesPanel';
 import './admin.css';
 
-type Tab = 'games' | 'content';
+type Tab = 'games' | 'content' | 'enquiries';
 
 function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -28,7 +29,7 @@ function LoginScreen() {
     <div className="admin login">
       <form className="card login__card" onSubmit={submit}>
         <h1>Gladiator <span>Admin</span></h1>
-        <p className="sub">Sign in to manage the catalogue &amp; content.</p>
+        <p className="sub">Sign in to manage the catalogue, content &amp; enquiries.</p>
         <div className="login__fields">
           {err && <div className="msg msg--err">{err}</div>}
           <div className="field">
@@ -73,13 +74,16 @@ export function AdminApp() {
         <nav className="admin__tabs">
           <button className={`admin__tab ${tab === 'games' ? 'is-active' : ''}`} onClick={() => setTab('games')}>Catalogue</button>
           <button className={`admin__tab ${tab === 'content' ? 'is-active' : ''}`} onClick={() => setTab('content')}>Content</button>
+          <button className={`admin__tab ${tab === 'enquiries' ? 'is-active' : ''}`} onClick={() => setTab('enquiries')}>Enquiries</button>
         </nav>
         <div className="admin__spacer" />
         <span className="admin__who">{session.user.email}</span>
         <button className="btn btn--sm btn--ghost" onClick={() => signOut()}>Sign out</button>
       </header>
       <main className="admin__main">
-        {tab === 'games' ? <GamesPanel /> : <ContentPanel />}
+        {tab === 'games' && <GamesPanel />}
+        {tab === 'content' && <ContentPanel />}
+        {tab === 'enquiries' && <EnquiriesPanel />}
       </main>
     </div>
   );
