@@ -18,7 +18,10 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const CORS: Record<string, string> = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'content-type, authorization, apikey',
+  // supabase-js's functions.invoke() sends x-client-info / x-supabase-api-version
+  // in addition to authorization+apikey — ALL must be allowed or the browser's
+  // CORS preflight fails and the call never reaches us (form falls back to mailto).
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-api-version',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 const JSON_HEADERS = { ...CORS, 'Content-Type': 'application/json' };
