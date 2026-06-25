@@ -5,6 +5,7 @@ import { SectionHeading, Reveal } from '@/shared/ui';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
 import { useSection } from '@/shared/content/SiteContentContext';
+import { supabase } from '@/lib/supabase';
 
 type EnquiryType = '' | 'Game Integration' | 'Request a Demo' | 'Distribution Partnership' | 'Press and Media' | 'Careers' | 'Other';
 interface FormFields { readonly name: string; readonly company: string; readonly email: string; readonly enquiryType: EnquiryType; readonly message: string; }
@@ -54,6 +55,8 @@ export function ContactSection() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<SubmitStatus>('idle');
+  // How the last enquiry was delivered — drives the success copy.
+  const [sentVia, setSentVia] = useState<'silent' | 'mailto'>('mailto');
 
   // Persist a draft so a typed enquiry survives panel switches; cleared on submit.
   useEffect(() => {
@@ -65,19 +68,8 @@ export function ContactSection() {
     if (errors[k]) setErrors((p) => { const { [k]: _omit, ...rest } = p; return rest as FormErrors; });
   }
 
-  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const errs = validate(fields);
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      const firstKey = FIELD_ORDER.find((k) => errs[k]);
-      if (firstKey) document.getElementById(`contact-${firstKey}`)?.focus();
-      return;
-    }
-    setErrors({});
-    soundEngine.transmission();
-    // Open the visitor's mail client, pre-addressed to the (admin-editable) studio
-    // inbox with the enquiry filled in — zero-backend, always reaches your email.
+  /** Last-resort: open the visitor's mail client, pre-addressed to the studio inbox. */
+  function openMailto() {
     const subject = `Enquiry — ${fields.enquiryType || 'General'} — ${fields.company || fields.name}`;
     const body = [
       `Name: ${fields.name}`,
@@ -88,6 +80,38 @@ export function ContactSection() {
       fields.message,
     ].join('\n');
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const errs = validate(fields);
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      const firstKey = FIELD_ORDER.find((k) => errs[k]);
+      if (firstKey) document.getElementById(`contact-${firstKey}`)?.focus();
+      return;
+    }
+    setErrors({});
+    setStatus('submitting');
+    soundEngine.transmission();
+
+    // Try the server (Edge Function) for a silent send. It emails the studio inbox
+    // via Resend *if configured*; otherwise it returns { emailed: false } and we
+    // gracefully fall back to the visitor's mail client.
+    let emailed = false;
+    try {
+      const { data, error } = await supabase.functions.invoke('send-enquiry', {
+        body: { name: fields.name, company: fields.company, email: fields.email, enquiryType: fields.enquiryType, message: fields.message },
+      });
+      emailed = !error && !!(data as { emailed?: boolean } | null)?.emailed;
+    } catch { /* network/server down — fall through to mailto */ }
+
+    if (emailed) {
+      setSentVia('silent');
+    } else {
+      setSentVia('mailto');
+      openMailto();
+    }
     setStatus('success');
     soundEngine.alert();
     setFields(INITIAL_FORM);
@@ -139,8 +163,13 @@ export function ContactSection() {
           {status === 'success' ? (
             <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
               style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-soft)', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>
-              Your email app just opened with your enquiry — hit send and we’ll reply within one business day. If nothing opened, email{' '}
-              <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.
+              {sentVia === 'silent' ? (
+                <>Enquiry received — we’ll reply within one business day. You can also email{' '}
+                <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.</>
+              ) : (
+                <>Your email app just opened with your enquiry — hit send and we’ll reply within one business day. If nothing opened, email{' '}
+                <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.</>
+              )}
               <button type="button" onClick={() => { setStatus('idle'); setFields(INITIAL_FORM); try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ } }}
                 style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-holo-300)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                 Send another
@@ -148,9 +177,7 @@ export function ContactSection() {
             </motion.div>
           ) : (
             <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              name="contact" method="POST" data-netlify="true" onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
-              <input type="hidden" name="form-name" value="contact" />
-
+              onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
               <div>
                 <label htmlFor="contact-name" className="field-label">Name</label>
                 <input id="contact-name" className="field" type="text" name="name" value={fields.name} onChange={(e) => update('name', e.target.value)}
