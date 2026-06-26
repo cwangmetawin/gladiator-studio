@@ -1,0 +1,52 @@
+{
+  "eyebrow": "Partners",
+  "title": "Integrate Gladiator Studio",
+  "lede": "One API connection. The full catalogue of high-volatility, crypto-native titles — backed by the same infrastructure that powers MetaWin's global casino.",
+  "ctaLabel": "Request access",
+  "ctaUrl": "mailto:cwang@metawin.inc?subject=Partner access — Gladiator Studio",
+  "contactEmail": "cwang@metawin.inc",
+  "valueProps": [
+    { "tag": "One API", "title": "Full catalogue, single integration", "body": "A single REST connection gives you all 8 Gladiator slots and 26 MetaWin Originals — no per-title integration work." },
+    { "tag": "Infrastructure", "title": "MetaWin-grade reliability", "body": "Runs on the same AWS + GCP infrastructure serving MetaWin's global casino: sub-100ms round-trips and a 99.99% uptime SLA." },
+    { "tag": "Content", "title": "ULTRA-volatility, crypto-native", "body": "Engineered for the crypto-native player — high win ceilings, provably fair maths, and published RTPs above 96%." }
+  ],
+  "steps": [
+    { "step": "Request access", "body": "Tell us your platform and target markets. We set you up with sandbox credentials and integration docs." },
+    { "step": "Integrate the sandbox", "body": "JSON-based REST docs, a full sandbox environment, and a dedicated technical account manager from day one." },
+    { "step": "Certify & go live", "body": "Certified RNG with audit trails, published and testable RTPs, and compliance documentation for licensed jurisdictions on request." }
+  ],
+  "specs": [
+    "Single REST API integration",
+    "JSON integration documentation",
+    "Full sandbox environment",
+    "Real-time bet data via the feeder",
+    "Certified RNG + audit trails",
+    "Live across 7 markets"
+  ],
+  "catalogue": [
+    { "title": "To The Top", "genre": "Escalating multiplier", "rtp": "97.5%" },
+    { "title": "Legend of Tartarus", "genre": "ULTRA volatility", "rtp": "96.8%" },
+    { "title": "Rise of Cetus", "genre": "Megaways", "rtp": "96.5%" },
+    { "title": "Star Nudge", "genre": "Hold & Win", "rtp": "96.4%" },
+    { "title": "Disco Dazzle", "genre": "Cluster pays", "rtp": "96.2%" },
+    { "title": "Sweety Treaty", "genre": "Cascading", "rtp": "96.5%" }
+  ],
+  "complianceTitle": "Compliant by design",
+  "complianceBody": "Every Gladiator title is certified, testable, and ready for licensed jurisdictions — with documentation on request.",
+  "compliancePoints": [
+    "Certified RNG with full audit trails",
+    "Published, testable RTPs across every integration",
+    "Compliance documentation for licensed jurisdictions",
+    "Responsible-gaming controls built in",
+    "GDPR-compliant data handling"
+  ],
+  "faqs": [
+    { "q": "How long does integration take?", "a": "Typically weeks, not quarters — a single REST integration with a sandbox from day one and a dedicated technical account manager." },
+    { "q": "Which markets are you live in?", "a": "Seven regulated markets today, with active expansion into new jurisdictions." },
+    { "q": "Are the games certified?", "a": "Yes — certified RNG, published and testable RTPs, and compliance documentation available on request." },
+    { "q": "Do you support crypto?", "a": "We're built crypto-native — both fiat and crypto wallets are supported, settled in your base currency." },
+    { "q": "What partner support do we get?", "a": "A dedicated technical account manager from first integration through live operations." }
+  ],
+  "closingTitle": "Ready to add Gladiator to your lobby?",
+  "closingBody": "Our partnerships team takes you from first call to live integration — typically in weeks, not quarters."
+}

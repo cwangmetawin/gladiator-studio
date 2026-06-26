@@ -13,7 +13,7 @@ import type { GameData } from '@/shared/types/game';
 import { StarfieldCanvas } from '@/features/starfield/StarfieldCanvas';
 import { useFeederSocket } from '@/features/live-feed/useFeederSocket';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
-import { CLIENT_AREA_URL } from '@/shared/constants/urls';
+import { WarpTransition } from '@/features/partner/WarpTransition';
 import { AgeGate, useAgeGate } from '@/shared/components/AgeGate';
 import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
@@ -30,6 +30,7 @@ const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => (
 const JourneySection = lazy(() => import('@/features/journey/JourneySection').then(m => ({ default: m.JourneySection })));
 const CareersSection = lazy(() => import('@/features/careers/CareersSection').then(m => ({ default: m.CareersSection })));
 const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
+const PartnerArea = lazy(() => import('@/features/partner/PartnerArea').then(m => ({ default: m.PartnerArea })));
 
 // ─── Layout constants ───────────────────────────────────────────────────────
 const BAR_H = 56;
@@ -100,9 +101,10 @@ interface StatusBarProps {
   readonly totalEvents: number;
   readonly totalAmount: number;
   readonly isMobile: boolean;
+  readonly onClientArea: () => void;
 }
 
-function StatusBar({ isConnected, totalEvents, totalAmount, isMobile }: StatusBarProps) {
+function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientArea }: StatusBarProps) {
   const wagered = totalAmount >= 1000
     ? `$${(totalAmount / 1000).toFixed(1)}K`
     : `$${totalAmount.toFixed(0)}`;
@@ -167,17 +169,16 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile }: StatusBa
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
         <SoundToggle />
         {!isMobile && (
-          <a
-            href={CLIENT_AREA_URL}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
             className="btn btn--primary"
             style={{ minHeight: 36, padding: '0.5rem 1.1rem' }}
             onMouseEnter={() => soundEngine.hover()}
+            onClick={() => { soundEngine.click(); onClientArea(); }}
           >
             Client Area
             <ExternalLink size={12} aria-hidden="true" />
-          </a>
+          </button>
         )}
       </div>
     </header>
@@ -500,6 +501,7 @@ export function App() {
   const [activePanel, setActivePanel] = useState<PanelId>('none');
   const [playingGame, setPlayingGame] = useState<{ title: string; link: string } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
   const isMobile = useIsMobile();
 
   const { events, isConnected, totalAmount, gladiatorCount, originalCount } = useFeederSocket();
@@ -629,7 +631,7 @@ export function App() {
       {/* Top status bar — hidden on mobile when a panel is open, and for the
           full-screen coverflow (whose own header carries the tabs + close). */}
       {!(isMobile && activePanel !== 'none') && !showCoverflow && (
-        <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} />
+        <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} onClientArea={() => setClientArea('transitioning')} />
       )}
 
       {/* Homepage live-wins ticker — horizontal crawl across the hero's bottom edge.
@@ -690,6 +692,24 @@ export function App() {
           <GameOverlay key="game-overlay" game={playingGame} isMobile={isMobile} onClose={closeGame} />
         )}
       </AnimatePresence>
+
+      {/* Client Area — the Earth-return cinematic runs ALONE (only its own WebGL
+          context + the homepage's), then hands off to the orbit console. Mounting
+          PartnerArea/PartnerEarth only when 'open' avoids a 3rd GPU context that
+          would corrupt the transition. */}
+      {/* The warp is Canvas (no WebGL) so PartnerArea can mount BENEATH it during the
+          transition — the Earth loads while the warp plays, and the warp fades to
+          reveal the console directly (no homepage flash-through). */}
+      <AnimatePresence>
+        {clientArea !== 'closed' && (
+          <Suspense key="partner-area" fallback={null}>
+            <PartnerArea onClose={() => setClientArea('closed')} events={events} isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} />
+          </Suspense>
+        )}
+      </AnimatePresence>
+      {clientArea === 'transitioning' && (
+        <WarpTransition onComplete={() => setClientArea('open')} />
+      )}
     </div>
     </MotionConfig>
     </CatalogueStatsProvider>

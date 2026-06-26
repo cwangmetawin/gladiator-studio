@@ -2,6 +2,7 @@ import { supabase } from '@/lib/supabase';
 import careersDefault from './careersDefault.json';
 import aboutDefault from './aboutDefault.json';
 import journeyDefault from './journeyDefault.json';
+import partnerDefault from './partnerDefault.json';
 
 // ─── Structured, per-section page content ───────────────────────────────────
 // One site_content row per section (key = section id, value = JSON document).
@@ -171,6 +172,55 @@ export const SECTIONS: readonly SectionSchema[] = [
     label: 'Contact',
     fields: [{ key: 'email', label: 'Email', type: 'text' }],
     default: { email: 'cwang@metawin.inc' },
+  },
+  {
+    key: 'partner',
+    label: 'Client Area',
+    fields: [
+      { key: 'eyebrow', label: 'Eyebrow', type: 'text' },
+      { key: 'title', label: 'Headline', type: 'text' },
+      { key: 'lede', label: 'Intro', type: 'textarea' },
+      { key: 'ctaLabel', label: 'CTA button label', type: 'text', group: 'Call to action', groupOpen: true },
+      { key: 'ctaUrl', label: 'CTA link (URL or mailto:)', type: 'text', group: 'Call to action' },
+      { key: 'contactEmail', label: 'Contact email', type: 'text', group: 'Call to action' },
+      {
+        key: 'valueProps', label: 'Value cards', type: 'list', itemLabel: 'Card',
+        fields: [
+          { key: 'tag', label: 'Tag', type: 'text' },
+          { key: 'title', label: 'Title', type: 'text' },
+          { key: 'body', label: 'Body', type: 'textarea' },
+        ],
+      },
+      {
+        key: 'steps', label: 'How to integrate', type: 'list', itemLabel: 'Step',
+        fields: [
+          { key: 'step', label: 'Step title', type: 'text' },
+          { key: 'body', label: 'Detail', type: 'textarea' },
+        ],
+      },
+      { key: 'specs', label: 'What you get', type: 'bullets', itemLabel: 'Item' },
+      {
+        key: 'catalogue', label: 'Featured titles', type: 'list', itemLabel: 'Title',
+        fields: [
+          { key: 'title', label: 'Title', type: 'text' },
+          { key: 'genre', label: 'Genre / mechanic', type: 'text' },
+          { key: 'rtp', label: 'RTP', type: 'text' },
+        ],
+      },
+      { key: 'complianceTitle', label: 'Compliance title', type: 'text' },
+      { key: 'complianceBody', label: 'Compliance intro', type: 'textarea' },
+      { key: 'compliancePoints', label: 'Compliance points', type: 'bullets', itemLabel: 'Point' },
+      {
+        key: 'faqs', label: 'FAQ', type: 'list', itemLabel: 'Q&A',
+        fields: [
+          { key: 'q', label: 'Question', type: 'text' },
+          { key: 'a', label: 'Answer', type: 'textarea' },
+        ],
+      },
+      { key: 'closingTitle', label: 'Closing title', type: 'text' },
+      { key: 'closingBody', label: 'Closing body', type: 'textarea' },
+    ],
+    default: partnerDefault,
   },
 ];
 
