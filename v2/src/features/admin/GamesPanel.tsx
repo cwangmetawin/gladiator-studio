@@ -1,7 +1,10 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Search } from 'lucide-react';
 import { GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
 import { fetchAllGames, saveGame, deleteGame, importCuratedGames, type AdminGame } from '@/api/catalogueDb';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Dropzone } from './Dropzone';
+import { useToast } from './Toast';
 
 interface PendingConfirm {
   readonly title: string;
@@ -10,6 +13,9 @@ interface PendingConfirm {
   readonly danger?: boolean;
   readonly run: () => Promise<void>;
 }
+
+type SortKey = 'sort' | 'title' | 'newest' | 'rtp';
+type CatFilter = 'all' | 'slot' | 'mini';
 
 const BLANK: AdminGame = {
   id: 0, title: '', description: '', link: '', timeline: '', image: '', landscapeImage: '',
@@ -62,10 +68,12 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
           <div className="field col-span">
             <label>Cover image URL</label>
             <input className="input" value={g.image ?? ''} onChange={(e) => set('image', e.target.value)} placeholder="https://…" />
+            <Dropzone onUploaded={(u) => set('image', u)} onError={setErr} label="Drop cover image or click to upload" />
           </div>
           <div className="field col-span">
             <label>Landscape art URL <span className="hint">(slots — wide key-art)</span></label>
             <input className="input" value={g.landscapeImage ?? ''} onChange={(e) => set('landscapeImage', e.target.value)} placeholder="https://…" />
+            <Dropzone onUploaded={(u) => set('landscapeImage', u)} onError={setErr} label="Drop landscape art or click to upload" />
           </div>
           <div className="field">
             <label>RTP %</label>
@@ -109,13 +117,36 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
   );
 }
 
+/** Filter + sort the catalogue without mutating the source array. */
+function selectGames(games: readonly AdminGame[], query: string, cat: CatFilter, sort: SortKey): AdminGame[] {
+  const q = query.trim().toLowerCase();
+  let list: readonly AdminGame[] = games;
+  if (cat !== 'all') list = list.filter((g) => g.category === cat);
+  if (q) list = list.filter((g) => `${g.title} ${g.genre ?? ''} ${g.slug ?? ''}`.toLowerCase().includes(q));
+  const sorted = [...list];
+  switch (sort) {
+    case 'title': sorted.sort((a, b) => a.title.localeCompare(b.title)); break;
+    case 'newest': sorted.sort((a, b) => (b.timeline || '').localeCompare(a.timeline || '')); break;
+    case 'rtp': sorted.sort((a, b) => (b.rtp ?? -1) - (a.rtp ?? -1)); break;
+    default: sorted.sort((a, b) => a.sortOrder - b.sortOrder); break;
+  }
+  return sorted;
+}
+
 export function GamesPanel() {
+  const { toast } = useToast();
   const [games, setGames] = useState<AdminGame[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<AdminGame | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+
+  const [query, setQuery] = useState('');
+  const [cat, setCat] = useState<CatFilter>('all');
+  const [sort, setSort] = useState<SortKey>('sort');
+  const visible = useMemo(() => selectGames(games, query, cat, sort), [games, query, cat, sort]);
+  const filtered = query.trim() !== '' || cat !== 'all';
 
   async function reload() {
     setLoading(true); setErr(null);
@@ -129,28 +160,28 @@ export function GamesPanel() {
     try {
       const saved = await saveGame({ ...g, [key]: !g[key] });
       setGames((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Update failed'); }
+    } catch (e) { toast(e instanceof Error ? e.message : 'Update failed', 'err'); }
   }
 
   function askDelete(g: AdminGame) {
     setConfirm({
       title: 'Delete game', confirmLabel: 'Delete', danger: true,
       message: `Delete "${g.title}"? This cannot be undone.`,
-      run: async () => { await deleteGame(g.id); setGames((prev) => prev.filter((x) => x.id !== g.id)); },
+      run: async () => { await deleteGame(g.id); setGames((prev) => prev.filter((x) => x.id !== g.id)); toast(`Deleted "${g.title}".`); },
     });
   }
   function askImport() {
     setConfirm({
       title: 'Import curated catalogue', confirmLabel: 'Import',
       message: 'Import the full curated catalogue (slots + originals) into the database? Existing rows with the same id are overwritten.',
-      run: async () => { await importCuratedGames([...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS]); await reload(); },
+      run: async () => { const n = await importCuratedGames([...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS]); await reload(); toast(`Imported ${n} games.`); },
     });
   }
   async function runConfirm() {
     if (!confirm) return;
-    setConfirmBusy(true); setErr(null);
+    setConfirmBusy(true);
     try { await confirm.run(); setConfirm(null); }
-    catch (e) { setErr(e instanceof Error ? e.message : 'Action failed'); }
+    catch (e) { toast(e instanceof Error ? e.message : 'Action failed', 'err'); }
     finally { setConfirmBusy(false); }
   }
 
@@ -158,10 +189,31 @@ export function GamesPanel() {
     <div>
       <div className="toolbar">
         <span className="toolbar__title">Catalogue</span>
-        <span className="count-pill">{games.length} games</span>
+        <span className="count-pill">{filtered ? `${visible.length} / ${games.length}` : `${games.length} games`}</span>
         <div className="admin__spacer" />
         <button className="btn" onClick={askImport}>Import curated catalogue</button>
         <button className="btn btn--primary" onClick={() => setEditing(BLANK)}>+ Add game</button>
+      </div>
+
+      <div className="toolbar">
+        <span className="toolbar__search">
+          <Search size={15} aria-hidden="true" />
+          <input
+            className="input input--search" type="search" value={query} placeholder="Search title, genre, slug…"
+            onChange={(e) => setQuery(e.target.value)} aria-label="Search catalogue"
+          />
+        </span>
+        <select className="select select--sm" value={cat} onChange={(e) => setCat(e.target.value as CatFilter)} aria-label="Filter by type">
+          <option value="all">All types</option>
+          <option value="slot">Slots</option>
+          <option value="mini">Originals</option>
+        </select>
+        <select className="select select--sm" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort by">
+          <option value="sort">Sort: manual order</option>
+          <option value="title">Sort: title A→Z</option>
+          <option value="newest">Sort: newest</option>
+          <option value="rtp">Sort: highest RTP</option>
+        </select>
       </div>
 
       {err && <div className="msg msg--err" style={{ marginBottom: 14 }}>{err}</div>}
@@ -171,10 +223,15 @@ export function GamesPanel() {
           <span>Art</span><span>Title</span><span>Type</span><span>RTP</span><span>State</span><span style={{ textAlign: 'right' }}>Actions</span>
         </div>
         {loading ? (
-          <div className="center-note">Loading…</div>
+          Array.from({ length: 6 }).map((_, i) => <div className="skeleton skel-row" key={i} aria-hidden="true" />)
         ) : games.length === 0 ? (
           <div className="center-note">No games yet. Click <b>Import curated catalogue</b> to seed, or add one.</div>
-        ) : games.map((g) => (
+        ) : visible.length === 0 ? (
+          <div className="center-note">
+            No games match your filters.
+            <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setQuery(''); setCat('all'); }}>Clear</button>
+          </div>
+        ) : visible.map((g) => (
           <div className="row" key={g.id}>
             <img className="row__thumb" src={g.image || g.landscapeImage || ''} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
             <div>
@@ -199,7 +256,7 @@ export function GamesPanel() {
         <GameEditor
           initial={editing}
           onClose={() => setEditing(null)}
-          onSaved={(saved) => { setGames((prev) => prev.some((x) => x.id === saved.id) ? prev.map((x) => (x.id === saved.id ? saved : x)) : [...prev, saved]); setEditing(null); }}
+          onSaved={(saved) => { setGames((prev) => prev.some((x) => x.id === saved.id) ? prev.map((x) => (x.id === saved.id ? saved : x)) : [...prev, saved]); setEditing(null); toast(`Saved "${saved.title}".`); }}
         />
       )}
 

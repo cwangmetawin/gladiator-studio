@@ -6,87 +6,28 @@ import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
 import { lines, paras, safeHref, safeImageSrc } from '@/shared/utils/text';
+import teamDefault from '@/api/teamDefault.json';
 
-interface Member { readonly name: string; readonly role: string; readonly image: string; readonly bio: string; }
-
-/** Additional team members (editable in the admin). Hidden while empty — today
- *  it's just the lead; this grid grows as members are added. */
-function MembersGrid({ team }: { readonly team: TeamData }) {
-  // Skip blank rows the admin may have added but not filled in.
-  const members = (team.members ?? []).filter((m) => m && (m.name || m.role || m.bio || m.image));
-  if (members.length === 0) return null;
-  return (
-    <Reveal delay={0.06}>
-      <div className="card">
-        <span className="card__label">The Team</span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: 14, marginTop: 6 }}>
-          {members.map((m, i) => (
-            <div key={i} className="card card--hover" style={{ padding: '1rem' }}>
-              {m.image && (
-                <img src={safeImageSrc(m.image)} alt="" loading="lazy"
-                  style={{ width: 54, height: 54, borderRadius: '50%', objectFit: 'cover', marginBottom: 10, border: '1px solid var(--color-line)' }}
-                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
-              )}
-              {m.name && <h3 className="card__title" style={{ fontSize: '0.95rem', marginBottom: 2, overflowWrap: 'anywhere' }}>{m.name}</h3>}
-              {m.role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-holo-300)', marginBottom: m.bio ? 6 : 0, letterSpacing: '0.04em', overflowWrap: 'anywhere' }}>{m.role}</div>}
-              {m.bio && <p className="body-text" style={{ fontSize: '0.82rem', overflowWrap: 'anywhere' }}>{m.bio}</p>}
-            </div>
-          ))}
-        </div>
-      </div>
-    </Reveal>
-  );
+interface Person {
+  readonly name: string;
+  readonly role: string;
+  readonly callsign: string;
+  readonly initials: string;
+  readonly location: string;
+  readonly company: string;
+  readonly experience: string;
+  readonly image: string;
+  readonly bio: string;
+  readonly expertise: string | readonly string[];
+  readonly missions: string | readonly string[];
+  readonly linkedin: string;
+  readonly email: string;
+  readonly github: string;
 }
-
-const LEAD = {
-  initials: 'CW',
-  name: 'CHAO WANG',
-  role: 'CTO & Head of Game Development',
-  callsign: 'THE ARCHITECT',
-  location: 'London, UK',
-  company: 'MetaWin Group',
-  experience: '10+ yrs',
-  bio: 'Industry pioneer — the first person to systematically deploy AI, large language models, and autonomous agent systems at production scale in iGaming. Chao architected the entire Gladiator Studio technology stack from the ground up and leads all engineering, AI R&D, and product development within the MetaWin group.',
-  bio2: 'His AI-first approach has fundamentally reshaped how games are designed, tested, and optimized: LLM-powered game content generation, multi-agent orchestration for automated QA pipelines, real-time adaptive game balancing via reinforcement learning, and Claude-driven autonomous development workflows that compress months of engineering into days.',
-  bio3: 'Before MetaWin, Chao spent a decade at the bleeding edge of gaming technology — building platforms processing $100M+ in daily wagers, contributing core modules to Pixi.js (the most widely used 2D WebGL renderer), and creating Chao2D, a purpose-built rendering engine for high-performance H5 gaming.',
-  expertise: ['AI / LLM Pioneer in iGaming', 'Multi-Agent Systems', 'Game Architecture', 'WebGL / Pixi.js', 'Distributed Systems', 'Cloud (AWS + GCP)', 'Crypto-Native', 'Tech Leadership'],
-  missions: [
-    'First to deploy LLMs and autonomous AI agents in production iGaming — industry pioneer',
-    'Architected multi-agent AI pipeline: game design → math validation → QA → deployment',
-    'Built Claude-powered autonomous dev workflows — 10x engineering velocity',
-    'Architected gaming aggregation platform — $100M+ daily wagers',
-    'Core open-source contributor to Pixi.js (world\'s #1 2D WebGL renderer)',
-    'Created Chao2D rendering engine for H5 gaming',
-    'Built Newtonian physics engine for browser games',
-    'Shipped 34 live titles (8 Gladiator ULTRA-volatility slots + 26 MetaWin Originals)',
-    'Dual-cloud AWS + GCP elite-tier infrastructure across 7 markets',
-    'Built and scaled cross-functional teams across engineering, AI, art, QA',
-  ],
-  social: {
-    linkedin: 'https://www.linkedin.com/in/chaow/',
-    email: 'cwang@metawin.inc',
-    github: 'https://github.com/gladiator-studio',
-  },
-} as const;
-
-const CULTURE_VALUES: readonly { readonly tag: string; readonly text: string }[] = [
-  { tag: 'Craft', text: 'Small senior team. Every engineer ships to production. No bureaucracy.' },
-  { tag: 'Velocity', text: 'Concept to live deployment in weeks, not quarters. Ship fast, iterate faster.' },
-  { tag: 'Ownership', text: 'Full-stack ownership from game mathematics to cloud infrastructure.' },
-  { tag: 'Impact', text: 'Our games are played by hundreds of thousands of real players daily.' },
-];
-
-// Fallback = the current hardcoded content; the admin (DB) overrides any field.
-const TEAM_FALLBACK = {
-  lead_name: LEAD.name, lead_role: LEAD.role, lead_callsign: LEAD.callsign,
-  lead_location: LEAD.location, lead_company: LEAD.company, lead_experience: LEAD.experience, lead_initials: LEAD.initials,
-  lead_bio: [LEAD.bio, LEAD.bio2, LEAD.bio3].join('\n\n'),
-  lead_expertise: LEAD.expertise.join('\n'), lead_missions: LEAD.missions.join('\n'),
-  lead_linkedin: LEAD.social.linkedin, lead_email: LEAD.social.email, lead_github: LEAD.social.github,
-  members: [] as Member[],
-  culture: CULTURE_VALUES as readonly { tag: string; text: string }[],
-};
-type TeamData = typeof TEAM_FALLBACK;
+interface TeamData {
+  readonly people: readonly Person[];
+  readonly culture: readonly { readonly tag: string; readonly text: string }[];
+}
 
 function openCareers() {
   window.dispatchEvent(new CustomEvent('open-panel', { detail: 'careers' }));
@@ -102,72 +43,53 @@ function SocialBtn({ href, label, icon }: { readonly href: string; readonly labe
   );
 }
 
-function LeadershipCard({ team }: { readonly team: TeamData }) {
-  // Defensive: dynamic content may be empty — never render dangling labels,
-  // empty separators, or empty links that would break the page layout.
-  const metaLine = [team.lead_location, team.lead_experience, team.lead_company].filter(Boolean).join(' · ');
-  const expertise = lines(team.lead_expertise);
-  const missions = lines(team.lead_missions);
-  const bio = paras(team.lead_bio);
+const HEX_CLIP = 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)';
+
+/** A single person's full profile. Identical to the old single-lead card; one of
+ *  these renders per tab when there are multiple people. */
+function ProfileCard({ person, label }: { readonly person: Person; readonly label: string }) {
+  const metaLine = [person.location, person.experience, person.company].filter(Boolean).join(' · ');
+  const expertise = lines(person.expertise);
+  const missions = lines(person.missions);
+  const bio = paras(person.bio);
+  const photo = safeImageSrc(person.image);
   const socials = [
-    { href: team.lead_linkedin, label: 'LinkedIn profile', icon: <Linkedin size={16} /> },
-    { href: team.lead_email, label: 'Send email', icon: <Mail size={16} /> },
-    { href: team.lead_github, label: 'GitHub organisation', icon: <Github size={16} /> },
+    { href: person.linkedin, label: 'LinkedIn profile', icon: <Linkedin size={16} /> },
+    { href: person.email, label: 'Send email', icon: <Mail size={16} /> },
+    { href: person.github, label: 'GitHub organisation', icon: <Github size={16} /> },
   ].filter((s) => s.href);
   const [expanded, setExpanded] = useState(false);
   const hasMore = bio.length > 1 || missions.length > 0;
+
   return (
-    <div className="card" role="article" aria-label={`Leadership: ${team.lead_name}`}>
-      <span className="card__label">Leadership</span>
+    <div className="card" role="article" aria-label={`${label}: ${person.name}`}>
+      <span className="card__label">{label}</span>
 
       {/* Identity */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16 }}>
         <div aria-hidden="true" style={{ position: 'relative', width: 56, height: 62, flexShrink: 0 }}>
-          <div style={{
-            width: 56, height: 62,
-            clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-            background: 'var(--color-holo-500)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <div style={{
-              width: 52, height: 58,
-              clipPath: 'polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)',
-              background: 'var(--color-void-800)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, color: 'var(--color-holo-300)', letterSpacing: 2 }}>
-                {team.lead_initials}
-              </span>
+          {photo ? (
+            <img src={photo} alt="" style={{ width: 56, height: 62, objectFit: 'cover', clipPath: HEX_CLIP }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+          ) : (
+            <div style={{ width: 56, height: 62, clipPath: HEX_CLIP, background: 'var(--color-holo-500)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 52, height: 58, clipPath: HEX_CLIP, background: 'var(--color-void-800)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 17, fontWeight: 700, color: 'var(--color-holo-300)', letterSpacing: 2 }}>
+                  {person.initials}
+                </span>
+              </div>
             </div>
-          </div>
-          <div className="pulse-node" style={{
-            position: 'absolute', bottom: -2, right: -2,
-            width: 14, height: 14, borderRadius: '50%',
-            background: 'var(--color-live)', border: '2px solid var(--color-void-800)',
-            boxShadow: '0 0 8px var(--color-live)',
-          }} />
+          )}
+          <div className="pulse-node" style={{ position: 'absolute', bottom: -2, right: -2, width: 14, height: 14, borderRadius: '50%', background: 'var(--color-live)', border: '2px solid var(--color-void-800)', boxShadow: '0 0 8px var(--color-live)' }} />
         </div>
         <div>
-          <div className="card__title" style={{ marginBottom: 2, overflowWrap: 'anywhere' }}>{team.lead_name || 'Unnamed'}</div>
-          {team.lead_role && (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-holo-300)', overflowWrap: 'anywhere' }}>
-              {team.lead_role}
-            </div>
-          )}
-          {team.lead_callsign && (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-gold)', marginTop: 4, letterSpacing: '0.14em', textTransform: 'uppercase' }}>
-              {team.lead_callsign}
-            </div>
-          )}
-          {metaLine && (
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-text-mute)', marginTop: 4, letterSpacing: '0.08em' }}>
-              {metaLine}
-            </div>
-          )}
+          <div className="card__title" style={{ marginBottom: 2, overflowWrap: 'anywhere' }}>{person.name || 'Unnamed'}</div>
+          {person.role && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--color-holo-300)', overflowWrap: 'anywhere' }}>{person.role}</div>}
+          {person.callsign && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-gold)', marginTop: 4, letterSpacing: '0.14em', textTransform: 'uppercase' }}>{person.callsign}</div>}
+          {metaLine && <div style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: 'var(--color-text-mute)', marginTop: 4, letterSpacing: '0.08em' }}>{metaLine}</div>}
         </div>
       </div>
 
-      {/* Intro — first paragraph always visible; the rest expands on demand */}
       {bio[0] && <p className="body-text" style={{ overflowWrap: 'anywhere' }}>{bio[0]}</p>}
 
       {expertise.length > 0 && (
@@ -175,26 +97,15 @@ function LeadershipCard({ team }: { readonly team: TeamData }) {
           <Divider className="my-4" />
           <span className="card__label">Expertise</span>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {expertise.map((tag) => (
-              <span key={tag} className="chip" translate="no" style={{ overflowWrap: 'anywhere' }}>{tag}</span>
-            ))}
+            {expertise.map((tag) => <span key={tag} className="chip" translate="no" style={{ overflowWrap: 'anywhere' }}>{tag}</span>)}
           </div>
         </>
       )}
 
       <AnimatePresence initial={false}>
         {expanded && hasMore && (
-          <motion.div
-            key="more"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }}
-            style={{ overflow: 'hidden' }}
-          >
-            {bio.slice(1).map((p, i) => (
-              <p key={i} className="body-text" style={{ marginTop: 12, overflowWrap: 'anywhere' }}>{p}</p>
-            ))}
+          <motion.div key="more" initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.32, ease: [0.16, 1, 0.3, 1] }} style={{ overflow: 'hidden' }}>
+            {bio.slice(1).map((p, i) => <p key={i} className="body-text" style={{ marginTop: 12, overflowWrap: 'anywhere' }}>{p}</p>)}
             {missions.length > 0 && (
               <>
                 <Divider className="my-4" />
@@ -237,7 +148,6 @@ function LeadershipCard({ team }: { readonly team: TeamData }) {
 
 function TeamStatsCard() {
   const st = useStudioStats();
-  // Games Shipped & Live Slots auto-count from the catalogue; Years & Markets are Studio Stats.
   const stats = [
     { to: st.years, suffix: '+', label: 'Years Exp' },
     { to: st.games, suffix: '', label: 'Games Shipped' },
@@ -262,15 +172,17 @@ function TeamStatsCard() {
   );
 }
 
-function CultureCard({ team }: { readonly team: TeamData }) {
+function CultureCard({ culture }: { readonly culture: TeamData['culture'] }) {
+  const values = (culture ?? []).filter((v) => v && (v.tag || v.text));
+  if (values.length === 0) return null;
   return (
     <div className="card">
       <span className="card__label">How We Work</span>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginTop: 4 }}>
-        {team.culture.map((v) => (
-          <div key={v.tag} className="card card--hover" style={{ padding: '0.8rem 0.9rem' }}>
-            <h3 className="card__title" style={{ fontSize: '0.92rem', marginBottom: 4 }}>{v.tag}</h3>
-            <p className="body-text" style={{ fontSize: '0.82rem' }}>{v.text}</p>
+        {values.map((v, i) => (
+          <div key={i} className="card card--hover" style={{ padding: '0.8rem 0.9rem' }}>
+            {v.tag && <h3 className="card__title" style={{ fontSize: '0.92rem', marginBottom: 4 }}>{v.tag}</h3>}
+            {v.text && <p className="body-text" style={{ fontSize: '0.82rem' }}>{v.text}</p>}
           </div>
         ))}
       </div>
@@ -292,7 +204,14 @@ function JoinTeamCard() {
 }
 
 export function TeamSection() {
-  const team = useSection('team', TEAM_FALLBACK);
+  const team = useSection('team', teamDefault as unknown as TeamData);
+  const all = (team.people ?? []).filter((p) => p && (p.name || p.role || p.bio));
+  const people: readonly Person[] = all.length > 0 ? all : (teamDefault.people as unknown as Person[]);
+  const [active, setActive] = useState(0);
+  const idx = Math.min(active, people.length - 1);
+  const person = people[idx] ?? people[0];
+  const multi = people.length > 1;
+
   return (
     <SectionWrapper id="team">
       <SectionHeading
@@ -301,10 +220,41 @@ export function TeamSection() {
         title="Built by people who understand the game"
         lede="Deep expertise in game mathematics, WebGL rendering, distributed systems, and crypto-native product design — a small senior team shipping titles played by hundreds of thousands daily."
       />
-      <Reveal delay={0}><LeadershipCard team={team} /></Reveal>
-      <MembersGrid team={team} />
+
+      {/* Tabs — only when there's more than one person */}
+      {multi && (
+        <Reveal delay={0}>
+          <div role="tablist" aria-label="Team members" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {people.map((p, i) => {
+              const on = i === idx;
+              return (
+                <button key={i} type="button" role="tab" aria-selected={on} onClick={() => setActive(i)}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, cursor: 'pointer',
+                    padding: '8px 14px', borderRadius: 10, textAlign: 'left',
+                    background: on ? 'var(--holo-tint-2)' : 'rgba(255,255,255,0.02)',
+                    border: `1px solid ${on ? 'var(--color-holo-500)' : 'var(--color-line)'}`,
+                    transition: 'background 0.18s, border-color 0.18s',
+                  }}>
+                  <span style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '0.92rem', color: on ? '#fff' : 'var(--color-text-soft)' }}>{p.name || `Person ${i + 1}`}</span>
+                  {p.role && <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-2xs)', color: on ? 'var(--color-holo-300)' : 'var(--color-text-mute)', letterSpacing: '0.04em' }}>{p.role}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </Reveal>
+      )}
+
+      <Reveal delay={0.04}>
+        <AnimatePresence mode="wait">
+          <motion.div key={idx} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}>
+            {person && <ProfileCard person={person} label={multi ? 'Profile' : 'Leadership'} />}
+          </motion.div>
+        </AnimatePresence>
+      </Reveal>
+
       <Reveal delay={0.08}><TeamStatsCard /></Reveal>
-      <Reveal delay={0.12}><CultureCard team={team} /></Reveal>
+      <Reveal delay={0.12}><CultureCard culture={team.culture} /></Reveal>
       <Reveal delay={0.16}><JoinTeamCard /></Reveal>
     </SectionWrapper>
   );

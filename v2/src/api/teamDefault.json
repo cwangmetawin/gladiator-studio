@@ -1,0 +1,46 @@
+{
+  "people": [
+    {
+      "name": "CHAO WANG",
+      "role": "CTO & Head of Game Development",
+      "callsign": "THE ARCHITECT",
+      "initials": "CW",
+      "location": "London, UK",
+      "company": "MetaWin Group",
+      "experience": "10+ yrs",
+      "image": "",
+      "bio": "Industry pioneer — the first person to systematically deploy AI, large language models, and autonomous agent systems at production scale in iGaming. Chao architected the entire Gladiator Studio technology stack from the ground up and leads all engineering, AI R&D, and product development within the MetaWin group.\n\nHis AI-first approach has fundamentally reshaped how games are designed, tested, and optimized: LLM-powered game content generation, multi-agent orchestration for automated QA pipelines, real-time adaptive game balancing via reinforcement learning, and Claude-driven autonomous development workflows that compress months of engineering into days.\n\nBefore MetaWin, Chao spent a decade at the bleeding edge of gaming technology — building platforms processing $100M+ in daily wagers, contributing core modules to Pixi.js (the most widely used 2D WebGL renderer), and creating Chao2D, a purpose-built rendering engine for high-performance H5 gaming.",
+      "expertise": [
+        "AI / LLM Pioneer in iGaming",
+        "Multi-Agent Systems",
+        "Game Architecture",
+        "WebGL / Pixi.js",
+        "Distributed Systems",
+        "Cloud (AWS + GCP)",
+        "Crypto-Native",
+        "Tech Leadership"
+      ],
+      "missions": [
+        "First to deploy LLMs and autonomous AI agents in production iGaming — industry pioneer",
+        "Architected multi-agent AI pipeline: game design → math validation → QA → deployment",
+        "Built Claude-powered autonomous dev workflows — 10x engineering velocity",
+        "Architected gaming aggregation platform — $100M+ daily wagers",
+        "Core open-source contributor to Pixi.js (world's #1 2D WebGL renderer)",
+        "Created Chao2D rendering engine for H5 gaming",
+        "Built Newtonian physics engine for browser games",
+        "Shipped 34 live titles (8 Gladiator ULTRA-volatility slots + 26 MetaWin Originals)",
+        "Dual-cloud AWS + GCP elite-tier infrastructure across 7 markets",
+        "Built and scaled cross-functional teams across engineering, AI, art, QA"
+      ],
+      "linkedin": "https://www.linkedin.com/in/chaow/",
+      "email": "cwang@metawin.inc",
+      "github": "https://github.com/gladiator-studio"
+    }
+  ],
+  "culture": [
+    { "tag": "Craft", "text": "Small senior team. Every engineer ships to production. No bureaucracy." },
+    { "tag": "Velocity", "text": "Concept to live deployment in weeks, not quarters. Ship fast, iterate faster." },
+    { "tag": "Ownership", "text": "Full-stack ownership from game mathematics to cloud infrastructure." },
+    { "tag": "Impact", "text": "Our games are played by hundreds of thousands of real players daily." }
+  ]
+}

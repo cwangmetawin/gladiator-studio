@@ -3,6 +3,7 @@ import careersDefault from './careersDefault.json';
 import aboutDefault from './aboutDefault.json';
 import journeyDefault from './journeyDefault.json';
 import partnerDefault from './partnerDefault.json';
+import teamDefault from './teamDefault.json';
 
 // ─── Structured, per-section page content ───────────────────────────────────
 // One site_content row per section (key = section id, value = JSON document).
@@ -58,27 +59,24 @@ export const SECTIONS: readonly SectionSchema[] = [
     key: 'team',
     label: 'Team',
     fields: [
-      { key: 'lead_name', label: 'Name', type: 'text', group: 'Lead profile', groupOpen: true },
-      { key: 'lead_role', label: 'Role', type: 'text', group: 'Lead profile' },
-      { key: 'lead_callsign', label: 'Callsign', type: 'text', group: 'Lead profile' },
-      { key: 'lead_location', label: 'Location', type: 'text', group: 'Lead profile' },
-      { key: 'lead_company', label: 'Company', type: 'text', group: 'Lead profile' },
-      { key: 'lead_experience', label: 'Experience', type: 'text', group: 'Lead profile' },
-      { key: 'lead_initials', label: 'Initials', type: 'text', group: 'Lead profile' },
-      { key: 'lead_bio', label: 'Bio', type: 'textarea', hint: 'Separate paragraphs with a blank line.', group: 'Lead profile' },
-      { key: 'lead_expertise', label: 'Expertise', type: 'tags', group: 'Lead profile' },
-      { key: 'lead_missions', label: 'Highlights', type: 'bullets', itemLabel: 'Highlight', group: 'Lead profile' },
-      { key: 'lead_linkedin', label: 'LinkedIn URL', type: 'text', group: 'Lead profile' },
-      { key: 'lead_email', label: 'Email', type: 'text', group: 'Lead profile' },
-      { key: 'lead_github', label: 'GitHub URL', type: 'text', group: 'Lead profile' },
       {
-        key: 'members', label: 'Additional members', type: 'list', itemLabel: 'Member',
-        hint: 'Shown as a grid beneath the lead. Add as many as you like.',
+        key: 'people', label: 'Team members', type: 'list', itemLabel: 'Person',
+        hint: 'Each person is a tab on the site. One person shows as a single profile (as now); add more to get tabs.',
         fields: [
           { key: 'name', label: 'Name', type: 'text' },
           { key: 'role', label: 'Role', type: 'text' },
+          { key: 'callsign', label: 'Callsign', type: 'text' },
+          { key: 'initials', label: 'Initials (badge)', type: 'text' },
+          { key: 'location', label: 'Location', type: 'text' },
+          { key: 'company', label: 'Company', type: 'text' },
+          { key: 'experience', label: 'Experience', type: 'text' },
           { key: 'image', label: 'Photo URL', type: 'image' },
-          { key: 'bio', label: 'Short bio', type: 'textarea' },
+          { key: 'bio', label: 'Bio', type: 'textarea', hint: 'Separate paragraphs with a blank line.' },
+          { key: 'expertise', label: 'Expertise', type: 'tags' },
+          { key: 'missions', label: 'Highlights', type: 'bullets', itemLabel: 'Highlight' },
+          { key: 'linkedin', label: 'LinkedIn URL', type: 'text' },
+          { key: 'email', label: 'Email', type: 'text' },
+          { key: 'github', label: 'GitHub URL', type: 'text' },
         ],
       },
       {
@@ -89,28 +87,7 @@ export const SECTIONS: readonly SectionSchema[] = [
         ],
       },
     ],
-    default: {
-      lead_name: 'CHAO WANG',
-      lead_role: 'CTO & Head of Game Development',
-      lead_callsign: 'THE ARCHITECT',
-      lead_location: 'London, UK',
-      lead_company: 'MetaWin Group',
-      lead_experience: '10+ yrs',
-      lead_initials: 'CW',
-      lead_bio: 'Industry pioneer — the first person to systematically deploy AI, large language models, and autonomous agent systems at production scale in iGaming. Chao architected the entire Gladiator Studio technology stack from the ground up and leads all engineering, AI R&D, and product development within the MetaWin group.\n\nHis AI-first approach has fundamentally reshaped how games are designed, tested, and optimized: LLM-powered game content generation, multi-agent orchestration for automated QA pipelines, real-time adaptive game balancing via reinforcement learning, and Claude-driven autonomous development workflows that compress months of engineering into days.\n\nBefore MetaWin, Chao spent a decade at the bleeding edge of gaming technology — building platforms processing $100M+ in daily wagers, contributing core modules to Pixi.js (the most widely used 2D WebGL renderer), and creating Chao2D, a purpose-built rendering engine for high-performance H5 gaming.',
-      lead_expertise: 'AI / LLM Pioneer in iGaming\nMulti-Agent Systems\nGame Architecture\nWebGL / Pixi.js\nDistributed Systems\nCloud (AWS + GCP)\nCrypto-Native\nTech Leadership',
-      lead_missions: "First to deploy LLMs and autonomous AI agents in production iGaming — industry pioneer\nArchitected multi-agent AI pipeline: game design → math validation → QA → deployment\nBuilt Claude-powered autonomous dev workflows — 10x engineering velocity\nArchitected gaming aggregation platform — $100M+ daily wagers\nCore open-source contributor to Pixi.js (world's #1 2D WebGL renderer)\nCreated Chao2D rendering engine for H5 gaming\nBuilt Newtonian physics engine for browser games\nShipped 34 live titles (8 Gladiator ULTRA-volatility slots + 26 MetaWin Originals)\nDual-cloud AWS + GCP elite-tier infrastructure across 7 markets\nBuilt and scaled cross-functional teams across engineering, AI, art, QA",
-      lead_linkedin: 'https://www.linkedin.com/in/chaow/',
-      lead_email: 'cwang@metawin.inc',
-      lead_github: 'https://github.com/gladiator-studio',
-      members: [],
-      culture: [
-        { tag: 'Craft', text: 'Small senior team. Every engineer ships to production. No bureaucracy.' },
-        { tag: 'Velocity', text: 'Concept to live deployment in weeks, not quarters. Ship fast, iterate faster.' },
-        { tag: 'Ownership', text: 'Full-stack ownership from game mathematics to cloud infrastructure.' },
-        { tag: 'Impact', text: 'Our games are played by hundreds of thousands of real players daily.' },
-      ],
-    },
+    default: teamDefault,
   },
   {
     key: 'about',

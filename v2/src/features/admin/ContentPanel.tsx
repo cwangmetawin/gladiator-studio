@@ -2,6 +2,9 @@ import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type
 import { SECTIONS, fetchSiteContent, saveSection, importDefaultContent, type ContentMap, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
 import { lines } from '@/shared/utils/text';
 import { ConfirmDialog } from './ConfirmDialog';
+import { Dropzone } from './Dropzone';
+import { useToast } from './Toast';
+import { useUnsaved } from './Unsaved';
 
 function blankItem(fields: readonly FieldDef[]): SectionValue {
   return Object.fromEntries(fields.map((f) => {
@@ -151,6 +154,7 @@ function BulletEditor({ value, onChange, label, hint, itemLabel }: { readonly va
 function ImageField({ value, onChange, label, hint }: { readonly value: unknown; readonly onChange: (v: string) => void; readonly label: string; readonly hint?: string }) {
   const url = String(value ?? '');
   const [broken, setBroken] = useState(false);
+  const { toast } = useToast();
   useEffect(() => { setBroken(false); }, [url]);
   return (
     <div className="field col-span">
@@ -161,6 +165,7 @@ function ImageField({ value, onChange, label, hint }: { readonly value: unknown;
           : <span className="image-field__broken" role="img" aria-label={url ? 'Image failed to load' : 'No image'}>{url ? '⚠' : '🖼'}</span>}
         <input className="input" type="text" value={url} placeholder="https://…" onChange={(e) => onChange(e.target.value)} />
       </div>
+      <Dropzone onUploaded={(u) => { onChange(u); toast('Image uploaded — remember to Save.'); }} onError={(m) => toast(m, 'err')} />
       {hint && <span className="hint">{hint}</span>}
     </div>
   );
@@ -208,52 +213,75 @@ function PeriodField({ value, onChange, label, hint }: { readonly value: unknown
   );
 }
 
-function Field({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
-  if (def.type === 'period') return <PeriodField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
-  if (def.type === 'select') return <SelectField value={value} onChange={onChange} label={def.label} hint={def.hint} options={def.options ?? []} />;
-  if (def.type === 'tags') return <TagInput value={value} onChange={onChange} label={def.label} hint={def.hint} />;
-  if (def.type === 'bullets') return <BulletEditor value={value} onChange={onChange} label={def.label} hint={def.hint} itemLabel={def.itemLabel} />;
-  if (def.type === 'image') return <ImageField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
-  if (def.type === 'list') {
-    const items = (Array.isArray(value) ? value : []) as SectionValue[];
-    const setItem = (i: number, item: SectionValue) => onChange(items.map((x, j) => (j === i ? item : x)));
-    const move = (i: number, dir: -1 | 1) => {
-      const j = i + dir;
-      const a = items[i];
-      const b = items[j];
-      if (!a || !b) return;
-      const next = items.slice();
-      next[i] = b;
-      next[j] = a;
-      onChange(next);
-    };
-    return (
-      <div className="field col-span">
-        <label>{def.label}{def.hint && <span className="hint" style={{ marginLeft: 8, fontWeight: 400 }}>{def.hint}</span>}</label>
-        <div className="list-editor">
-          {items.length === 0 && <div className="list-empty">No {def.itemLabel?.toLowerCase() ?? 'item'}s yet.</div>}
-          {items.map((item, i) => (
+// ─── Repeatable list with COLLAPSIBLE items ──────────────────────────────────
+// Each item is a collapsible card showing a summary (its first text field) when
+// closed, so a long per-item form (e.g. a full team-member profile) isn't an
+// overwhelming wall of inputs. A single-item list opens by default; multi-item
+// lists start collapsed.
+function ListField({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
+  const items = (Array.isArray(value) ? value : []) as SectionValue[];
+  const noun = def.itemLabel?.toLowerCase() ?? 'item';
+  const [open, setOpen] = useState<Set<number>>(() => new Set(items.length <= 1 ? [0] : []));
+  const toggle = (i: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+
+  const setItem = (i: number, item: SectionValue) => onChange(items.map((x, j) => (j === i ? item : x)));
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir;
+    const a = items[i]; const b = items[j];
+    if (!a || !b) return;
+    const next = items.slice(); next[i] = b; next[j] = a; onChange(next);
+  };
+  const add = () => { onChange([...items, blankItem(def.fields ?? [])]); setOpen((prev) => new Set(prev).add(items.length)); };
+  const summaryOf = (item: SectionValue): string => {
+    for (const f of def.fields ?? []) { const v = item[f.key]; if (typeof v === 'string' && v.trim()) return v.trim(); }
+    return '';
+  };
+
+  return (
+    <div className="field col-span">
+      <label>{def.label}{def.hint && <span className="hint" style={{ marginLeft: 8, fontWeight: 400 }}>{def.hint}</span>}</label>
+      <div className="list-editor">
+        {items.length === 0 && <div className="list-empty">No {noun}s yet.</div>}
+        {items.map((item, i) => {
+          const isOpen = open.has(i);
+          const summary = summaryOf(item);
+          return (
             <div className="list-item" key={i}>
               <div className="list-item__head">
-                <span>{def.itemLabel ?? 'Item'} {i + 1}</span>
+                <button type="button" className="list-item__toggle" onClick={() => toggle(i)} aria-expanded={isOpen}>
+                  <span className="field-group__caret" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+                  <span>{def.itemLabel ?? 'Item'} {i + 1}</span>
+                  {summary && <span className="list-item__summary">{summary}</span>}
+                </button>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(i, -1)} disabled={i === 0} title="Move up">↑</button>
                   <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(i, 1)} disabled={i === items.length - 1} title="Move down">↓</button>
                   <button type="button" className="btn btn--sm btn--danger" onClick={() => onChange(items.filter((_, j) => j !== i))}>Remove</button>
                 </div>
               </div>
-              <div className="form-grid">
-                {(def.fields ?? []).map((sf) => (
-                  <Field key={sf.key} def={sf} value={item[sf.key]} onChange={(v) => setItem(i, { ...item, [sf.key]: v })} />
-                ))}
-              </div>
+              {isOpen && (
+                <div className="form-grid" style={{ marginTop: 12 }}>
+                  {(def.fields ?? []).map((sf) => (
+                    <Field key={sf.key} def={sf} value={item[sf.key]} onChange={(v) => setItem(i, { ...item, [sf.key]: v })} />
+                  ))}
+                </div>
+              )}
             </div>
-          ))}
-          <button type="button" className="btn btn--sm" onClick={() => onChange([...items, blankItem(def.fields ?? [])])}>+ Add {def.itemLabel?.toLowerCase() ?? 'item'}</button>
-        </div>
+          );
+        })}
+        <button type="button" className="btn btn--sm" onClick={add}>+ Add {noun}</button>
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+function Field({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
+  if (def.type === 'period') return <PeriodField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
+  if (def.type === 'select') return <SelectField value={value} onChange={onChange} label={def.label} hint={def.hint} options={def.options ?? []} />;
+  if (def.type === 'tags') return <TagInput value={value} onChange={onChange} label={def.label} hint={def.hint} />;
+  if (def.type === 'bullets') return <BulletEditor value={value} onChange={onChange} label={def.label} hint={def.hint} itemLabel={def.itemLabel} />;
+  if (def.type === 'image') return <ImageField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
+  if (def.type === 'list') return <ListField def={def} value={value} onChange={onChange} />;
   if (def.type === 'textarea') {
     return (
       <div className="field col-span">
@@ -324,23 +352,27 @@ function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, o
 }
 
 function SectionCard({ schema, initial }: { readonly schema: SectionSchema; readonly initial: SectionValue }) {
+  const { toast } = useToast();
+  const { setDirty } = useUnsaved();
   // Normalise the seed so value & saved start in the canonical shape (arrays for
   // tags/bullets, numbers for number fields) and the dirty-check compares like-for-like.
   const [value, setValue] = useState<SectionValue>(() => normalizeForSave(schema.fields, initial));
   const [saved, setSaved] = useState<SectionValue>(() => normalizeForSave(schema.fields, initial));
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   // Compare canonical (normalized) shapes so typing a number back to its original isn't "dirty".
   const dirty = JSON.stringify(normalizeForSave(schema.fields, value)) !== JSON.stringify(saved);
 
+  // Surface this section's dirty state to the cross-tab unsaved-changes guard.
+  useEffect(() => { setDirty(schema.key, dirty); }, [dirty, schema.key, setDirty]);
+
   async function save() {
-    setSaving(true); setMsg(null);
+    setSaving(true);
     try {
       const clean = normalizeForSave(schema.fields, value);
       await saveSection(schema.key, clean);
       setValue(clean); setSaved(clean);
-      setMsg({ kind: 'ok', text: 'Saved — live now.' });
-    } catch (e) { setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Save failed' }); }
+      toast(`${schema.label} saved — live now.`);
+    } catch (e) { toast(e instanceof Error ? e.message : 'Save failed', 'err'); }
     finally { setSaving(false); }
   }
 
@@ -349,7 +381,7 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
       <div className="toolbar" style={{ marginBottom: 14 }}>
         <span className="toolbar__title" style={{ fontSize: 15 }}>{schema.label}</span>
         <div className="admin__spacer" />
-        {msg && <span className={`msg ${msg.kind === 'ok' ? 'msg--ok' : 'msg--err'}`} style={{ padding: '4px 10px' }}>{msg.text}</span>}
+        {dirty && <span className="tag" style={{ color: 'var(--a-gold)', borderColor: '#fedf89', background: 'var(--a-gold-weak)' }}>Unsaved</span>}
         <button className="btn btn--primary btn--sm" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}</button>
       </div>
       <div className="form-grid">
@@ -360,6 +392,7 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
 }
 
 export function ContentPanel() {
+  const { clear } = useUnsaved();
   const [data, setData] = useState<ContentMap | null>(null);
   const [nonce, setNonce] = useState(0);
   const [confirm, setConfirm] = useState(false);
@@ -369,6 +402,8 @@ export function ContentPanel() {
 
   const reload = () => fetchSiteContent().then((d) => { setData(d); setNonce((n) => n + 1); });
   useEffect(() => { reload(); }, []);
+  // Discard the unsaved-changes flags when leaving the Content tab (edits are dropped).
+  useEffect(() => () => clear(), [clear]);
 
   async function doImport() {
     setImporting(true); setMsg(null);
