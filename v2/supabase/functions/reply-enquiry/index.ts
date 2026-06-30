@@ -96,7 +96,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
   } catch (e) {
     return fail(502, `Email transport failed: ${String(e)}`);
   }
-  if (!res.ok) return fail(502, `Resend rejected the email (${res.status}).`);
+  if (!res.ok) {
+    // Surface Resend's real reason (e.g. "You can only send testing emails to
+    // your own address — verify a domain") so the operator sees what to fix.
+    let detail = '';
+    try { const body = await res.json(); if (body?.message) detail = ` — ${String(body.message)}`; } catch { /* keep generic */ }
+    return fail(502, `Resend rejected the email (${res.status})${detail}`);
+  }
 
   // --- Stamp handled + replied_at (best-effort) -------------------------------
   const repliedAt = new Date().toISOString();

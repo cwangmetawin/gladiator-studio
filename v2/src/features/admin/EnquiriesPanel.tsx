@@ -29,11 +29,20 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
     catch (e2) { setErr(e2 instanceof Error ? e2.message : 'Reply failed'); setBusy(false); }
   }
 
+  // Fallback: open the operator's own mail client pre-filled — works even when
+  // the server-side send is blocked (e.g. Resend's domain isn't verified yet).
+  const mailtoHref = `mailto:${enquiry.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+
   return (
     <div className="modal-bg" onClick={onClose}>
       <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <h3>Reply to {enquiry.name || 'enquiry'}</h3>
-        {err && <div className="msg msg--err" style={{ marginBottom: 14 }}>{err}</div>}
+        {err && (
+          <div className="msg msg--err" style={{ marginBottom: 14 }}>
+            {err}
+            <div style={{ marginTop: 6, color: 'var(--a-dim)' }}>Can’t send from here yet? Use <b>Mail app ↗</b> below to reply from your own email client.</div>
+          </div>
+        )}
         <div className="form-grid">
           <div className="field col-span">
             <label>To</label>
@@ -50,6 +59,7 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
         </div>
         <div className="modal__foot">
           <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
+          <a className="btn" href={mailtoHref}>Mail app ↗</a>
           <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Sending…' : 'Send reply'}</button>
         </div>
       </form>
