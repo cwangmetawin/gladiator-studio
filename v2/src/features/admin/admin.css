@@ -223,8 +223,30 @@ button { font-family: inherit; }
 .enq__email a { color: var(--a-accent); text-decoration: none; }
 .enq__email a:hover { text-decoration: underline; }
 .enq__msg { margin: 10px 0 0; color: var(--a-dim); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
-.enq__foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.enq__foot { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.enq__foot-spacer { flex: 1; }
 .tag--ok { color: var(--a-green); border-color: #abefc6; background: #ecfdf3; }
+.tag--handled { color: var(--a-accent); border-color: #c7d7fe; background: var(--a-accent-weak); }
+.tag--replied { color: #6941c6; border-color: #d9d6fe; background: #f4f3ff; }
+.enq--handled { opacity: 0.78; }
+.enq--handled:hover { opacity: 1; }
+
+/* Clamp long enquiry messages to a scannable height with a toggle. */
+.enq__msg--clamp { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.enq__more { background: none; border: none; color: var(--a-accent); cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; padding: 6px 0 0; }
+.enq__more:hover { text-decoration: underline; }
+
+/* Segmented filter control (New / Handled / All). */
+.seg { display: inline-flex; background: var(--a-panel-2); border: 1px solid var(--a-line); border-radius: 9px; padding: 3px; gap: 2px; }
+.seg__btn { padding: 5px 12px; border-radius: 7px; border: none; background: transparent; color: var(--a-dim); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.seg__btn:hover { color: var(--a-text); }
+.seg__btn.is-active { background: var(--a-panel); color: var(--a-accent); box-shadow: var(--a-shadow); }
+.seg__count { margin-left: 6px; font-size: 11px; color: var(--a-mute); }
+.seg__btn.is-active .seg__count { color: var(--a-accent); }
+
+/* Reply composer recipient line. */
+.reply-to { font-size: 12px; color: var(--a-dim); background: var(--a-panel-2); border: 1px solid var(--a-line); border-radius: 8px; padding: 9px 11px; }
+.reply-to b { color: var(--a-text); font-family: ui-monospace, monospace; font-weight: 600; }
 
 /* ─── Sidebar shell (Dashboard / Catalogue / Content / Enquiries) ─────────── */
 .admin--shell { display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 100vh; }
