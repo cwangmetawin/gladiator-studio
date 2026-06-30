@@ -5,6 +5,7 @@ import { fetchAllGames, saveGame, deleteGame, importCuratedGames, type AdminGame
 import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
+import { RailCard } from './Rail';
 
 interface PendingConfirm {
   readonly title: string;
@@ -186,13 +187,11 @@ export function GamesPanel() {
   }
 
   return (
-    <div>
+    <div className="admin__layout admin__layout--wide-rail">
+      <div className="admin__primary">
       <div className="toolbar">
         <span className="toolbar__title">Catalogue</span>
         <span className="count-pill">{filtered ? `${visible.length} / ${games.length}` : `${games.length} games`}</span>
-        <div className="admin__spacer" />
-        <button className="btn" onClick={askImport}>Import curated catalogue</button>
-        <button className="btn btn--primary" onClick={() => setEditing(BLANK)}>+ Add game</button>
       </div>
 
       <div className="toolbar">
@@ -251,6 +250,19 @@ export function GamesPanel() {
           </div>
         ))}
       </div>
+      </div>
+
+      <aside className="admin__rail">
+        <RailCard title="Catalogue">
+          <div className="rail-card__actions">
+            <button type="button" className="btn btn--sm btn--primary" onClick={() => setEditing(BLANK)}>+ Add game</button>
+            <button type="button" className="btn btn--sm" onClick={askImport}>Import curated catalogue</button>
+          </div>
+        </RailCard>
+        <RailCard title="Tips">
+          <div className="rail-card__note">Toggle <b>Live</b> to publish or hide a game on the site. <b>Hot</b> features it. Card order follows the <b>Sort order</b> field in the editor.</div>
+        </RailCard>
+      </aside>
 
       {editing && (
         <GameEditor

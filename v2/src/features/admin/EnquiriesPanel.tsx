@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { fetchEnquiries, deleteEnquiry, type Enquiry } from '@/api/enquiriesDb';
 import { ConfirmDialog } from './ConfirmDialog';
+import { RailCard } from './Rail';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,7 +39,8 @@ export function EnquiriesPanel() {
   }
 
   return (
-    <div>
+    <div className="admin__layout">
+      <div className="admin__primary">
       <div className="toolbar">
         <span className="toolbar__title">Enquiries</span>
         <span className="count-pill">{items.length} total</span>
@@ -85,6 +87,18 @@ export function EnquiriesPanel() {
           })}
         </div>
       )}
+      </div>
+
+      <aside className="admin__rail">
+        <RailCard title="Inbox">
+          <div className="rail-stat"><span className="rail-stat__label">Total</span><span className="rail-stat__value">{items.length}</span></div>
+          <div className="rail-stat"><span className="rail-stat__label">Emailed</span><span className="rail-stat__value">{items.filter((e) => e.emailed).length}</span></div>
+          <div className="rail-stat"><span className="rail-stat__label">Stored only</span><span className="rail-stat__value">{items.filter((e) => !e.emailed).length}</span></div>
+        </RailCard>
+        <RailCard title="Tips">
+          <div className="rail-card__note"><b>Reply</b> opens your mail client. <b>Emailed</b> means it also reached the studio inbox; <b>Stored only</b> means delivery was off or failed.</div>
+        </RailCard>
+      </aside>
 
       {pending && (
         <ConfirmDialog

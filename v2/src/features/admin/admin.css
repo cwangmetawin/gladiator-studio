@@ -247,7 +247,37 @@ button { font-family: inherit; }
 .admin__navitem svg { flex: 0 0 auto; }
 .admin__sidefoot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 14px 10px 2px; border-top: 1px solid var(--a-line); }
 .admin__sidefoot .admin__who { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.admin__content { min-width: 0; padding: 26px 28px 80px; width: 100%; max-width: 1160px; }
+.admin__content { min-width: 0; padding: 26px 28px 80px; width: 100%; max-width: 1360px; }
+
+/* Page layout with a right-hand info/action rail (à la WordPress edit screens). */
+.admin__layout { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 20px; align-items: start; }
+.admin__primary { min-width: 0; }
+.admin__rail { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 26px; }
+.rail-card { padding: 16px 18px; }
+.rail-card__title { font-size: 13px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 12px; }
+.rail-card__body { font-size: 13px; line-height: 1.6; color: var(--a-dim); }
+.rail-card__actions { display: flex; flex-direction: column; gap: 8px; }
+.rail-card__actions .btn { width: 100%; justify-content: flex-start; }
+.rail-card__actions .btn--primary { justify-content: center; }
+.rail-link { color: var(--a-accent); text-decoration: none; font-weight: 600; }
+.rail-link:hover { text-decoration: underline; }
+.rail-card__note { font-size: 12px; color: var(--a-mute); line-height: 1.5; }
+.rail-stat { display: flex; align-items: baseline; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid var(--a-line); }
+.rail-stat:last-child { border-bottom: none; }
+.rail-stat__label { font-size: 12px; color: var(--a-dim); }
+.rail-stat__value { font-size: 15px; font-weight: 700; }
+
+@media (max-width: 1080px) {
+  .admin__layout { grid-template-columns: 1fr; }
+  .admin__layout .admin__rail { position: static; flex-direction: row; flex-wrap: wrap; }
+  .admin__layout .admin__rail .rail-card { flex: 1 1 240px; }
+}
+/* Data-dense pages (table / 3-pane editor) shed the rail earlier to keep room. */
+@media (max-width: 1240px) {
+  .admin__layout--wide-rail { grid-template-columns: 1fr; }
+  .admin__layout--wide-rail .admin__rail { position: static; flex-direction: row; flex-wrap: wrap; }
+  .admin__layout--wide-rail .admin__rail .rail-card { flex: 1 1 240px; }
+}
 
 .admin__mobilebar { display: none; }
 .admin__scrim { display: none; }

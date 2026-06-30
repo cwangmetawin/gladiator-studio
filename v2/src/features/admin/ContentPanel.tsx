@@ -5,6 +5,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
 import { useUnsaved } from './Unsaved';
+import { RailCard } from './Rail';
 
 function blankItem(fields: readonly FieldDef[]): SectionValue {
   return Object.fromEntries(fields.map((f) => {
@@ -422,11 +423,10 @@ export function ContentPanel() {
   if (!data) return <div className="center-note">Loading…</div>;
   const activeSchema = SECTIONS.find((s) => s.key === active) ?? SECTIONS[0];
   return (
-    <div>
+    <div className="admin__layout admin__layout--wide-rail">
+      <div className="admin__primary">
       <div className="toolbar">
         <span className="toolbar__title">Page content</span>
-        <div className="admin__spacer" />
-        <button className="btn" onClick={() => setConfirm(true)}>Import current content</button>
       </div>
       {msg && <div className={`msg ${msg.kind === 'ok' ? 'msg--ok' : 'msg--err'}`} style={{ marginBottom: 14 }}>{msg.text}</div>}
       <div className="content-layout">
@@ -441,6 +441,22 @@ export function ContentPanel() {
           {activeSchema && <SectionCard key={`${activeSchema.key}-${nonce}`} schema={activeSchema} initial={data[activeSchema.key] ?? activeSchema.default} />}
         </div>
       </div>
+      </div>
+
+      <aside className="admin__rail">
+        <RailCard title="Publishing">
+          <div className="rail-card__body">Each section saves on its own and goes live on the site immediately.
+            <div style={{ marginTop: 10 }}><a className="rail-link" href="/" target="_blank" rel="noopener noreferrer">Open live site ↗</a></div>
+          </div>
+        </RailCard>
+        <RailCard title="Content tools">
+          <div className="rail-card__actions">
+            <button type="button" className="btn btn--sm" onClick={() => setConfirm(true)}>Import current content</button>
+          </div>
+          <div className="rail-card__note" style={{ marginTop: 8 }}>Seeds defaults for any section not yet stored. Your edits are kept.</div>
+        </RailCard>
+      </aside>
+
       {confirm && (
         <ConfirmDialog
           title="Import current content"
