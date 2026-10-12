@@ -702,12 +702,9 @@ function buildScene(
 
   // ── Deep-space nebula backdrop — baked astrophotography panorama ────────────
   const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.webp`, scene, true);
-  // Starts black and fades up to its dim target once the texture is ready (render
-  // loop), so the cosmos "develops" in rather than popping in seconds after the intro.
-  const NEBULA_RGB = [0.6, 0.6, 0.66] as const; // dim so foreground UI reads
-  const NEBULA_FADE_MS = 1400;
-  let nebulaFade = 0;
-  nebulaBg.color = new BABYLON.Color4(0, 0, 0, 1);
+  // Dim so foreground UI reads. Keep in step with the CSS stand-in in
+  // StarfieldCanvas (NebulaBackdrop), which shows this same image while Babylon loads.
+  nebulaBg.color = new BABYLON.Color4(0.6, 0.6, 0.66, 1);
 
   // A fullscreen Layer stretches its texture to the viewport, warping the cosmos on
   // tall (portrait) screens — crop the *sampled* region via the texture matrix so it
@@ -1099,11 +1096,6 @@ function buildScene(
     // cosmos keeps breathing. Amplitudes stay under (1 - scale)/2 to never bare an edge.
     const nebTex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
     if (nebTex) {
-      if (nebulaFade < 1 && nebTex.isReady()) {
-        nebulaFade = Math.min(1, nebulaFade + scene.getEngine().getDeltaTime() / NEBULA_FADE_MS);
-        const k = 1 - (1 - nebulaFade) * (1 - nebulaFade); // ease-out
-        nebulaBg.color = new BABYLON.Color4(NEBULA_RGB[0] * k, NEBULA_RGB[1] * k, NEBULA_RGB[2] * k, 1);
-      }
       nebulaTime += scene.getEngine().getDeltaTime() * 0.001;
       nebTex.uScale = nebUScale;
       nebTex.vScale = nebVScale;
