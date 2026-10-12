@@ -462,16 +462,15 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
     return (
       <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', zIndex: 10000, background: '#000', overflow: 'hidden' }}>
         <span id={titleId} className="sr-only">{game.title}</span>
-        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
+        <span className="sr-only" tabIndex={0} aria-hidden="true" data-focus-guard="" onFocus={returnToControls} />
         <iframe
           src={game.link}
           title={game.title}
-          tabIndex={-1}
           style={{ position: 'absolute', inset: 0, width: '100vw', height: '100dvh', border: 'none' }}
           allow="fullscreen; autoplay; screen-orientation"
           allowFullScreen
         />
-        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
+        <span className="sr-only" tabIndex={0} aria-hidden="true" data-focus-guard="" onFocus={returnToControls} />
         <button
           ref={closeRef}
           type="button"
@@ -530,18 +529,16 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
             </button>
           </div>
         </div>
-        {/* Native focus leaving a clicked cross-origin frame reaches these guards. */}
-        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
+        {/* Focus leaving the cross-origin game (Tab past its end, or Shift+Tab before its start) lands on these guards. */}
+        <span className="sr-only" tabIndex={0} aria-hidden="true" data-focus-guard="" onFocus={returnToControls} />
         <iframe
           src={game.link}
           title={game.title}
-          // Cross-origin games own their keyboard events; Tab cycles the host controls.
-          tabIndex={-1}
           style={{ flex: 1, border: 'none', width: '100%', background: '#000' }}
           allow="fullscreen; autoplay"
           allowFullScreen
         />
-        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
+        <span className="sr-only" tabIndex={0} aria-hidden="true" data-focus-guard="" onFocus={returnToControls} />
       </motion.div>
     </motion.div>
   );

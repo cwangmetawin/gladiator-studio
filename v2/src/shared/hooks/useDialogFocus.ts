@@ -21,8 +21,10 @@ interface DialogEntry {
 
 function focusableElements(dialog: HTMLElement): HTMLElement[] {
   return Array.from(dialog.querySelectorAll<HTMLElement>(
-    'a[href], button, input, select, textarea, [contenteditable="true"], [tabindex]',
-  )).filter((el) => el.tabIndex >= 0 && !el.matches(':disabled')
+    // iframe: a keyboard player must be able to Tab into the game; the sentinels around it
+    // bring focus back to the host controls when the game's own tab order ends.
+    'a[href], button, iframe, input, select, textarea, [contenteditable="true"], [tabindex]',
+  )).filter((el) => el.tabIndex >= 0 && !el.matches(':disabled') && !el.hasAttribute('data-focus-guard')
     && !el.closest('[inert], [hidden], [aria-hidden="true"]')
     && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
     .sort((a, b) => (a.tabIndex || Infinity) - (b.tabIndex || Infinity));
