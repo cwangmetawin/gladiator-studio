@@ -104,9 +104,10 @@ interface GameCoverflowProps {
   readonly games: readonly Game[];
   readonly loading: boolean;
   readonly onClose: () => void;
+  readonly suspended: boolean;
 }
 
-export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
+export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverflowProps) {
   const [active, setActive] = useState(0);
   const [tab, setTab] = useState<TabId>('all');
   const [view, setView] = useState<'coverflow' | 'grid'>('coverflow');
@@ -176,15 +177,18 @@ export function GameCoverflow({ games, loading, onClose }: GameCoverflowProps) {
 
   // Keyboard nav
   useEffect(() => {
+    if (suspended) return;
     const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
+      if (e.key === 'Enter' && e.target instanceof Element && e.target.closest('button, a, input, select, textarea')) return;
       if (view === 'coverflow' && e.key === 'ArrowRight') { e.preventDefault(); go(1); }
       else if (view === 'coverflow' && e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
-      else if (e.key === 'Escape') { onClose(); }
+      else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
       else if (e.key === 'Enter' && list[active]) { playGame(list[active]); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, onClose, playGame, list, active, view]);
+  }, [go, onClose, playGame, list, active, view, suspended]);
 
   // Wheel nav (carousel only)
   const onWheel = useCallback((e: React.WheelEvent) => {

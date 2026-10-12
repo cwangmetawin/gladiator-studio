@@ -10,7 +10,8 @@ import { supabase } from '@/lib/supabase';
 type EnquiryType = '' | 'Game Integration' | 'Request a Demo' | 'Distribution Partnership' | 'Press and Media' | 'Careers' | 'Other';
 interface FormFields { readonly name: string; readonly company: string; readonly email: string; readonly enquiryType: EnquiryType; readonly message: string; }
 interface FormErrors { readonly name?: string; readonly company?: string; readonly email?: string; readonly enquiryType?: string; readonly message?: string; }
-type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error';
+type SubmitStatus = 'idle' | 'submitting' | 'success' | 'error' | 'mailto';
+interface EnquiryResponse { readonly ok?: boolean; readonly emailed?: boolean; readonly stored?: boolean; readonly error?: string; }
 
 const ENQUIRY_OPTIONS: readonly EnquiryType[] = ['Game Integration', 'Request a Demo', 'Distribution Partnership', 'Press and Media', 'Careers', 'Other'] as const;
 const INITIAL_FORM: FormFields = { name: '', company: '', email: '', enquiryType: '', message: '' };
@@ -46,6 +47,25 @@ function FieldError({ id, msg }: { readonly id: string; readonly msg: string | u
   return <span id={id} role="alert" className="field-error">{msg}</span>;
 }
 
+function getServerError(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object' || !('error' in data)) return undefined;
+  return typeof data.error === 'string' && data.error.trim() ? data.error : undefined;
+}
+
+function enquiryEmail(fields: FormFields): { subject: string; body: string } {
+  return {
+    subject: `Enquiry — ${fields.enquiryType || 'General'} — ${fields.company || fields.name}`,
+    body: [
+      `Name: ${fields.name}`,
+      `Company: ${fields.company}`,
+      `Reply-to: ${fields.email}`,
+      `Type: ${fields.enquiryType}`,
+      '',
+      fields.message,
+    ].join('\n'),
+  };
+}
+
 export function ContactSection() {
   const { email } = useSection('contact', { email: CONTACT.email });
   const channels = DIRECT_CHANNELS.map((c) => (c.label === 'Email' ? { ...c, value: email, href: `mailto:${email}` } : c));
@@ -55,35 +75,44 @@ export function ContactSection() {
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [status, setStatus] = useState<SubmitStatus>('idle');
-  // How the last enquiry was delivered — drives the success copy.
-  const [sentVia, setSentVia] = useState<'silent' | 'mailto'>('mailto');
+  const [submitError, setSubmitError] = useState('');
+  const [canUseMailto, setCanUseMailto] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
+  const [website, setWebsite] = useState('');
 
-  // Persist a draft so a typed enquiry survives panel switches; cleared on submit.
+  // Failed sends and mailto keep the draft; confirmed delivery clears the fields.
   useEffect(() => {
-    try { sessionStorage.setItem('contact-draft', JSON.stringify(fields)); } catch { /* noop */ }
+    try {
+      if (Object.values(fields).some((value) => value.length > 0)) sessionStorage.setItem('contact-draft', JSON.stringify(fields));
+      else sessionStorage.removeItem('contact-draft');
+    } catch { /* noop */ }
   }, [fields]);
 
   function update<K extends keyof FormFields>(k: K, v: FormFields[K]) {
     setFields((p) => ({ ...p, [k]: v }));
-    if (errors[k]) setErrors((p) => { const { [k]: _omit, ...rest } = p; return rest as FormErrors; });
+    if (errors[k]) setErrors((p) => ({ ...p, [k]: undefined }));
+    setCopyStatus('idle');
   }
 
   /** Last-resort: open the visitor's mail client, pre-addressed to the studio inbox. */
   function openMailto() {
-    const subject = `Enquiry — ${fields.enquiryType || 'General'} — ${fields.company || fields.name}`;
-    const body = [
-      `Name: ${fields.name}`,
-      `Company: ${fields.company}`,
-      `Reply-to: ${fields.email}`,
-      `Type: ${fields.enquiryType}`,
-      '',
-      fields.message,
-    ].join('\n');
+    const { subject, body } = enquiryEmail(fields);
+    setStatus('mailto');
+    setCopyStatus('idle');
     window.location.href = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  async function copyMessage() {
+    const { subject, body } = enquiryEmail(fields);
+    try {
+      await navigator.clipboard.writeText(`To: ${email}\nSubject: ${subject}\n\n${body}`);
+      setCopyStatus('copied');
+    } catch { setCopyStatus('error'); }
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (status === 'submitting') return;
     const errs = validate(fields);
     if (Object.keys(errs).length > 0) {
       setErrors(errs);
@@ -93,29 +122,48 @@ export function ContactSection() {
     }
     setErrors({});
     setStatus('submitting');
+    setSubmitError('');
+    setCanUseMailto(false);
+    setCopyStatus('idle');
     soundEngine.transmission();
 
-    // Try the server (Edge Function) for a silent send. It emails the studio inbox
-    // via Resend *if configured*; otherwise it returns { emailed: false } and we
-    // gracefully fall back to the visitor's mail client.
-    let emailed = false;
+    // Non-2xx responses live in response, not data. Preserve the server's error
+    // and offer mailto only for retryable failures; never open it automatically.
     try {
-      const { data, error } = await supabase.functions.invoke('send-enquiry', {
-        body: { name: fields.name, company: fields.company, email: fields.email, enquiryType: fields.enquiryType, message: fields.message },
+      const { data, error, response } = await supabase.functions.invoke<EnquiryResponse>('send-enquiry', {
+        body: { name: fields.name, company: fields.company, email: fields.email, enquiryType: fields.enquiryType, message: fields.message, website },
       });
-      emailed = !error && !!(data as { emailed?: boolean } | null)?.emailed;
-    } catch { /* network/server down — fall through to mailto */ }
+      if (error) {
+        const httpStatus = response?.status;
+        const errorData: unknown = response ? await response.json().catch(() => null) : null;
+        const fallbackError = httpStatus === 429 ? 'Too many enquiries. Please try again later or use your email app.'
+          : httpStatus === 422 ? 'Please check your enquiry fields and try again.'
+          : httpStatus === 413 ? 'Your enquiry is too large. Please shorten it and try again.'
+          : 'Couldn’t send your enquiry. Your draft is saved — please try again.';
+        setSubmitError(getServerError(errorData) ?? fallbackError);
+        setCanUseMailto(httpStatus === undefined || httpStatus === 429 || httpStatus >= 500);
+        setStatus('error');
+        return;
+      }
 
-    if (emailed) {
-      setSentVia('silent');
-    } else {
-      setSentVia('mailto');
-      openMailto();
+      // Delivered = emailed to the studio OR safely stored in the admin inbox (the
+      // function stores without emailing when its email budget is spent).
+      if (data?.ok === true && (data.emailed === true || data.stored === true)) {
+        setStatus('success');
+        soundEngine.alert();
+        setFields(INITIAL_FORM);
+        setWebsite('');
+        return;
+      }
+
+      setSubmitError(getServerError(data) ?? 'Email delivery wasn’t confirmed. Your draft is saved — please use your email app or try again.');
+      setCanUseMailto(data?.ok !== false);
+      setStatus('error');
+    } catch {
+      setSubmitError('Couldn’t reach the studio. Your draft is saved — please try again or use your email app.');
+      setCanUseMailto(true);
+      setStatus('error');
     }
-    setStatus('success');
-    soundEngine.alert();
-    setFields(INITIAL_FORM);
-    try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ }
   }
 
   return (
@@ -141,7 +189,8 @@ export function ContactSection() {
 
       {/* Direct channels */}
       <Reveal delay={0.06}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
+      {/* 2×2 in the desktop panel, one column on phones (never a 3 + 1 orphan). */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 8 }}>
         {channels.map((c) => (
           <div key={c.label} className="card card--hover" style={{ padding: '0.7rem 0.85rem' }}>
             <span className="field-label" style={{ marginBottom: '0.25rem' }}>{c.label}</span>
@@ -163,14 +212,9 @@ export function ContactSection() {
           {status === 'success' ? (
             <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
               style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-soft)', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>
-              {sentVia === 'silent' ? (
-                <>Enquiry received — we’ll reply within one business day. You can also email{' '}
-                <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.</>
-              ) : (
-                <>Your email app just opened with your enquiry — hit send and we’ll reply within one business day. If nothing opened, email{' '}
-                <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.</>
-              )}
-              <button type="button" onClick={() => { setStatus('idle'); setFields(INITIAL_FORM); try { sessionStorage.removeItem('contact-draft'); } catch { /* noop */ } }}
+              Enquiry received — we’ll reply within one business day. You can also email{' '}
+              <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.
+              <button type="button" onClick={() => setStatus('idle')}
                 style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-holo-300)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                 Send another
               </button>
@@ -178,30 +222,33 @@ export function ContactSection() {
           ) : (
             <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+              <input type="text" name="website" value={website} onChange={(e) => setWebsite(e.target.value)}
+                aria-hidden="true" tabIndex={-1} autoComplete="off"
+                style={{ position: 'absolute', left: -10000, width: 1, height: 1, overflow: 'hidden' }} />
               <div>
                 <label htmlFor="contact-name" className="field-label">Name</label>
                 <input id="contact-name" className="field" type="text" name="name" value={fields.name} onChange={(e) => update('name', e.target.value)}
-                  placeholder="e.g. Alex Mercer…" autoComplete="name" aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} />
+                  placeholder="e.g. Alex Mercer…" autoComplete="name" maxLength={200} disabled={status === 'submitting'} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} />
                 <FieldError id="err-name" msg={errors.name} />
               </div>
 
               <div>
                 <label htmlFor="contact-company" className="field-label">Company</label>
                 <input id="contact-company" className="field" type="text" name="company" value={fields.company} onChange={(e) => update('company', e.target.value)}
-                  placeholder="e.g. Apex Gaming…" autoComplete="organization" />
+                  placeholder="e.g. Apex Gaming…" autoComplete="organization" maxLength={200} disabled={status === 'submitting'} />
               </div>
 
               <div>
                 <label htmlFor="contact-email" className="field-label">Work email</label>
                 <input id="contact-email" className="field" type="email" inputMode="email" spellCheck={false} name="email" value={fields.email} onChange={(e) => update('email', e.target.value)}
-                  placeholder="you@company.com" autoComplete="email" aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                  placeholder="you@company.com" autoComplete="email" maxLength={320} disabled={status === 'submitting'} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
                 <FieldError id="err-email" msg={errors.email} />
               </div>
 
               <div>
                 <label htmlFor="contact-enquiryType" className="field-label">Enquiry type</label>
                 <select id="contact-enquiryType" className="field" name="enquiryType" value={fields.enquiryType} onChange={(e) => update('enquiryType', e.target.value as EnquiryType)}
-                  aria-invalid={!!errors.enquiryType} aria-describedby={errors.enquiryType ? 'err-enquiry' : undefined}>
+                  disabled={status === 'submitting'} aria-invalid={!!errors.enquiryType} aria-describedby={errors.enquiryType ? 'err-enquiry' : undefined}>
                   <option value="" disabled>Select one…</option>
                   {ENQUIRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -211,15 +258,40 @@ export function ContactSection() {
               <div>
                 <label htmlFor="contact-message" className="field-label">Message</label>
                 <textarea id="contact-message" className="field" name="message" value={fields.message} onChange={(e) => update('message', e.target.value)}
-                  placeholder="Tell us about your platform, player base, or what you need from a content partner…" rows={4}
-                  aria-invalid={!!errors.message} aria-describedby={errors.message ? 'err-message' : undefined} />
+                  placeholder="Tell us about your platform, player base, or what you need from a content partner…" rows={4} maxLength={5000} disabled={status === 'submitting'}
+                  aria-invalid={!!errors.message} aria-describedby={[errors.message && 'err-message', fields.message.length > 4000 && 'contact-message-count'].filter(Boolean).join(' ') || undefined} />
                 <FieldError id="err-message" msg={errors.message} />
+                {fields.message.length > 4000 && (
+                  <span id="contact-message-count" className="readout" aria-live="polite" style={{ display: 'block', marginTop: 4 }}>
+                    {fields.message.length} / 5000
+                  </span>
+                )}
               </div>
 
               {status === 'error' && (
                 <p role="alert" className="field-error">
-                  Couldn’t send — please email <a href={`mailto:${CONTACT.email}`} style={{ color: 'var(--color-holo-300)' }}>{CONTACT.email}</a> directly.
+                  {submitError}
                 </p>
+              )}
+
+              {(status === 'mailto' || (status === 'error' && canUseMailto)) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <p role="status" className="body-text" style={{ fontSize: 13 }}>
+                    {status === 'mailto' ? 'Your email app should have opened — if not, copy your message.' : 'You can send your saved message using your email app.'}{' '}
+                    Email <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)', overflowWrap: 'anywhere' }}>{email}</a>.
+                  </p>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    <button type="button" className="btn" onClick={openMailto} style={{ flex: '1 1 140px' }}>
+                      {status === 'mailto' ? 'Open email app again' : 'Use email app'}
+                    </button>
+                    <button type="button" className="btn" onClick={copyMessage} style={{ flex: '1 1 140px' }}>Copy message</button>
+                  </div>
+                  {copyStatus !== 'idle' && (
+                    <p role="status" className="body-text" style={{ fontSize: 13 }}>
+                      {copyStatus === 'copied' ? 'Message copied, including the studio address.' : 'Couldn’t copy — select and copy your message from the form above.'}
+                    </p>
+                  )}
+                </div>
               )}
 
               <button type="submit" className="btn btn--primary" disabled={status === 'submitting'} aria-busy={status === 'submitting'} style={{ width: '100%' }}>

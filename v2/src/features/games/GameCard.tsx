@@ -288,7 +288,11 @@ function FeaturedCardComponent({ game, onPlayGame, heroImage }: FeaturedCardProp
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
       style={{
-        position: 'relative', aspectRatio: '16 / 8', overflow: 'hidden', cursor: 'pointer',
+        // aspect-ratio is a floor, not a cap: `overflow: clip` (unlike `hidden`) keeps the
+        // box's content-based min height, so the in-flow content below grows the card on
+        // narrow phones instead of being cut off.
+        position: 'relative', aspectRatio: '16 / 8', overflow: 'clip', cursor: 'pointer',
+        display: 'flex',
         borderRadius: 'var(--radius-lg, 18px)', marginBottom: 18,
         border: `1px solid ${hovered ? 'rgba(79,195,247,0.5)' : 'var(--color-line)'}`,
         boxShadow: hovered
@@ -327,7 +331,7 @@ function FeaturedCardComponent({ game, onPlayGame, heroImage }: FeaturedCardProp
       {game.isHot && <CornerTag side="right" gold>Hot</CornerTag>}
 
       {/* Content */}
-      <div style={{ position: 'absolute', inset: 0, zIndex: 3, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, padding: 'clamp(18px, 3.2vw, 34px)', maxWidth: '76%' }}>
+      <div style={{ position: 'relative', zIndex: 3, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 10, padding: 'clamp(18px, 3.2vw, 34px)', maxWidth: 'max(76%, 260px)' }}>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-holo-300)' }}>
           {game.category === 'slot' ? 'Gladiator Original' : 'MetaWin Original'} · Featured
         </span>

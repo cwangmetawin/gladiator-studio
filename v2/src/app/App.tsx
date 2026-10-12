@@ -193,6 +193,9 @@ interface ContentPanelProps {
   readonly onClose: () => void;
   readonly children: React.ReactNode;
   readonly isMobile: boolean;
+  /** Mobile only: opens the nav drawer from the panel header (the floating menu
+   *  button is hidden while a full-screen panel is open so it never covers content). */
+  readonly onMenu?: () => void;
 }
 
 function PanelSpinner() {
@@ -208,7 +211,7 @@ function PanelSpinner() {
   );
 }
 
-function ContentPanel({ panelId, side, onClose, children, isMobile }: ContentPanelProps) {
+function ContentPanel({ panelId, side, onClose, children, isMobile, onMenu }: ContentPanelProps) {
   const isLeft = side === 'left';
   const navItem = NAV_ITEMS.find(n => n.panelId === panelId);
   const index = navItem ? NAV_ITEMS.indexOf(navItem) + 1 : 0;
@@ -251,15 +254,26 @@ function ContentPanel({ panelId, side, onClose, children, isMobile }: ContentPan
           {label}
           <span style={{ color: 'var(--color-text-dim)', marginLeft: 8 }}>{indexLabel}</span>
         </span>
-        <button type="button" onClick={() => { soundEngine.click(); onClose(); }} className="icon-btn" aria-label={`Close ${label} panel`}>
-          <X size={15} aria-hidden="true" />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isMobile && onMenu && (
+            <button type="button" onClick={() => { soundEngine.click(); onMenu(); }} className="icon-btn" aria-label="Open menu">
+              <Menu size={15} aria-hidden="true" />
+            </button>
+          )}
+          <button type="button" onClick={() => { soundEngine.click(); onClose(); }} className="icon-btn" aria-label={`Close ${label} panel`}>
+            <X size={15} aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       {/* Scrollable content */}
       <div
         className="panel-content"
-        style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', padding: 'clamp(20px, 3vw, 36px)' }}
+        style={{
+          flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', padding: 'clamp(20px, 3vw, 36px)',
+          // Full-screen on phones: keep the last row clear of the iOS home indicator.
+          paddingBottom: isMobile ? 'calc(28px + env(safe-area-inset-bottom, 0px))' : undefined,
+        }}
       >
         {children}
       </div>
@@ -323,13 +337,16 @@ interface MobileDrawerProps {
   readonly onClose: () => void;
   readonly activePanel: PanelId;
   readonly onActivate: (id: PanelId) => void;
+  /** The top bar hides its Client Area button on phones — this is the mobile route in. */
+  readonly onClientArea: () => void;
 }
 
-function MobileDrawer({ isOpen, onClose, activePanel, onActivate }: MobileDrawerProps) {
+function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }: MobileDrawerProps) {
   const handleSelect = useCallback((id: PanelId) => {
-    onActivate(id);
+    // Selecting the already-open section keeps it open (handleActivate toggles).
+    if (id !== activePanel) onActivate(id);
     onClose();
-  }, [onActivate, onClose]);
+  }, [activePanel, onActivate, onClose]);
 
   return (
     <AnimatePresence>
@@ -378,7 +395,16 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate }: MobileDrawer
               ))}
             </div>
 
-            <div style={{ padding: '14px 18px', borderTop: `1px solid ${HOLO_DIM}` }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '14px 18px', borderTop: `1px solid ${HOLO_DIM}` }}>
+              <button
+                type="button"
+                className="btn btn--primary"
+                style={{ width: '100%', justifyContent: 'center' }}
+                onClick={() => { soundEngine.click(); onClose(); onClientArea(); }}
+              >
+                Client Area
+                <ExternalLink size={12} aria-hidden="true" />
+              </button>
               <span className="readout" style={{ color: 'var(--color-text-dim)' }}>© 2026 Gladiator Studio</span>
             </div>
           </motion.nav>
@@ -397,8 +423,9 @@ function MobileMenuButton({ onClick }: { readonly onClick: () => void }) {
       whileTap={{ scale: 0.92 }}
       className="glass"
       style={{
+        // Sits above the live-wins ticker (38px + its safe-area pad), never on it.
         position: 'absolute',
-        bottom: 'calc(20px + env(safe-area-inset-bottom, 0px))', right: 20, zIndex: 55,
+        bottom: 'calc(38px + 16px + env(safe-area-inset-bottom, 0px))', right: 16, zIndex: 55,
         width: 54, height: 54, borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: HOLO, cursor: 'pointer',
@@ -503,9 +530,18 @@ export function App() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
   const isMobile = useIsMobile();
+  const playTimerRef = useRef<number | null>(null);
 
-  const { events, isConnected, totalAmount, gladiatorCount, originalCount } = useFeederSocket();
+  const feed = useFeederSocket();
+  const { events, isConnected, totalAmount, gladiatorCount, originalCount } = feed;
   const totalEvents = gladiatorCount + originalCount;
+
+  const cancelPendingPlay = useCallback(() => {
+    if (playTimerRef.current === null) return;
+    window.clearTimeout(playTimerRef.current);
+    playTimerRef.current = null;
+    sceneEvents.emitBlackhole(false);
+  }, []);
 
   useEffect(() => {
     fetchGameData().then(setGameData);
@@ -514,16 +550,24 @@ export function App() {
   // Play-game events from GameCard
   useEffect(() => {
     const handler = (e: CustomEvent<{ title: string; link: string }>) => {
+      if (activePanel !== 'games') return;
+      cancelPendingPlay();
       if (isMobile) {
         setPlayingGame(e.detail);
         return;
       }
       sceneEvents.emitBlackhole(true);
-      setTimeout(() => setPlayingGame(e.detail), 1800);
+      playTimerRef.current = window.setTimeout(() => {
+        playTimerRef.current = null;
+        setPlayingGame(e.detail);
+      }, 1800);
     };
     window.addEventListener('play-game' as string, handler as EventListener);
-    return () => window.removeEventListener('play-game' as string, handler as EventListener);
-  }, [isMobile]);
+    return () => {
+      window.removeEventListener('play-game' as string, handler as EventListener);
+      cancelPendingPlay();
+    };
+  }, [activePanel, isMobile, cancelPendingPlay]);
 
   // Open-panel events from Hero buttons
   useEffect(() => {
@@ -535,33 +579,38 @@ export function App() {
   // Close panel / game with Escape
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Escape') return;
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      e.preventDefault();
+      cancelPendingPlay();
       if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
       else if (activePanel !== 'none') { soundEngine.panelClose(); setActivePanel('none'); }
       else if (drawerOpen) setDrawerOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playingGame, activePanel, drawerOpen]);
+  }, [playingGame, activePanel, drawerOpen, cancelPendingPlay]);
 
   const handleActivate = useCallback((id: PanelId) => {
+    cancelPendingPlay();
     setActivePanel(prev => {
       const next = prev === id ? 'none' : id;
       if (next === 'none') soundEngine.panelClose();
       else soundEngine.panelOpen();
       return next;
     });
-  }, []);
+  }, [cancelPendingPlay]);
 
   const handleClose = useCallback(() => {
+    cancelPendingPlay();
     soundEngine.panelClose();
     setActivePanel('none');
-  }, []);
+  }, [cancelPendingPlay]);
 
   const closeGame = useCallback(() => {
+    cancelPendingPlay();
     sceneEvents.emitBlackhole(false);
     setPlayingGame(null);
-  }, []);
+  }, [cancelPendingPlay]);
 
   // Fly the 3D camera to the celestial body for the active panel. Desktop Games
   // browses against the open cosmos (star sea) rather than a single planet, so all
@@ -642,7 +691,7 @@ export function App() {
       <AnimatePresence>
         {showCoverflow && (
           <Suspense fallback={null}>
-            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} />
+            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} suspended={playingGame !== null} />
           </Suspense>
         )}
       </AnimatePresence>
@@ -651,7 +700,7 @@ export function App() {
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
         <AnimatePresence mode="wait">
           {activePanel !== 'none' && !showCoverflow && (
-            <ContentPanel key={activePanel} panelId={activePanel} side={activeSide} onClose={handleClose} isMobile={isMobile}>
+            <ContentPanel key={activePanel} panelId={activePanel} side={activeSide} onClose={handleClose} isMobile={isMobile} onMenu={() => setDrawerOpen(true)}>
               <ErrorBoundary>
                 <Suspense fallback={<PanelSpinner />}>
                   {activePanel === 'games' && (
@@ -660,7 +709,7 @@ export function App() {
                   {activePanel === 'about' && <AboutSection />}
                   {activePanel === 'team' && <TeamSection />}
                   {activePanel === 'journey' && <JourneySection />}
-                  {activePanel === 'live' && <LiveActivityFeed />}
+                  {activePanel === 'live' && <LiveActivityFeed {...feed} />}
                   {activePanel === 'careers' && <CareersSection />}
                   {activePanel === 'contact' && <ContactSection />}
                 </Suspense>
@@ -673,8 +722,16 @@ export function App() {
       {/* Navigation */}
       {isMobile ? (
         <>
-          <MobileMenuButton onClick={() => { soundEngine.click(); setDrawerOpen(true); }} />
-          <MobileDrawer isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} activePanel={activePanel} onActivate={handleActivate} />
+          {activePanel === 'none' && clientArea === 'closed' && (
+            <MobileMenuButton onClick={() => { soundEngine.click(); setDrawerOpen(true); }} />
+          )}
+          <MobileDrawer
+            isOpen={drawerOpen}
+            onClose={() => setDrawerOpen(false)}
+            activePanel={activePanel}
+            onActivate={handleActivate}
+            onClientArea={() => { setActivePanel('none'); setClientArea('transitioning'); }}
+          />
         </>
       ) : (
         // Footer nav is redundant with the hero holo-nodes on home — show it only

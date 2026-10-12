@@ -64,16 +64,18 @@ function parseEvent(raw: unknown, index: number): FeedEvent | null {
   };
 }
 
-interface FeederState {
+export interface FeederState {
   readonly events: readonly FeedEvent[];
   readonly eventsPerSecond: number;
   readonly totalAmount: number;
   readonly isConnected: boolean;
   readonly gladiatorCount: number;
   readonly originalCount: number;
+  readonly gladiatorTotal: number;
+  readonly originalTotal: number;
 }
 
-const MAX_EVENTS = 20;
+export const MAX_EVENTS = 20;
 let eventCounter = 0;
 
 export function useFeederSocket(): FeederState {
@@ -83,6 +85,8 @@ export function useFeederSocket(): FeederState {
   const [totalAmount, setTotalAmount] = useState(0);
   const [gladiatorCount, setGladiatorCount] = useState(0);
   const [originalCount, setOriginalCount] = useState(0);
+  const [gladiatorTotal, setGladiatorTotal] = useState(0);
+  const [originalTotal, setOriginalTotal] = useState(0);
   const socketRef = useRef<Socket | null>(null);
   const epsCountRef = useRef(0);
 
@@ -136,8 +140,10 @@ export function useFeederSocket(): FeederState {
 
     if (event.provider === 'gladiator') {
       setGladiatorCount(prev => prev + 1);
+      setGladiatorTotal(prev => prev + event.amount);
     } else {
       setOriginalCount(prev => prev + 1);
+      setOriginalTotal(prev => prev + event.amount);
     }
   }, []);
 
@@ -177,5 +183,5 @@ export function useFeederSocket(): FeederState {
     };
   }, [handleMessage]);
 
-  return { events, eventsPerSecond, totalAmount, isConnected, gladiatorCount, originalCount };
+  return { events, eventsPerSecond, totalAmount, isConnected, gladiatorCount, originalCount, gladiatorTotal, originalTotal };
 }

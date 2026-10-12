@@ -273,8 +273,10 @@ export function CareersSection() {
         lede="Gladiator Studio is a small, senior team building the games behind MetaWin — one of the world's most-played crypto casinos. We hire for craft, move fast, and ship to production constantly."
       />
 
-      <p className="readout" style={{ marginTop: -10, display: 'flex', alignItems: 'center', gap: 6 }}>
-        <span className="pulse-node" aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-live)', boxShadow: '0 0 8px var(--color-live)' }} />
+      {/* Block + inline children (not the readout's nowrap inline-flex) so the line
+          wraps as text on narrow phones instead of running into the panel edge. */}
+      <p className="readout" style={{ marginTop: -10, display: 'block', whiteSpace: 'normal', lineHeight: 1.7 }}>
+        <span className="pulse-node" aria-hidden="true" style={{ display: 'inline-block', verticalAlign: 'middle', marginRight: 8, width: 8, height: 8, borderRadius: '50%', background: 'var(--color-live)', boxShadow: '0 0 8px var(--color-live)' }} />
         <CountUp to={jobs.length} className="readout__value" /> open roles · hiring on a rolling basis
       </p>
 
