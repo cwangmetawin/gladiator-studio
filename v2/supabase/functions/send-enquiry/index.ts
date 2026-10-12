@@ -31,6 +31,11 @@ function fail(status: number, error: string): Response {
   return new Response(JSON.stringify({ ok: false, error }), { status, headers: JSON_HEADERS });
 }
 
+/** Header-bound text (the subject) must be one line: no CR/LF header injection. */
+function oneLine(s: string): string {
+  return s.replace(/[\r\n\t\p{Zl}\p{Zp}]+/gu, ' ').trim();
+}
+
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
@@ -134,7 +139,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
           from,
           to: [to],
           reply_to: email,
-          subject: `Enquiry — ${enquiryType || 'General'} — ${company || name}`,
+          subject: oneLine(`Enquiry — ${enquiryType || 'General'} — ${company || name}`),
           text: lines.join('\n'),
           html: `<pre style="font:14px/1.5 ui-monospace,Menlo,monospace;white-space:pre-wrap">${escapeHtml(lines.join('\n'))}</pre>`,
         }),

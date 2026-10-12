@@ -57,7 +57,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
   catch { return fail(400, 'Invalid JSON'); }
 
   const id = Number(payload.id);
-  const subject = String(payload.subject ?? '').trim();
+  // One line only: the subject becomes a mail header (no CR/LF injection).
+  const subject = String(payload.subject ?? '').replace(/[\r\n\t\p{Zl}\p{Zp}]+/gu, ' ').trim();
   const message = String(payload.message ?? '').trim();
   if (subject.length > 200) return fail(422, 'subject must be 200 characters or fewer.');
   if (message.length > 5000) return fail(422, 'message must be 5000 characters or fewer.');
