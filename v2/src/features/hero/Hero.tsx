@@ -130,11 +130,12 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
 
 export interface HeroProps {
   readonly panelSide?: 'left' | 'right';
+  readonly active?: boolean;
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-export function Hero(_props: HeroProps) {
+export function Hero({ active = true }: HeroProps) {
   const isMobile = useIsMobile();
   const [hovered, setHovered] = useState<PanelId | null>(null);
   const [ripple, setRipple] = useState<{ key: number; panel: PanelId } | null>(null);
@@ -146,7 +147,7 @@ export function Hero(_props: HeroProps) {
   // stage; each layer consumes them at a different depth via transform (GPU only,
   // no reflow). Disabled for reduced-motion + touch. (Per the hub-interactivity spec.)
   useEffect(() => {
-    if (isMobile || typeof window === 'undefined') return;
+    if (!active || isMobile || typeof window === 'undefined') return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const el = stageRef.current;
     if (!el) return;
@@ -165,7 +166,7 @@ export function Hero(_props: HeroProps) {
     window.addEventListener('mousemove', onMove, { passive: true });
     raf = requestAnimationFrame(loop);
     return () => { cancelAnimationFrame(raf); window.removeEventListener('mousemove', onMove); };
-  }, [isMobile]);
+  }, [active, isMobile]);
 
   // Click ripple — one pulse at a time, auto-cleared after the animation.
   const fireRipple = (panel: PanelId) => {

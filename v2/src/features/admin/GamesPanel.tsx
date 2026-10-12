@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { Search } from 'lucide-react';
 import { GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
 import { fetchAllGames, saveGame, patchGame, deleteGame, importCuratedGames, type AdminGame } from '@/api/catalogueDb';
@@ -30,6 +31,9 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = <K extends keyof AdminGame>(k: K, v: AdminGame[K]) => setG((p) => ({ ...p, [k]: v }));
+  const titleId = useId();
+  const inputId = useId();
+  const dialogRef = useDialogFocus<HTMLFormElement>({ onEscape: () => { if (!busy) onClose(); } });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -40,13 +44,13 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
 
   return (
     <div className="modal-bg" onClick={onClose}>
-      <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h3>{g.id ? 'Edit game' : 'New game'}</h3>
+      <form ref={dialogRef} className="card modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <h3 id={titleId}>{g.id ? 'Edit game' : 'New game'}</h3>
         {err && <div className="msg msg--err" style={{ marginBottom: 14 }}>{err}</div>}
         <div className="form-grid">
           <div className="field col-span">
-            <label>Title</label>
-            <input className="input" required value={g.title} onChange={(e) => set('title', e.target.value)} />
+            <label htmlFor={inputId}>Title</label>
+            <input id={inputId} className="input" required value={g.title} onChange={(e) => set('title', e.target.value)} />
           </div>
           <div className="field">
             <label>Category</label>

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { Search } from 'lucide-react';
 import { fetchEnquiries, deleteEnquiry, setEnquiryHandled, sendReply, type Enquiry, type ReplyResult } from '@/api/enquiriesDb';
 import { ConfirmDialog } from './ConfirmDialog';
@@ -29,6 +30,11 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
   const [err, setErr] = useState<string | null>(null);
   const sending = useRef(false);
   const close = () => { if (!sending.current) onClose(); };
+  const titleId = useId();
+  const descriptionId = useId();
+  const subjectId = useId();
+  const messageId = useId();
+  const dialogRef = useDialogFocus<HTMLFormElement>({ onEscape: close });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -47,8 +53,8 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
 
   return (
     <div className="modal-bg" onClick={close}>
-      <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
-        <h3>Reply to {enquiry.name || 'enquiry'}</h3>
+      <form ref={dialogRef} className="card modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+        <h3 id={titleId}>Reply to {enquiry.name || 'enquiry'}</h3>
         {err && (
           <div className="msg msg--err" style={{ marginBottom: 14 }}>
             {err}
@@ -58,15 +64,15 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
         <div className="form-grid">
           <div className="field col-span">
             <label>To</label>
-            <div className="reply-to">Sends from the studio inbox to <b>{enquiry.email}</b></div>
+            <div id={descriptionId} className="reply-to">Sends from the studio inbox to <b>{enquiry.email}</b></div>
           </div>
           <div className="field col-span">
-            <label>Subject</label>
-            <input className="input" required value={subject} onChange={(e) => setSubject(e.target.value)} />
+            <label htmlFor={subjectId}>Subject</label>
+            <input id={subjectId} className="input" required value={subject} onChange={(e) => setSubject(e.target.value)} />
           </div>
           <div className="field col-span">
-            <label>Message</label>
-            <textarea className="textarea" required rows={8} value={message} onChange={(e) => setMessage(e.target.value)} style={{ minHeight: 170 }} />
+            <label htmlFor={messageId}>Message</label>
+            <textarea id={messageId} className="textarea" required rows={8} value={message} onChange={(e) => setMessage(e.target.value)} style={{ minHeight: 170 }} />
           </div>
         </div>
         <div className="modal__foot">

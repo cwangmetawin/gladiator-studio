@@ -155,16 +155,13 @@ function mergeCatalogue(curated: readonly Game[], live: readonly Game[]): Game[]
 }
 
 /**
- * Fetch the live catalogue from the lobby API, enrich each entry with curated
- * artwork + RTP/volatility/genre by title, and MERGE it onto the full curated
- * roster (so the whole real catalogue always shows, plus any new live releases).
- * Falls back to the curated list on network or validation failure.
+ * Read the admin-managed catalogue, including an intentionally empty catalogue.
+ * Only an unavailable database falls back to the lobby API + curated roster.
  */
 export async function fetchGameData(): Promise<GameData> {
-  // Supabase (admin-managed) is the source of truth when it has any games;
-  // otherwise fall back to the live lobby feed merged onto the curated roster.
+  // A successful DB read is authoritative even when all titles are hidden.
   const fromDb = await fetchCatalogueFromDb();
-  if (fromDb) return fromDb;
+  if (fromDb !== null) return fromDb;
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);

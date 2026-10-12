@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { AnimatePresence, motion, MotionConfig } from 'framer-motion';
+import { Suspense, lazy, useEffect, useId, useMemo, useState, useCallback, useRef } from 'react';
+import { AnimatePresence, motion, MotionConfig, useIsPresent } from 'framer-motion';
 import '@/styles/index.css';
 import {
   X, ExternalLink, Volume2, VolumeOff, Menu, Maximize2,
@@ -18,6 +18,7 @@ import { AgeGate, useAgeGate } from '@/shared/components/AgeGate';
 import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
 import { CursorFX } from '@/shared/ui/CursorFX';
 import { LiveTicker } from '@/features/live-feed/LiveTicker';
@@ -342,6 +343,9 @@ interface MobileDrawerProps {
 }
 
 function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }: MobileDrawerProps) {
+  const titleId = useId();
+  const isolationRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useDialogFocus<HTMLElement>({ active: isOpen, onEscape: onClose, isolationRef });
   const handleSelect = useCallback((id: PanelId) => {
     // Selecting the already-open section keeps it open (handleActivate toggles).
     if (id !== activePanel) onActivate(id);
@@ -351,7 +355,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
+        <div ref={isolationRef}>
           <motion.div
             key="drawer-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -360,8 +364,12 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
             style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(3,4,8,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           />
           <motion.nav
+            ref={dialogRef}
             key="drawer-panel"
-            aria-label="Primary"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
             initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
             transition={{ type: 'spring', stiffness: 360, damping: 36 }}
             className="glass"
@@ -374,7 +382,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '18px 18px 14px', borderBottom: `1px solid ${HOLO_DIM}` }}>
-              <span className="eyebrow"><span className="eyebrow__dot" aria-hidden="true" />Navigation</span>
+              <span id={titleId} className="eyebrow"><span className="eyebrow__dot" aria-hidden="true" />Navigation</span>
               <button type="button" onClick={onClose} className="icon-btn" aria-label="Close menu">
                 <X size={16} aria-hidden="true" />
               </button>
@@ -408,7 +416,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
               <span className="readout" style={{ color: 'var(--color-text-dim)' }}>© 2026 Gladiator Studio</span>
             </div>
           </motion.nav>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );
@@ -445,17 +453,27 @@ interface GameOverlayProps {
 }
 
 function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
+  const titleId = useId();
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const isPresent = useIsPresent();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ active: isPresent, onEscape: onClose, initialFocusRef: closeRef });
+  const returnToControls = () => closeRef.current?.focus({ preventScroll: true });
   if (isMobile) {
     return (
-      <div style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', zIndex: 10000, background: '#000', overflow: 'hidden' }}>
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} style={{ position: 'fixed', inset: 0, width: '100vw', height: '100dvh', zIndex: 10000, background: '#000', overflow: 'hidden' }}>
+        <span id={titleId} className="sr-only">{game.title}</span>
+        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
         <iframe
           src={game.link}
           title={game.title}
+          tabIndex={-1}
           style={{ position: 'absolute', inset: 0, width: '100vw', height: '100dvh', border: 'none' }}
           allow="fullscreen; autoplay; screen-orientation"
           allowFullScreen
         />
+        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
         <button
+          ref={closeRef}
           type="button"
           onClick={onClose}
           className="icon-btn"
@@ -476,6 +494,11 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
       style={{ position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(3,4,8,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
       <motion.div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
         initial={{ scale: 0.85, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
@@ -486,7 +509,7 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
         style={{ width: '92vw', maxWidth: 1400, aspectRatio: '16 / 9', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 18px', borderBottom: `1px solid ${HOLO_DIM}`, flexShrink: 0 }}>
-          <span className="eyebrow"><span className="eyebrow__dot animate-electric-pulse" aria-hidden="true" />{game.title}</span>
+          <span id={titleId} className="eyebrow"><span className="eyebrow__dot animate-electric-pulse" aria-hidden="true" />{game.title}</span>
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               type="button"
@@ -502,18 +525,23 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
             >
               <Maximize2 size={15} aria-hidden="true" />
             </button>
-            <button type="button" className="icon-btn" aria-label="Close game" onClick={onClose}>
+            <button ref={closeRef} type="button" className="icon-btn" aria-label="Close game" onClick={onClose}>
               <X size={15} aria-hidden="true" />
             </button>
           </div>
         </div>
+        {/* Native focus leaving a clicked cross-origin frame reaches these guards. */}
+        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
         <iframe
           src={game.link}
           title={game.title}
+          // Cross-origin games own their keyboard events; Tab cycles the host controls.
+          tabIndex={-1}
           style={{ flex: 1, border: 'none', width: '100%', background: '#000' }}
           allow="fullscreen; autoplay"
           allowFullScreen
         />
+        <span className="sr-only" tabIndex={0} aria-hidden="true" onFocus={returnToControls} />
       </motion.div>
     </motion.div>
   );
@@ -531,6 +559,7 @@ export function App() {
   const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
   const isMobile = useIsMobile();
   const playTimerRef = useRef<number | null>(null);
+  const catalogueOpenerRef = useRef<HTMLElement | null>(null);
 
   const feed = useFeederSocket();
   const { events, isConnected, totalAmount, gladiatorCount, originalCount } = feed;
@@ -541,6 +570,12 @@ export function App() {
     window.clearTimeout(playTimerRef.current);
     playTimerRef.current = null;
     sceneEvents.emitBlackhole(false);
+  }, []);
+
+  const rememberCatalogueOpener = useCallback((id: PanelId) => {
+    if (id !== 'games') return;
+    const focused = document.activeElement;
+    catalogueOpenerRef.current = focused instanceof HTMLElement ? focused : null;
   }, []);
 
   useEffect(() => {
@@ -571,10 +606,14 @@ export function App() {
 
   // Open-panel events from Hero buttons
   useEffect(() => {
-    const handler = (e: CustomEvent<string>) => setActivePanel(e.detail as PanelId);
+    const handler = (e: CustomEvent<string>) => {
+      const id = e.detail as PanelId;
+      rememberCatalogueOpener(id);
+      setActivePanel(id);
+    };
     window.addEventListener('open-panel' as string, handler as EventListener);
     return () => window.removeEventListener('open-panel' as string, handler as EventListener);
-  }, []);
+  }, [rememberCatalogueOpener]);
 
   // Close panel / game with Escape
   useEffect(() => {
@@ -592,13 +631,14 @@ export function App() {
 
   const handleActivate = useCallback((id: PanelId) => {
     cancelPendingPlay();
+    rememberCatalogueOpener(id);
     setActivePanel(prev => {
       const next = prev === id ? 'none' : id;
       if (next === 'none') soundEngine.panelClose();
       else soundEngine.panelOpen();
       return next;
     });
-  }, [cancelPendingPlay]);
+  }, [cancelPendingPlay, rememberCatalogueOpener]);
 
   const handleClose = useCallback(() => {
     cancelPendingPlay();
@@ -661,20 +701,20 @@ export function App() {
       {!isMobile && <CursorFX />}
 
       <main id="main">
-        {/* Hero — full-screen holotable; hidden entirely while a panel is open */}
-        <AnimatePresence mode="popLayout">
-          {activePanel === 'none' && (
-            <motion.div
-              key="hero-full"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              exit={{ opacity: 0, scale: 0.96, transition: { duration: 0.2 } }}
-              transition={{ duration: 0.4 }}
-              style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-            >
-              <Hero panelSide={activeSide} />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Keep the hidden hero mounted so a closing catalogue can restore its opener. */}
+        <motion.div
+          key="hero-full"
+          initial={{ opacity: 0 }}
+          animate={activePanel === 'none'
+            ? { opacity: 1, scale: 1, visibility: 'visible' }
+            : { opacity: 0, scale: 0.96, transition: { duration: 0.2 }, transitionEnd: { visibility: 'hidden' } }}
+          // The coverflow manager captures the opener before making its ancestors inert.
+          inert={activePanel !== 'none' && !showCoverflow}
+          transition={{ duration: 0.4 }}
+          style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, visibility: activePanel === 'none' ? 'visible' : undefined }}
+        >
+          <Hero panelSide={activeSide} active={activePanel === 'none'} />
+        </motion.div>
       </main>
 
       {/* Top status bar — hidden on mobile when a panel is open, and for the
@@ -691,7 +731,7 @@ export function App() {
       <AnimatePresence>
         {showCoverflow && (
           <Suspense fallback={null}>
-            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} suspended={playingGame !== null} />
+            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} suspended={playingGame !== null} returnFocusRef={catalogueOpenerRef} />
           </Suspense>
         )}
       </AnimatePresence>
