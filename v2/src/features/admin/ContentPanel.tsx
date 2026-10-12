@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
-import { SECTIONS, fetchSiteContentStrict, saveSection, importDefaultContent, type ContentMap, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
+import { SECTIONS, fetchSiteContentStrict, saveSection, importDefaultContent, type AdminContent, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
 import { lines } from '@/shared/utils/text';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
@@ -178,7 +178,7 @@ function ImageField({ value, onChange, label, hint }: { readonly value: unknown;
       <label>{label}</label>
       <div className="image-field">
         {url && !broken
-          ? <img className="image-field__preview" src={url} alt="" onError={() => setBroken(true)} />
+          ? <img className="image-field__preview" src={url} alt="" loading="lazy" decoding="async" onError={() => setBroken(true)} />
           : <span className="image-field__broken" role="img" aria-label={url ? 'Image failed to load' : 'No image'}>{url ? '⚠' : '🖼'}</span>}
         <input className="input" type="text" value={url} placeholder="https://…" onChange={(e) => onChange(e.target.value)} />
       </div>
@@ -386,7 +386,22 @@ function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, o
   return out;
 }
 
-function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSchema; readonly initial: SectionValue; readonly onSaved: (key: string, value: SectionValue) => void }) {
+function relativeTime(iso: string, now: number): string {
+  const elapsed = Math.max(0, now - new Date(iso).getTime());
+  if (Number.isNaN(elapsed)) return iso;
+  const minutes = Math.floor(elapsed / 60_000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  return hours < 24 ? `${hours} h ago` : `${Math.floor(hours / 24)} d ago`;
+}
+
+function SectionCard({ schema, initial, updatedAt, onSaved }: {
+  readonly schema: SectionSchema;
+  readonly initial: SectionValue;
+  readonly updatedAt: string | null;
+  readonly onSaved: (key: string, value: SectionValue, updatedAt: string) => void;
+}) {
   const { toast } = useToast();
   const { setDirty } = useUnsaved();
   // Normalise the seed so value & saved start in the canonical shape (arrays for
@@ -394,11 +409,16 @@ function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSch
   const [value, setValue] = useState<SectionValue>(() => normalizeForSave(schema.fields, initial));
   const [saved, setSaved] = useState<SectionValue>(() => normalizeForSave(schema.fields, initial));
   const [saving, setSaving] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
   // Compare canonical (normalized) shapes so typing a number back to its original isn't "dirty".
   const dirty = JSON.stringify(normalizeForSave(schema.fields, value)) !== JSON.stringify(saved);
 
   // Surface this section's dirty state to the cross-tab unsaved-changes guard.
   useEffect(() => { setDirty(schema.key, dirty); return () => setDirty(schema.key, false); }, [dirty, schema.key, setDirty]);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function save() {
     if (saving) return;
@@ -406,10 +426,10 @@ function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSch
     const clean = normalizeForSave(schema.fields, draft);
     setSaving(true);
     try {
-      await saveSection(schema.key, clean);
+      const timestamp = await saveSection(schema.key, clean);
       setValue((current) => current === draft ? clean : current);
       setSaved(clean);
-      onSaved(schema.key, clean);
+      onSaved(schema.key, clean, timestamp);
       toast(`${schema.label} saved — live now.`);
     } catch (e) { toast(e instanceof Error ? e.message : 'Save failed', 'err'); }
     finally { setSaving(false); }
@@ -423,6 +443,9 @@ function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSch
         {dirty && <span className="tag" style={{ color: 'var(--a-gold)', borderColor: '#fedf89', background: 'var(--a-gold-weak)' }}>Unsaved</span>}
         <button className="btn btn--primary btn--sm" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}</button>
       </div>
+      <p className="rail-card__note" style={{ marginBottom: 14 }}>
+        {updatedAt ? <>Last saved <time dateTime={updatedAt} title={updatedAt}>{relativeTime(updatedAt, now)}</time></> : 'Not saved yet — showing defaults'}
+      </p>
       <div className="form-grid">
         {renderSectionFields(schema.fields, value, (k, update) => setValue((p) => ({ ...p, [k]: update(p[k]) })))}
       </div>
@@ -432,7 +455,7 @@ function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSch
 
 export function ContentPanel() {
   const { clear, hasUnsaved } = useUnsaved();
-  const [data, setData] = useState<ContentMap | null>(null);
+  const [data, setData] = useState<AdminContent | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const [confirm, setConfirm] = useState(false);
@@ -500,7 +523,13 @@ export function ContentPanel() {
           ))}
         </nav>
         <div className="content-body">
-          {activeSchema && <SectionCard key={`${activeSchema.key}-${nonce}`} schema={activeSchema} initial={data[activeSchema.key] ?? activeSchema.default} onSaved={(key, value) => setData((prev) => prev ? { ...prev, [key]: value } : prev)} />}
+          {activeSchema && <SectionCard
+            key={`${activeSchema.key}-${nonce}`} schema={activeSchema}
+            initial={data.content[activeSchema.key] ?? activeSchema.default} updatedAt={data.updatedAt[activeSchema.key] ?? null}
+            onSaved={(key, value, updatedAt) => setData((prev) => prev ? {
+              content: { ...prev.content, [key]: value }, updatedAt: { ...prev.updatedAt, [key]: updatedAt },
+            } : prev)}
+          />}
         </div>
       </div>
       </div>

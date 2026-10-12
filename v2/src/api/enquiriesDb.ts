@@ -46,14 +46,27 @@ function rowToEnquiry(r: EnquiryRow): Enquiry {
   };
 }
 
-/** Newest first. Admins only — RLS rejects everyone else. */
-export async function fetchEnquiries(): Promise<Enquiry[]> {
-  const { data, error } = await supabase
+/** Newest first; optionally limit to recent rows. Admins only — RLS rejects everyone else. */
+export async function fetchEnquiries(limit?: number): Promise<Enquiry[]> {
+  let query = supabase
     .from('enquiries')
     .select('*')
     .order('created_at', { ascending: false });
+  if (limit !== undefined) query = query.limit(limit);
+  const { data, error } = await query;
   if (error) throw error;
   return (data as EnquiryRow[]).map(rowToEnquiry);
+}
+
+/** Counts for the dashboard and navigation badge without downloading messages. */
+export async function fetchEnquiryCount(filters: { readonly handled?: boolean; readonly createdSince?: string } = {}): Promise<number> {
+  let query = supabase.from('enquiries').select('id', { count: 'exact', head: true });
+  if (filters.handled !== undefined) query = query.eq('handled', filters.handled);
+  if (filters.createdSince) query = query.gte('created_at', filters.createdSince);
+  const { count, error } = await query;
+  if (error) throw error;
+  if (count === null) throw new Error('Enquiry count could not be loaded.');
+  return count;
 }
 
 /** Flip the handled flag and return the updated row. */

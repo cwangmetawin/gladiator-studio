@@ -6,6 +6,7 @@ import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
 import { RailCard } from './Rail';
+import type { GameState } from './adminNavigation';
 
 interface PendingConfirm {
   readonly title: string;
@@ -119,10 +120,11 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
 }
 
 /** Filter + sort the catalogue without mutating the source array. */
-function selectGames(games: readonly AdminGame[], query: string, cat: CatFilter, sort: SortKey): AdminGame[] {
+function selectGames(games: readonly AdminGame[], query: string, cat: CatFilter, state: GameState, sort: SortKey): AdminGame[] {
   const q = query.trim().toLowerCase();
   let list: readonly AdminGame[] = games;
   if (cat !== 'all') list = list.filter((g) => g.category === cat);
+  if (state !== 'all') list = list.filter((g) => state === 'live' ? g.isPublished : !g.isPublished);
   if (q) list = list.filter((g) => `${g.title} ${g.genre ?? ''} ${g.slug ?? ''}`.toLowerCase().includes(q));
   const sorted = [...list];
   switch (sort) {
@@ -134,7 +136,7 @@ function selectGames(games: readonly AdminGame[], query: string, cat: CatFilter,
   return sorted;
 }
 
-export function GamesPanel() {
+export function GamesPanel({ initialState = 'all' }: { readonly initialState?: GameState }) {
   const { toast } = useToast();
   const [games, setGames] = useState<AdminGame[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,9 +149,11 @@ export function GamesPanel() {
 
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<CatFilter>('all');
+  const [state, setState] = useState<GameState>(initialState);
   const [sort, setSort] = useState<SortKey>('sort');
-  const visible = useMemo(() => selectGames(games, query, cat, sort), [games, query, cat, sort]);
-  const filtered = query.trim() !== '' || cat !== 'all';
+  const visible = useMemo(() => selectGames(games, query, cat, state, sort), [games, query, cat, state, sort]);
+  const filtered = query.trim() !== '' || cat !== 'all' || state !== 'all';
+  const hiddenCount = games.filter((g) => !g.isPublished).length;
 
   async function reload() {
     setLoading(true); setErr(null);
@@ -201,7 +205,8 @@ export function GamesPanel() {
       <div className="admin__primary">
       <div className="toolbar">
         <span className="toolbar__title">Catalogue</span>
-        <span className="count-pill">{filtered ? `${visible.length} / ${games.length}` : `${games.length} games`}</span>
+        <span className="count-pill">{games.length} games · {hiddenCount} hidden</span>
+        {filtered && <span className="count-pill">{visible.length} shown</span>}
       </div>
 
       <div className="toolbar">
@@ -216,6 +221,11 @@ export function GamesPanel() {
           <option value="all">All types</option>
           <option value="slot">Slots</option>
           <option value="mini">Originals</option>
+        </select>
+        <select className="select select--sm" value={state} onChange={(e) => setState(e.target.value as GameState)} aria-label="Filter by state">
+          <option value="all">All states</option>
+          <option value="live">Live</option>
+          <option value="hidden">Hidden</option>
         </select>
         <select className="select select--sm" value={sort} onChange={(e) => setSort(e.target.value as SortKey)} aria-label="Sort by">
           <option value="sort">Sort: manual order</option>
@@ -238,11 +248,11 @@ export function GamesPanel() {
         ) : visible.length === 0 ? (
           <div className="center-note">
             No games match your filters.
-            <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setQuery(''); setCat('all'); }}>Clear</button>
+            <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setQuery(''); setCat('all'); setState('all'); }}>Clear</button>
           </div>
         ) : visible.map((g) => (
           <div className="row row--game" key={g.id}>
-            <img className="row__thumb" src={g.image || g.landscapeImage || ''} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
+            <img className="row__thumb" src={g.image || g.landscapeImage || ''} alt="" loading="lazy" decoding="async" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
             <div className="row__info">
               <div className="row__title">{g.title} {g.isHot && <span className="tag tag--hot">Hot</span>}</div>
               <div className="row__sub">{g.genre || '—'} · {g.timeline || 'no date'}</div>

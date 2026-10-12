@@ -1,16 +1,18 @@
-import { useState, type FormEvent } from 'react';
-import { LayoutDashboard, Gamepad2, FileText, Mail } from 'lucide-react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { LayoutDashboard, Gamepad2, FileText, Mail, Menu } from 'lucide-react';
+import { fetchEnquiryCount } from '@/api/enquiriesDb';
 import { useAdminAuth, signIn, signOut } from './useAdminAuth';
 import { DashboardPanel } from './DashboardPanel';
 import { GamesPanel } from './GamesPanel';
 import { ContentPanel } from './ContentPanel';
 import { EnquiriesPanel } from './EnquiriesPanel';
 import { ConfirmDialog } from './ConfirmDialog';
-import { ToastProvider } from './Toast';
+import { ToastProvider, useToast } from './Toast';
 import { UnsavedProvider, useUnsaved } from './Unsaved';
+import type { AdminDestination } from './adminNavigation';
 import './admin.css';
 
-type Tab = 'dashboard' | 'games' | 'content' | 'enquiries';
+type Tab = AdminDestination['tab'];
 
 const NAV: readonly { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} aria-hidden="true" /> },
@@ -72,17 +74,35 @@ function NotAuthorized({ email }: { readonly email: string | undefined }) {
 }
 
 function AdminShell({ email }: { readonly email: string | undefined }) {
-  const [tab, setTab] = useState<Tab>('dashboard');
-  const [pending, setPending] = useState<Tab | 'sign-out' | null>(null);
+  const [destination, setDestination] = useState<AdminDestination>({ tab: 'dashboard' });
+  const tab = destination.tab;
+  const [pending, setPending] = useState<AdminDestination | 'sign-out' | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  const [unhandledCount, setUnhandledCount] = useState<number | null>(null);
+  const [badgeVersion, setBadgeVersion] = useState(0);
   const { hasUnsaved } = useUnsaved();
+  const { toast } = useToast();
+  const refreshBadge = useCallback(() => setBadgeVersion((v) => v + 1), []);
+
+  useEffect(() => {
+    let alive = true;
+    void fetchEnquiryCount({ handled: false }).then(
+      (count) => { if (alive) setUnhandledCount(count); },
+      (error: unknown) => { if (alive) toast(error instanceof Error ? error.message : 'Enquiry badge could not be refreshed.', 'err'); },
+    );
+    return () => { alive = false; };
+  }, [tab, badgeVersion, toast]);
+
+  const enquiryBadge = unhandledCount !== null && unhandledCount > 0 ? (
+    <span className="tag tag--hot admin__badge">{unhandledCount}<span className="sr-only"> new enquiries</span></span>
+  ) : null;
 
   // Guard actions that leave the editor with the same in-app confirmation.
-  function go(next: Tab) {
+  function go(next: AdminDestination) {
     setNavOpen(false);
-    if (next === tab) return;
+    if (next.tab === tab) return;
     if (hasUnsaved()) { setPending(next); return; }
-    setTab(next);
+    setDestination(next);
   }
 
   function askSignOut() {
@@ -97,8 +117,9 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
         <div className="admin__brand">Gladiator <span>Admin</span></div>
         <nav className="admin__nav" aria-label="Admin sections">
           {NAV.map((n) => (
-            <button key={n.id} type="button" className={`admin__navitem ${tab === n.id ? 'is-active' : ''}`} onClick={() => go(n.id)} aria-current={tab === n.id ? 'page' : undefined}>
+            <button key={n.id} type="button" className={`admin__navitem ${tab === n.id ? 'is-active' : ''}`} onClick={() => go({ tab: n.id })} aria-current={tab === n.id ? 'page' : undefined}>
               {n.icon}<span>{n.label}</span>
+              {n.id === 'enquiries' && enquiryBadge}
             </button>
           ))}
         </nav>
@@ -110,16 +131,19 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
 
       {/* Mobile top bar */}
       <div className="admin__mobilebar">
-        <button type="button" className="btn btn--sm btn--ghost" onClick={() => setNavOpen((v) => !v)} aria-label="Toggle menu">☰</button>
+        <button type="button" className="btn btn--sm btn--ghost" onClick={() => setNavOpen((v) => !v)} aria-label="Toggle menu" aria-expanded={navOpen}><Menu size={17} aria-hidden="true" /></button>
         <span className="admin__brand">Gladiator <span>Admin</span></span>
+        <button type="button" className="btn btn--sm btn--ghost admin__mobile-enquiries" onClick={() => go({ tab: 'enquiries' })} aria-label={unhandledCount ? `Enquiries, ${unhandledCount} new` : 'Enquiries'}>
+          <Mail size={17} aria-hidden="true" />{enquiryBadge}
+        </button>
       </div>
       {navOpen && <div className="admin__scrim" onClick={() => setNavOpen(false)} aria-hidden="true" />}
 
       <main className="admin__content">
         {tab === 'dashboard' && <DashboardPanel onNavigate={go} />}
-        {tab === 'games' && <GamesPanel />}
+        {destination.tab === 'games' && <GamesPanel initialState={destination.state} />}
         {tab === 'content' && <ContentPanel />}
-        {tab === 'enquiries' && <EnquiriesPanel />}
+        {destination.tab === 'enquiries' && <EnquiriesPanel initialFilter={destination.filter} onChanged={refreshBadge} />}
       </main>
 
       {pending && (
@@ -127,7 +151,7 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
           title="Unsaved changes"
           message="You have unsaved content edits. Leave this section without saving?"
           confirmLabel="Leave" danger
-          onConfirm={() => { if (pending === 'sign-out') void signOut(); else if (pending) setTab(pending); setPending(null); }}
+          onConfirm={() => { if (pending === 'sign-out') void signOut(); else if (pending) setDestination(pending); setPending(null); }}
           onCancel={() => setPending(null)}
         />
       )}
