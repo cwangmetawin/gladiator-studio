@@ -149,6 +149,8 @@
   letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-text-mute);
+  /* Stays legible where it floats over bright nebula / planet limbs. */
+  text-shadow: 0 1px 8px rgba(3, 4, 8, 0.95), 0 0 2px rgba(3, 4, 8, 0.9);
 }
 
 /* ── Section heading ────────────────────────────────────────────────────────── */
@@ -508,6 +510,15 @@
   box-shadow: inset 0 0 0 1px rgba(79, 195, 247, 0.25);
 }
 
+/* Labels like "Slots (11)" must never break mid-label; on the narrowest phones the
+   tabs tighten first and, as a last resort, the strip scrolls instead of wrapping. */
+.tablist { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.tablist::-webkit-scrollbar { display: none; }
+.tab { white-space: nowrap; flex-shrink: 0; }
+@media (max-width: 380px) {
+  .tab { padding: 0.5rem 0.6rem; letter-spacing: 0.06em; }
+}
+
 /* ── Form fields ────────────────────────────────────────────────────────────── */
 
 .field-label {
@@ -589,4 +600,10 @@ textarea.field { resize: vertical; min-height: 96px; line-height: 1.5; }
   box-shadow: 0 0 8px var(--color-holo-500);
   clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
   flex-shrink: 0;
+}
+
+/* DecodeText frontier glyphs — the "decrypting" edge of a resolving heading */
+.decode-glyph {
+  color: var(--color-holo-300);
+  text-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
 }

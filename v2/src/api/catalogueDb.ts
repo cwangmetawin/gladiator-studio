@@ -70,7 +70,7 @@ export function adminGameToRow(g: AdminGame): Record<string, unknown> {
 
 // ─── Public read (anon, published only) ─────────────────────────────────────
 
-/** Read the published catalogue, split by category. Null when empty/unavailable. */
+/** Read the published catalogue. Null when unseeded/unavailable; empty when all hidden. */
 export async function fetchCatalogueFromDb(): Promise<{ slotGames: Game[]; miniGames: Game[] } | null> {
   try {
     const { data, error } = await supabase
@@ -80,7 +80,11 @@ export async function fetchCatalogueFromDb(): Promise<{ slotGames: Game[]; miniG
       .order('sort_order', { ascending: true })
       .order('release_date', { ascending: false, nullsFirst: false });
     if (error) throw error;
-    if (!data || data.length === 0) return null;
+    if (!data || data.length === 0) {
+      const { count, error: countError } = await supabase.from('games').select('id', { head: true, count: 'exact' });
+      if (countError) throw countError;
+      return count != null && count > 0 ? { slotGames: [], miniGames: [] } : null;
+    }
     const games = (data as GameRow[]).map(rowToAdminGame);
     return {
       slotGames: games.filter((g) => g.category === 'slot'),
@@ -108,6 +112,13 @@ export async function fetchAllGames(): Promise<AdminGame[]> {
 export async function saveGame(game: AdminGame): Promise<AdminGame> {
   const row = adminGameToRow(game);
   const { data, error } = await supabase.from('games').upsert(row).select().single();
+  if (error) throw error;
+  return rowToAdminGame(data as GameRow);
+}
+
+/** Quick toggles update only their own columns, never a stale whole-row snapshot. */
+export async function patchGame(id: number, patch: Partial<Pick<GameRow, 'is_hot' | 'is_published'>>): Promise<AdminGame> {
+  const { data, error } = await supabase.from('games').update(patch).eq('id', id).select().single();
   if (error) throw error;
   return rowToAdminGame(data as GameRow);
 }

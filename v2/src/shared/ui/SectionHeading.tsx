@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Eyebrow } from './Eyebrow';
+import { DecodeText } from './DecodeText';
 
 interface SectionHeadingProps {
   readonly eyebrow?: string;
@@ -21,7 +22,7 @@ export function SectionHeading({
   return (
     <div className={`flex flex-col gap-3 ${className}`.trim()}>
       {eyebrow && <Eyebrow dot>{eyebrow}</Eyebrow>}
-      <Tag className="section-heading">{title}</Tag>
+      <Tag className="section-heading">{typeof title === 'string' ? <DecodeText text={title} /> : title}</Tag>
       {lede && <p className="section-lede">{lede}</p>}
     </div>
   );

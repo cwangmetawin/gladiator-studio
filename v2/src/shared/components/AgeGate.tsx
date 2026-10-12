@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 
 const STORAGE_KEY = 'gladiator_age_verified';
 
+// eslint-disable-next-line react-refresh/only-export-components -- Keep the existing age-verification hook in this module's public API.
 export function useAgeGate(): { verified: boolean; verify: () => void; reject: () => void; showGate: boolean } {
   const [verified, setVerified] = useState(() => {
     try { return sessionStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
@@ -37,7 +38,7 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
   if (rejected) {
     return (
       <div style={BACKDROP}>
-        <div className="glass" style={{ maxWidth: 420, width: '100%', padding: '44px 40px', textAlign: 'center' }}>
+        <div className="glass" style={{ maxWidth: 420, width: '100%', padding: 'clamp(24px, 5vw, 44px) clamp(20px, 5vw, 40px)', textAlign: 'center' }}>
           <div
             aria-hidden="true"
             style={{
@@ -68,7 +69,7 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
 
   return (
     <div style={BACKDROP}>
-      <div className="glass" role="dialog" aria-modal="true" aria-labelledby="age-title" style={{ maxWidth: 460, width: '100%', padding: 'clamp(32px, 5vw, 48px)', textAlign: 'center' }}>
+      <div className="glass" role="dialog" aria-modal="true" aria-labelledby="age-title" style={{ maxWidth: 460, width: '100%', padding: 'clamp(20px, 5vw, 48px)', textAlign: 'center' }}>
         <img
           src="/gladiator-logo.svg"
           alt="Gladiator Studio"
@@ -98,11 +99,11 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
           This site features gambling-related content for users aged 18 and over. By entering, you confirm you meet the minimum age in your jurisdiction.
         </p>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button type="button" onClick={onVerify} className="btn btn--primary" style={{ flex: 1 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+          <button type="button" onClick={onVerify} className="btn btn--primary" style={{ flex: '1 1 140px', minHeight: 44 }}>
             I am 18 or older
           </button>
-          <button type="button" onClick={onReject} className="btn" style={{ flex: 1 }}>
+          <button type="button" onClick={onReject} className="btn" style={{ flex: '1 1 140px', minHeight: 44 }}>
             Under 18
           </button>
         </div>

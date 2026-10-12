@@ -13,23 +13,28 @@ export function useAdminAuth(): AdminAuthState {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Until the stored session has been read, "no user" means "not known yet" —
+  // without this a signed-in admin briefly sees the login screen on every load.
+  const [sessionReady, setSessionReady] = useState(false);
+  const userId = session?.user.id;
 
   useEffect(() => {
     let alive = true;
-    supabase.auth.getSession().then(({ data }) => { if (alive) setSession(data.session); });
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => setSession(s));
+    supabase.auth.getSession().then(({ data }) => { if (alive) { setSession(data.session); setSessionReady(true); } });
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => { setSession(s); setSessionReady(true); });
     return () => { alive = false; sub.subscription.unsubscribe(); };
   }, []);
 
   useEffect(() => {
     let alive = true;
-    if (!session) { setIsAdmin(false); setLoading(false); return; }
+    if (!sessionReady) return;
+    if (!userId) { setIsAdmin(false); setLoading(false); return; }
     setLoading(true);
     // RLS lets a user read their own admins row; presence == admin.
-    supabase.from('admins').select('user_id').eq('user_id', session.user.id).maybeSingle()
+    supabase.from('admins').select('user_id').eq('user_id', userId).maybeSingle()
       .then(({ data }) => { if (alive) { setIsAdmin(Boolean(data)); setLoading(false); } });
     return () => { alive = false; };
-  }, [session]);
+  }, [userId, sessionReady]);
 
   return { session, isAdmin, loading };
 }

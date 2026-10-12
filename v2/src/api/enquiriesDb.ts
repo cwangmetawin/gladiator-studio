@@ -69,11 +69,13 @@ export async function deleteEnquiry(id: number): Promise<void> {
   if (error) throw error;
 }
 
-/**
- * Send a reply to the enquirer via the admin-only `reply-enquiry` Edge Function
- * (which also marks the enquiry handled). Returns the replied-at ISO timestamp.
- */
-export async function sendReply(id: number, subject: string, message: string): Promise<string> {
+export interface ReplyResult {
+  readonly repliedAt: string;
+  readonly marked: boolean;
+}
+
+/** Send via `reply-enquiry`, preserving whether its handled stamp succeeded. */
+export async function sendReply(id: number, subject: string, message: string): Promise<ReplyResult> {
   const { data, error } = await supabase.functions.invoke('reply-enquiry', { body: { id, subject, message } });
   if (error) {
     // functions.invoke surfaces a generic message; the real one is on the Response.
@@ -84,7 +86,7 @@ export async function sendReply(id: number, subject: string, message: string): P
     }
     throw new Error(msg);
   }
-  const res = data as { ok?: boolean; repliedAt?: string; error?: string } | null;
+  const res = data as { ok?: boolean; repliedAt?: string; marked?: boolean; error?: string } | null;
   if (!res?.ok) throw new Error(res?.error || 'Reply failed');
-  return res.repliedAt ?? new Date().toISOString();
+  return { repliedAt: res.repliedAt ?? new Date().toISOString(), marked: res.marked !== false };
 }

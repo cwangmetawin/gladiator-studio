@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Eyebrow, Divider } from '@/shared/ui';
-import { useFeederSocket, type FeedEvent } from './useFeederSocket';
+import { MAX_EVENTS, type FeedEvent, type FeederState } from './useFeederSocket';
 import { lookupGame } from './liveCatalogue';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -154,18 +154,17 @@ interface FeedPanelProps {
 function FeedPanel({ title, accentColor, eventCount, panelTotal, events, emptyMessage, isConnected }: FeedPanelProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const itemCountRef = useRef(0);
-  const prevLenRef = useRef(0);
+  const renderedIdsRef = useRef(new Set<string>());
 
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
 
-    const newItems = events.slice(0, events.length - prevLenRef.current);
-    prevLenRef.current = events.length;
+    const newItems = events.filter((event) => !renderedIdsRef.current.has(event.id));
 
     for (let i = newItems.length - 1; i >= 0; i--) {
       const ev = newItems[i];
-      if (!ev) continue;
+      if (!ev || renderedIdsRef.current.has(ev.id)) continue;
       const entry = lookupGame(ev.gameName);
       const isGladiator = ev.provider === 'gladiator';
       const railColor = isGladiator ? HOLO : PURPLE;
@@ -173,6 +172,7 @@ function FeedPanel({ title, accentColor, eventCount, panelTotal, events, emptyMe
       const isWin = tier !== 'normal';
 
       const item = document.createElement('div');
+      item.dataset.eventId = ev.id;
       item.style.cssText = `
         position:relative;display:flex;align-items:center;gap:8px;font-size:11px;
         min-height:32px;padding:4px 8px;border-radius:var(--radius-xs);
@@ -231,6 +231,7 @@ function FeedPanel({ title, accentColor, eventCount, panelTotal, events, emptyMe
       item.addEventListener('mouseleave', () => { if (!isWin) item.style.background = 'transparent'; });
 
       list.prepend(item);
+      renderedIdsRef.current.add(ev.id);
       itemCountRef.current++;
     }
 
@@ -239,10 +240,21 @@ function FeedPanel({ title, accentColor, eventCount, panelTotal, events, emptyMe
       list.lastElementChild.remove();
       itemCountRef.current--;
     }
+
+    // Keep a full socket window of seen ids even when this provider's list
+    // shrinks, without retaining every id from a long-running session.
+    const maxTrackedIds = Math.max(MAX_EVENTS, itemCountRef.current);
+    while (renderedIdsRef.current.size > maxTrackedIds) {
+      const oldestId = renderedIdsRef.current.values().next().value;
+      if (oldestId === undefined) break;
+      renderedIdsRef.current.delete(oldestId);
+    }
   }, [events]);
 
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+    // minHeight: on short phone panels the stat grid + spotlight would otherwise
+    // squeeze each list to ~2 rows; ~6 rows stay visible and the panel scrolls instead.
+    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 236 }}>
       <div style={{ borderBottom: '1px solid var(--color-line)', padding: '10px 14px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <LiveDot isConnected={isConnected} />
@@ -269,14 +281,9 @@ function FeedPanel({ title, accentColor, eventCount, panelTotal, events, emptyMe
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-export function LiveActivityFeed() {
-  const { events, eventsPerSecond, totalAmount, isConnected, gladiatorCount, originalCount } = useFeederSocket();
-
+export function LiveActivityFeed({ events, eventsPerSecond, totalAmount, isConnected, gladiatorCount, originalCount, gladiatorTotal, originalTotal }: FeederState) {
   const gladiatorEvents = events.filter((e) => e.provider === 'gladiator').slice(0, 15);
   const originalEvents = events.filter((e) => e.provider !== 'gladiator').slice(0, 15);
-
-  const gladiatorTotal = totalAmount * 0.4;
-  const originalTotal = totalAmount * 0.6;
 
   // Track the session's biggest win for the spotlight (climbs as bigger wins land).
   const [topWin, setTopWin] = useState<FeedEvent | null>(null);
@@ -305,7 +312,8 @@ export function LiveActivityFeed() {
         <Eyebrow dot>Live Telemetry</Eyebrow>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6, marginBottom: 10, flexShrink: 0 }}>
+      {/* 4-up on desktop panels; wraps to 2×2 on phones instead of clipping the last card. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(118px, 1fr))', gap: 6, marginBottom: 10, flexShrink: 0 }}>
         <StatPanel label="Status" value={isConnected ? 'Online' : 'Offline'} valueColor={isConnected ? 'var(--color-live)' : 'var(--color-ember)'} />
         <StatPanel label="Events/s" value={eventsPerSecond.toFixed(0)} />
         <StatPanel label="Wagered" value={formatUSD(totalAmount)} />

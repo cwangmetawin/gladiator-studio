@@ -53,7 +53,7 @@
 }
 
 /* Scroll layer between the fixed bar and ticker */
-.partner__scroll { position: absolute; top: 56px; left: 0; right: 0; bottom: 38px; z-index: 2; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.partner__scroll { position: absolute; top: 56px; left: 0; right: 0; bottom: calc(38px + env(safe-area-inset-bottom, 0px)); z-index: 2; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
 
 /* Shell top bar — the homepage StatusBar craft, reused */
 .partner__topbar {
@@ -194,10 +194,23 @@
 
 .partner__foot { text-align: center; margin-top: 60px; font-family: var(--font-mono); font-size: var(--text-2xs); letter-spacing: var(--tracking-label); text-transform: uppercase; color: var(--color-ice-600); }
 
-@media (max-width: 720px) { .partner__telemetry { display: none; } }
+@media (max-width: 720px) {
+  .partner__telemetry { display: none; }
+  /* Telemetry gone → the brand takes the free space and the exit stays pinned right. */
+  .partner__topbar { justify-content: space-between; }
+  .partner__topbar .sys-label { flex-shrink: 1; min-width: 0; overflow: hidden; white-space: nowrap; }
+}
 @media (max-width: 600px) {
   .partner__proto-row { grid-template-columns: 1fr; gap: 8px; }
   .partner__spine { display: none; }
+  /* Phones: the "Partner Uplink" label would push Disengage (the only exit) off-screen. */
+  .partner__uplink-label { display: none; }
+  .partner__disengage { min-height: 40px; }
+}
+@media (max-width: 400px) {
+  .partner__topbar { gap: 12px; }
+  .partner__topbar .sys-label { letter-spacing: 0.12em; gap: 5px; }
+  .partner__disengage { padding: 9px 10px; letter-spacing: 0.12em; }
 }
 @media (prefers-reduced-motion: reduce) {
   .partner__earth-canvas, .partner__bracket, .partner__stage, .partner__stars { transform: none; }

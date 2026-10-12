@@ -25,9 +25,6 @@ const CORS: Record<string, string> = {
 };
 const JSON_HEADERS = { ...CORS, 'Content-Type': 'application/json' };
 
-function clip(v: unknown, max: number): string {
-  return String(v ?? '').trim().slice(0, max);
-}
 function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
@@ -60,8 +57,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
   catch { return fail(400, 'Invalid JSON'); }
 
   const id = Number(payload.id);
-  const subject = clip(payload.subject, 200);
-  const message = clip(payload.message, 5000);
+  // One line only: the subject becomes a mail header (no CR/LF injection).
+  const subject = String(payload.subject ?? '').replace(/[\r\n\t\p{Zl}\p{Zp}]+/gu, ' ').trim();
+  const message = String(payload.message ?? '').trim();
+  if (subject.length > 200) return fail(422, 'subject must be 200 characters or fewer.');
+  if (message.length > 5000) return fail(422, 'message must be 5000 characters or fewer.');
   if (!Number.isInteger(id) || !subject || !message) {
     return fail(422, 'An enquiry id, subject and message are required.');
   }
@@ -106,9 +106,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   // --- Stamp handled + replied_at (best-effort) -------------------------------
   const repliedAt = new Date().toISOString();
+  let marked = false;
   try {
-    await sb.from('enquiries').update({ handled: true, replied_at: repliedAt }).eq('id', id);
-  } catch (_e) { /* email already sent; the flag is secondary */ }
+    const { data, error } = await sb.from('enquiries')
+      .update({ handled: true, replied_at: repliedAt }).eq('id', id).select('id').maybeSingle();
+    if (error) console.error('reply-enquiry stamp failed:', error);
+    else if (!data) console.error('reply-enquiry stamp matched no row:', id);
+    else marked = true;
+  } catch (e) { console.error('reply-enquiry stamp failed:', e); }
 
-  return new Response(JSON.stringify({ ok: true, sent: true, repliedAt }), { headers: JSON_HEADERS });
+  return new Response(JSON.stringify({ ok: true, sent: true, marked, repliedAt }), { headers: JSON_HEADERS });
 });

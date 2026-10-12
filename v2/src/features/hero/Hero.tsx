@@ -9,6 +9,7 @@ import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
+import { BigWinFlash } from './BigWinFlash';
 import './hero.css';
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -105,9 +106,12 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
 
       <h1 style={{ margin: 0, lineHeight: 0 }}>
         <span className="sr-only">Gladiator Studio</span>
-        <img src="/gladiator-logo.svg" alt="" aria-hidden="true" className="hero-logo" width={935} height={535}
-          style={{ width: compact ? 'clamp(220px,74vw,300px)' : 'clamp(300px,32vw,470px)', height: 'auto',
-            filter: 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,247,0.5)) drop-shadow(0 0 56px rgba(79,195,247,0.22))' }} />
+        {/* The wrap carries the holographic shine (a gradient masked to the logo's shape). */}
+        <span className="hero-logo-wrap" aria-hidden="true">
+          <img src="/gladiator-logo.svg" alt="" className="hero-logo" width={935} height={535}
+            style={{ width: compact ? 'clamp(220px,74vw,300px)' : 'clamp(300px,32vw,470px)', height: 'auto',
+              filter: 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,247,0.5)) drop-shadow(0 0 56px rgba(79,195,247,0.22))' }} />
+        </span>
       </h1>
 
       <div aria-label={stats.map((st) => `${st.end}${st.suffix} ${st.label}`).join(', ')} style={{ display: 'flex', alignItems: 'center', gap: compact ? 16 : 26 }}>
@@ -197,7 +201,21 @@ export function Hero(_props: HeroProps) {
             <Button variant="primary" onClick={() => openPanel('games')}>Explore Games</Button>
             <Button variant="secondary" onClick={() => openPanel('contact')}>Partner With Us</Button>
           </div>
+          {/* The desktop constellation, folded into a compact holo console for phones. */}
+          <nav aria-label="Sections" className="mobile-nodes">
+            {NODES.map((n, i) => {
+              const Icon = n.icon;
+              return (
+                <button key={n.panelId} type="button" className="mobile-node" style={{ animationDelay: `${0.35 + i * 0.05}s` }}
+                  onClick={() => openPanel(n.panelId)}>
+                  <span className="mobile-node__ring" aria-hidden="true"><Icon size={17} /></span>
+                  <span className="mobile-node__label">{n.label}</span>
+                </button>
+              );
+            })}
+          </nav>
         </motion.div>
+        <BigWinFlash />
       </section>
     );
   }
@@ -254,6 +272,7 @@ export function Hero(_props: HeroProps) {
         <IdentityHub />
       </div>
 
+      <BigWinFlash />
     </section>
   );
 }

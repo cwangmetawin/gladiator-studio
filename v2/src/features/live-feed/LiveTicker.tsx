@@ -91,7 +91,10 @@ export function LiveTicker({ events, isConnected }: LiveTickerProps) {
       <style>{`
         .ticker {
           position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
-          height: 38px; display: flex; align-items: center;
+          /* 38px strip + the iOS home-indicator inset beneath it */
+          height: calc(38px + env(safe-area-inset-bottom, 0px));
+          padding-bottom: env(safe-area-inset-bottom, 0px);
+          display: flex; align-items: center;
           /* No backdrop-filter: blurring the live WebGL starfield every frame
              stutters the scroll. A solid-ish gradient gives the same legibility. */
           background: linear-gradient(180deg, rgba(6,8,14,0) 0%, rgba(6,8,14,0.82) 42%, rgba(6,8,14,0.96) 100%);

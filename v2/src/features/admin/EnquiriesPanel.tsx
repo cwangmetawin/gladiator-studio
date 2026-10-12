@@ -1,12 +1,17 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
-import { fetchEnquiries, deleteEnquiry, setEnquiryHandled, sendReply, type Enquiry } from '@/api/enquiriesDb';
+import { fetchEnquiries, deleteEnquiry, setEnquiryHandled, sendReply, type Enquiry, type ReplyResult } from '@/api/enquiriesDb';
 import { ConfirmDialog } from './ConfirmDialog';
 import { RailCard } from './Rail';
 import { useToast } from './Toast';
 
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_RE = /^([a-z0-9!#$'*+/=^_`{|}~-]+(?:\.[a-z0-9!#$'*+/=^_`{|}~-]+)*)@([a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+)$/i;
 type Filter = 'new' | 'handled' | 'all';
+
+function mailtoRecipient(email: string): string | null {
+  const [, local, domain] = email.match(EMAIL_RE) ?? [];
+  return local && domain ? `${encodeURIComponent(local)}@${encodeURIComponent(domain)}` : null;
+}
 
 /** ISO timestamp → readable local date; falls back to the raw value if unparseable. */
 function formatDate(iso: string): string {
@@ -16,31 +21,37 @@ function formatDate(iso: string): string {
 }
 
 // ─── Reply composer — sends from the studio inbox via the reply-enquiry fn ────
-function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; readonly onClose: () => void; readonly onSent: (repliedAt: string) => void }) {
+function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; readonly onClose: () => void; readonly onSent: (id: number, result: ReplyResult) => void }) {
   const [subject, setSubject] = useState('Re: your enquiry to Gladiator Studio');
   const [message, setMessage] = useState(`Hi ${enquiry.name || 'there'},\n\n`);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const sending = useRef(false);
+  const close = () => { if (!sending.current) onClose(); };
 
   async function submit(e: FormEvent) {
     e.preventDefault();
+    if (sending.current) return;
+    sending.current = true;
     setErr(null); setBusy(true);
-    try { onSent(await sendReply(enquiry.id, subject.trim(), message.trim())); }
-    catch (e2) { setErr(e2 instanceof Error ? e2.message : 'Reply failed'); setBusy(false); }
+    try { onSent(enquiry.id, await sendReply(enquiry.id, subject.trim(), message.trim())); }
+    catch (e2) { setErr(e2 instanceof Error ? e2.message : 'Reply failed'); }
+    finally { sending.current = false; setBusy(false); }
   }
 
   // Fallback: open the operator's own mail client pre-filled — works even when
   // the server-side send is blocked (e.g. Resend's domain isn't verified yet).
-  const mailtoHref = `mailto:${enquiry.email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+  const recipient = mailtoRecipient(enquiry.email);
+  const mailtoHref = recipient ? `mailto:${recipient}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}` : null;
 
   return (
-    <div className="modal-bg" onClick={onClose}>
+    <div className="modal-bg" onClick={close}>
       <form className="card modal" onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <h3>Reply to {enquiry.name || 'enquiry'}</h3>
         {err && (
           <div className="msg msg--err" style={{ marginBottom: 14 }}>
             {err}
-            <div style={{ marginTop: 6, color: 'var(--a-dim)' }}>Can’t send from here yet? Use <b>Mail app ↗</b> below to reply from your own email client.</div>
+            {mailtoHref && <div style={{ marginTop: 6, color: 'var(--a-dim)' }}>Can’t send from here yet? Use <b>Mail app ↗</b> below to reply from your own email client.</div>}
           </div>
         )}
         <div className="form-grid">
@@ -58,8 +69,8 @@ function ReplyModal({ enquiry, onClose, onSent }: { readonly enquiry: Enquiry; r
           </div>
         </div>
         <div className="modal__foot">
-          <button type="button" className="btn btn--ghost" onClick={onClose}>Cancel</button>
-          <a className="btn" href={mailtoHref}>Mail app ↗</a>
+          <button type="button" className="btn btn--ghost" onClick={close} disabled={busy}>Cancel</button>
+          {mailtoHref && <a className="btn" href={mailtoHref}>Mail app ↗</a>}
           <button type="submit" className="btn btn--primary" disabled={busy}>{busy ? 'Sending…' : 'Send reply'}</button>
         </div>
       </form>
@@ -75,7 +86,8 @@ function EnquiryCard({ e, onReply, onToggleHandled, onDelete }: {
   readonly onDelete: (e: Enquiry) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const replyable = EMAIL_RE.test(e.email);
+  const recipient = mailtoRecipient(e.email);
+  const replyable = recipient !== null;
   const long = e.message.length > 220;
 
   return (
@@ -93,7 +105,7 @@ function EnquiryCard({ e, onReply, onToggleHandled, onDelete }: {
         </div>
       </div>
       <div className="enq__email">
-        {replyable ? <a href={`mailto:${e.email}`}>{e.email}</a> : (e.email || '—')}
+        {recipient ? <a href={`mailto:${recipient}`}>{e.email}</a> : (e.email || '—')}
       </div>
       {e.message && <p className={`enq__msg ${long && !expanded ? 'enq__msg--clamp' : ''}`}>{e.message}</p>}
       {long && <button type="button" className="enq__more" onClick={() => setExpanded((v) => !v)}>{expanded ? 'Show less' : 'Show more'}</button>}
@@ -162,13 +174,14 @@ export function EnquiriesPanel() {
     finally { setBusy(false); }
   }
 
-  function onReplied(repliedAt: string) {
-    if (replyTo) {
-      const id = replyTo.id;
-      setItems((prev) => prev.map((x) => (x.id === id ? { ...x, handled: true, repliedAt } : x)));
+  function onReplied(id: number, result: ReplyResult) {
+    if (result.marked) {
+      setItems((prev) => prev.map((x) => (x.id === id ? { ...x, handled: true, repliedAt: result.repliedAt } : x)));
+      toast('Reply sent — marked handled.');
+    } else {
+      toast('Reply sent, but it could not be marked handled — mark it manually', 'err');
     }
-    toast('Reply sent — marked handled.');
-    setReplyTo(null);
+    setReplyTo((current) => current?.id === id ? null : current);
   }
 
   const filtered = query.trim() !== '' || filter !== 'all';
@@ -227,7 +240,7 @@ export function EnquiriesPanel() {
         </RailCard>
       </aside>
 
-      {replyTo && <ReplyModal enquiry={replyTo} onClose={() => setReplyTo(null)} onSent={onReplied} />}
+      {replyTo && <ReplyModal key={replyTo.id} enquiry={replyTo} onClose={() => setReplyTo(null)} onSent={onReplied} />}
 
       {pending && (
         <ConfirmDialog

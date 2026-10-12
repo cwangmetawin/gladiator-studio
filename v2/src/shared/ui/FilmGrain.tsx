@@ -74,7 +74,7 @@ function FilmGrainImpl() {
       window.clearTimeout(resizeTimer);
       resizeTimer = window.setTimeout(setup, 160);
     };
-    const onVisibility = (): void => { document.hidden ? stop() : start(); };
+    const onVisibility = (): void => { if (document.hidden) stop(); else start(); };
 
     window.addEventListener('resize', onResize, { passive: true });
     document.addEventListener('visibilitychange', onVisibility);

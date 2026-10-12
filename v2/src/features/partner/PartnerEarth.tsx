@@ -49,13 +49,13 @@ export function PartnerEarth() {
       earth.position.y = yOff;
       earth.rotation.x = Math.PI;
       const em = new B.StandardMaterial('em', scene);
-      const dayTex = new B.Texture('/textures/earth_day.jpg', scene);
+      const dayTex = new B.Texture('/textures/earth_day.webp', scene);
       dayTex.anisotropicFilteringLevel = 8;
       em.diffuseTexture = dayTex;
-      const nightTex = new B.Texture('/textures/earth_night_2k.jpg', scene);
+      const nightTex = new B.Texture('/textures/earth_night_2k.webp', scene);
       em.emissiveTexture = nightTex;
       em.emissiveColor = new B.Color3(0.08, 0.06, 0.03);
-      const bumpTex = new B.Texture('/textures/earth_topology.png', scene);
+      const bumpTex = new B.Texture('/textures/earth_topology.webp', scene);
       bumpTex.anisotropicFilteringLevel = 8;
       em.bumpTexture = bumpTex;
       em.bumpTexture.level = 0.5;
@@ -67,7 +67,7 @@ export function PartnerEarth() {
       clouds.position.y = yOff;
       clouds.rotation.x = Math.PI;
       const cm = new B.StandardMaterial('cm', scene);
-      const cloudTex = new B.Texture('/textures/earth_clouds.png', scene);
+      const cloudTex = new B.Texture('/textures/earth_clouds.webp', scene);
       cloudTex.hasAlpha = true;
       cm.diffuseTexture = cloudTex;
       cm.opacityTexture = cloudTex;

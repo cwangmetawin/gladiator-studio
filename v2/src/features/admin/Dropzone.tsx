@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { uploadImage } from '@/api/uploads';
 
 interface DropzoneProps {
@@ -14,16 +14,25 @@ export function Dropzone({ onUploaded, onError, label = 'Drop image or click to 
   const inputRef = useRef<HTMLInputElement>(null);
   const [drag, setDrag] = useState(false);
   const [busy, setBusy] = useState(false);
+  const inFlight = useRef(false);
+  const mounted = useRef(true);
+  const callbacks = useRef({ onUploaded, onError });
+
+  useLayoutEffect(() => { callbacks.current = { onUploaded, onError }; }, [onUploaded, onError]);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; }; }, []);
 
   async function handle(file: File | null | undefined) {
-    if (!file || busy) return;
+    if (!file || inFlight.current) return;
+    inFlight.current = true;
     setBusy(true);
     try {
-      onUploaded(await uploadImage(file));
+      const url = await uploadImage(file);
+      if (mounted.current) callbacks.current.onUploaded(url);
     } catch (e) {
-      onError?.(e instanceof Error ? e.message : 'Upload failed.');
+      if (mounted.current) callbacks.current.onError?.(e instanceof Error ? e.message : 'Upload failed.');
     } finally {
-      setBusy(false);
+      inFlight.current = false;
+      if (mounted.current) setBusy(false);
     }
   }
 

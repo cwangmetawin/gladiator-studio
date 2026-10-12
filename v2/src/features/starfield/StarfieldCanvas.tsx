@@ -31,35 +31,33 @@ class WebGLErrorBoundary extends Component<
   }
 
   render(): ReactNode {
-    if (this.state.failed) {
-      return (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 0,
-            background: '#050508',
-            pointerEvents: 'none',
-          }}
-          aria-hidden="true"
-        />
-      );
-    }
+    // On failure the static nebula (rendered by StarfieldCanvas) stays as the backdrop.
+    if (this.state.failed) return null;
     return this.props.children;
   }
 }
 
-// ─── Dark fallback while the Babylon.js bundle loads ─────────────────────────
+// ─── Static stand-in while the Babylon.js bundle loads ───────────────────────
+// The Babylon bundle is several MB, so on a real network the 3D scene starts seconds
+// after the HUD appears. This is the same nebula image Babylon draws as its backdrop
+// (already preloaded during the age gate — see preloadScene.ts), dimmed and cropped
+// to match its Layer (color ≈ 0.6, 0.92 inset ⇒ ~1.09× zoom). The canvas fades in on
+// top of it once the scene is ready, so the cosmos is there from the first frame.
 
-function DarkFallback() {
+function NebulaBackdrop() {
   return (
     <div
       style={{
         position: 'fixed',
         inset: 0,
         zIndex: 0,
-        background: '#050508',
         pointerEvents: 'none',
+        backgroundColor: '#050508',
+        backgroundImage: 'url(/nebula.webp)',
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        transform: 'scale(1.09)',
+        filter: 'brightness(0.6)',
       }}
       aria-hidden="true"
     />
@@ -70,10 +68,13 @@ function DarkFallback() {
 
 export function StarfieldCanvas() {
   return (
-    <WebGLErrorBoundary>
-      <Suspense fallback={<DarkFallback />}>
-        <StarfieldBackground />
-      </Suspense>
-    </WebGLErrorBoundary>
+    <>
+      <NebulaBackdrop />
+      <WebGLErrorBoundary>
+        <Suspense fallback={null}>
+          <StarfieldBackground />
+        </Suspense>
+      </WebGLErrorBoundary>
+    </>
   );
 }

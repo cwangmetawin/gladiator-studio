@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Search } from 'lucide-react';
 import { GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
-import { fetchAllGames, saveGame, deleteGame, importCuratedGames, type AdminGame } from '@/api/catalogueDb';
+import { fetchAllGames, saveGame, patchGame, deleteGame, importCuratedGames, type AdminGame } from '@/api/catalogueDb';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
@@ -142,6 +142,8 @@ export function GamesPanel() {
   const [err, setErr] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<PendingConfirm | null>(null);
   const [confirmBusy, setConfirmBusy] = useState(false);
+  const [updating, setUpdating] = useState<ReadonlySet<number>>(() => new Set());
+  const updatingRef = useRef<ReadonlySet<number>>(new Set());
 
   const [query, setQuery] = useState('');
   const [cat, setCat] = useState<CatFilter>('all');
@@ -158,10 +160,18 @@ export function GamesPanel() {
   useEffect(() => { reload(); }, []);
 
   async function toggle(g: AdminGame, key: 'isHot' | 'isPublished') {
+    if (updatingRef.current.has(g.id)) return;
+    const next = new Set(updatingRef.current).add(g.id);
+    updatingRef.current = next; setUpdating(next);
     try {
-      const saved = await saveGame({ ...g, [key]: !g[key] });
+      const saved = await patchGame(g.id, key === 'isHot' ? { is_hot: !g.isHot } : { is_published: !g.isPublished });
       setGames((prev) => prev.map((x) => (x.id === saved.id ? saved : x)));
     } catch (e) { toast(e instanceof Error ? e.message : 'Update failed', 'err'); }
+    finally {
+      const remaining = new Set(updatingRef.current);
+      remaining.delete(g.id);
+      updatingRef.current = remaining; setUpdating(remaining);
+    }
   }
 
   function askDelete(g: AdminGame) {
@@ -231,21 +241,24 @@ export function GamesPanel() {
             <button className="link-btn" style={{ marginLeft: 8 }} onClick={() => { setQuery(''); setCat('all'); }}>Clear</button>
           </div>
         ) : visible.map((g) => (
-          <div className="row" key={g.id}>
+          <div className="row row--game" key={g.id}>
             <img className="row__thumb" src={g.image || g.landscapeImage || ''} alt="" onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }} />
-            <div>
+            <div className="row__info">
               <div className="row__title">{g.title} {g.isHot && <span className="tag tag--hot">Hot</span>}</div>
               <div className="row__sub">{g.genre || '—'} · {g.timeline || 'no date'}</div>
+              <div className="row__sub row__meta">{g.category} · {g.rtp != null ? `${g.rtp}% RTP` : 'RTP —'}</div>
             </div>
-            <span className={`tag ${g.category === 'slot' ? 'tag--slot' : 'tag--mini'}`}>{g.category}</span>
-            <span className="row__sub">{g.rtp != null ? `${g.rtp}%` : '—'}</span>
-            <button className={`tag row__state ${g.isPublished ? '' : 'tag--off'}`} onClick={() => toggle(g, 'isPublished')} title="Toggle published">
-              {g.isPublished ? 'Live' : 'Hidden'}
-            </button>
-            <div className="row__actions">
-              <button className="btn btn--sm row__hot" onClick={() => toggle(g, 'isHot')}>{g.isHot ? 'Unhot' : 'Hot'}</button>
-              <button className="btn btn--sm" onClick={() => setEditing(g)}>Edit</button>
-              <button className="btn btn--sm btn--danger" onClick={() => askDelete(g)}>Delete</button>
+            <span className={`tag row__category ${g.category === 'slot' ? 'tag--slot' : 'tag--mini'}`}>{g.category}</span>
+            <span className="row__sub row__rtp">{g.rtp != null ? `${g.rtp}%` : '—'}</span>
+            <div className="row__controls">
+              <button className={`tag row__state ${g.isPublished ? '' : 'tag--off'}`} onClick={() => toggle(g, 'isPublished')} title="Toggle published" disabled={updating.has(g.id)}>
+                {g.isPublished ? 'Live' : 'Hidden'}
+              </button>
+              <div className="row__actions">
+                <button className="btn btn--sm row__hot" onClick={() => toggle(g, 'isHot')} disabled={updating.has(g.id)}>{g.isHot ? 'Unhot' : 'Hot'}</button>
+                <button className="btn btn--sm" onClick={() => setEditing(g)} disabled={updating.has(g.id)}>Edit</button>
+                <button className="btn btn--sm btn--danger" onClick={() => askDelete(g)} disabled={updating.has(g.id)}>Delete</button>
+              </div>
             </div>
           </div>
         ))}

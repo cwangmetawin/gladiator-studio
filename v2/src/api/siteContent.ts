@@ -205,18 +205,23 @@ export const SECTION_DEFAULTS: ContentMap = Object.fromEntries(
   SECTIONS.map((s) => [s.key, s.default]),
 );
 
+/** Admin reads must surface failures so fallback content cannot be saved over the DB. */
+export async function fetchSiteContentStrict(): Promise<ContentMap> {
+  const { data, error } = await supabase.from('site_content').select('key,value');
+  if (error) throw error;
+  const map: ContentMap = {};
+  for (const s of SECTIONS) map[s.key] = { ...s.default };
+  for (const row of data ?? []) {
+    const r = row as { key: string; value: SectionValue };
+    map[r.key] = { ...(map[r.key] ?? {}), ...r.value };
+  }
+  return map;
+}
+
 /** Load every section row, each merged over its code default. Never throws. */
 export async function fetchSiteContent(): Promise<ContentMap> {
   try {
-    const { data, error } = await supabase.from('site_content').select('key,value');
-    if (error) throw error;
-    const map: ContentMap = {};
-    for (const s of SECTIONS) map[s.key] = { ...s.default };
-    for (const row of data ?? []) {
-      const r = row as { key: string; value: SectionValue };
-      map[r.key] = { ...(map[r.key] ?? {}), ...r.value };
-    }
-    return map;
+    return await fetchSiteContentStrict();
   } catch (err) {
     console.warn('[siteContent] read failed — using defaults:', err);
     return { ...SECTION_DEFAULTS };
