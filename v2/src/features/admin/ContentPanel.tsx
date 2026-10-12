@@ -1,11 +1,27 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
-import { SECTIONS, fetchSiteContent, saveSection, importDefaultContent, type ContentMap, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ClipboardEvent, type ReactNode } from 'react';
+import { SECTIONS, fetchSiteContentStrict, saveSection, importDefaultContent, type ContentMap, type FieldDef, type SectionSchema, type SectionValue } from '@/api/siteContent';
 import { lines } from '@/shared/utils/text';
 import { ConfirmDialog } from './ConfirmDialog';
 import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
 import { useUnsaved } from './Unsaved';
 import { RailCard } from './Rail';
+
+type FieldUpdate = (current: unknown) => unknown;
+type FieldChange = (update: FieldUpdate) => void;
+
+// Stable editor-only identities survive immutable copies, without entering saved JSON.
+const itemKeys = new WeakMap<SectionValue, number>();
+let nextItemKey = 1;
+function itemKey(item: SectionValue): number {
+  const key = itemKeys.get(item) ?? nextItemKey++;
+  itemKeys.set(item, key);
+  return key;
+}
+function copyItemKey(from: SectionValue, to: SectionValue): SectionValue {
+  if (from && typeof from === 'object') itemKeys.set(to, itemKey(from));
+  return to;
+}
 
 function blankItem(fields: readonly FieldDef[]): SectionValue {
   return Object.fromEntries(fields.map((f) => {
@@ -38,7 +54,7 @@ function normalizeForSave(fields: readonly FieldDef[], value: SectionValue): Sec
     else if (f.type === 'tags' || f.type === 'bullets') { out[f.key] = lines(v); }
     else if (f.type === 'list') { out[f.key] = (Array.isArray(v) ? v : []).map((item) => normalizeForSave(f.fields ?? [], item as SectionValue)); }
   }
-  return out;
+  return copyItemKey(value, out);
 }
 
 // ─── Textarea that grows with its content ────────────────────────────────────
@@ -192,22 +208,22 @@ function SelectField({ value, onChange, label, hint, options }: { readonly value
 // ─── Quarter + year period picker (roadmap timelines: "Q3 2023", "2025", "2026+") ───
 function PeriodField({ value, onChange, label, hint }: { readonly value: unknown; readonly onChange: (v: string) => void; readonly label: string; readonly hint?: string }) {
   const raw = String(value ?? '').trim();
-  const m = raw.match(/^(Q[1-4])\s+(.*)$/i); // "Q3 2023" → quarter + remainder; else year-only
+  const m = raw.match(/^(Q[1-4])(?:\s+(.*))?$/i); // Also keep a quarter while its year is still empty.
   const quarter = m ? (m[1] ?? '').toUpperCase() : '';
   const year = m ? (m[2] ?? '') : raw;
   const compose = (q: string, y: string) => (q ? `${q} ${y}`.trim() : y.trim());
   return (
     <div className="field">
       <label>{label}</label>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <select className="select" style={{ flex: '0 0 132px' }} value={quarter} onChange={(e) => onChange(compose(e.target.value, year))} aria-label={`${label} — quarter`}>
+      <div className="period-field">
+        <select className="select" value={quarter} onChange={(e) => onChange(compose(e.target.value, year))} aria-label={`${label} — quarter`}>
           <option value="">— (year only)</option>
           <option value="Q1">Q1</option>
           <option value="Q2">Q2</option>
           <option value="Q3">Q3</option>
           <option value="Q4">Q4</option>
         </select>
-        <input className="input" style={{ flex: 1 }} type="text" value={year} placeholder="2025 · 2026+" onChange={(e) => onChange(compose(quarter, e.target.value))} aria-label={`${label} — year`} />
+        <input className="input" type="text" value={year} placeholder="2025 · 2026+" onChange={(e) => onChange(compose(quarter, e.target.value))} aria-label={`${label} — year`} />
       </div>
       {hint && <span className="hint">{hint}</span>}
     </div>
@@ -219,20 +235,36 @@ function PeriodField({ value, onChange, label, hint }: { readonly value: unknown
 // closed, so a long per-item form (e.g. a full team-member profile) isn't an
 // overwhelming wall of inputs. A single-item list opens by default; multi-item
 // lists start collapsed.
-function ListField({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
-  const items = (Array.isArray(value) ? value : []) as SectionValue[];
+function ListField({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: FieldChange }) {
+  const toItems = (v: unknown) => (Array.isArray(v) ? v : []) as SectionValue[];
+  const items = toItems(value);
   const noun = def.itemLabel?.toLowerCase() ?? 'item';
-  const [open, setOpen] = useState<Set<number>>(() => new Set(items.length <= 1 ? [0] : []));
-  const toggle = (i: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; });
+  const [open, setOpen] = useState<Set<number>>(() => new Set(items.length === 1 && items[0] ? [itemKey(items[0])] : []));
+  const toggle = (key: number) => setOpen((prev) => { const n = new Set(prev); if (n.has(key)) n.delete(key); else n.add(key); return n; });
 
-  const setItem = (i: number, item: SectionValue) => onChange(items.map((x, j) => (j === i ? item : x)));
-  const move = (i: number, dir: -1 | 1) => {
+  const setItem = (id: number, key: string, update: FieldUpdate) => onChange((current) => {
+    const list = toItems(current);
+    if (!list.some((item) => itemKey(item) === id)) return current;
+    return list.map((item) => itemKey(item) === id ? copyItemKey(item, { ...item, [key]: update(item[key]) }) : item);
+  });
+  const move = (id: number, dir: -1 | 1) => onChange((current) => {
+    const list = toItems(current);
+    const i = list.findIndex((item) => itemKey(item) === id);
     const j = i + dir;
-    const a = items[i]; const b = items[j];
-    if (!a || !b) return;
-    const next = items.slice(); next[i] = b; next[j] = a; onChange(next);
+    const a = list[i]; const b = list[j];
+    if (!a || !b) return current;
+    const next = list.slice(); next[i] = b; next[j] = a; return next;
+  });
+  const remove = (id: number) => {
+    onChange((current) => toItems(current).filter((item) => itemKey(item) !== id));
+    setOpen((prev) => new Set([...prev].filter((key) => key !== id)));
   };
-  const add = () => { onChange([...items, blankItem(def.fields ?? [])]); setOpen((prev) => new Set(prev).add(items.length)); };
+  const add = () => {
+    const item = blankItem(def.fields ?? []);
+    const key = itemKey(item);
+    onChange((current) => [...toItems(current), item]);
+    setOpen((prev) => new Set(prev).add(key));
+  };
   const summaryOf = (item: SectionValue): string => {
     for (const f of def.fields ?? []) { const v = item[f.key]; if (typeof v === 'string' && v.trim()) return v.trim(); }
     return '';
@@ -244,26 +276,27 @@ function ListField({ def, value, onChange }: { readonly def: FieldDef; readonly 
       <div className="list-editor">
         {items.length === 0 && <div className="list-empty">No {noun}s yet.</div>}
         {items.map((item, i) => {
-          const isOpen = open.has(i);
+          const key = itemKey(item);
+          const isOpen = open.has(key);
           const summary = summaryOf(item);
           return (
-            <div className="list-item" key={i}>
+            <div className="list-item" key={key}>
               <div className="list-item__head">
-                <button type="button" className="list-item__toggle" onClick={() => toggle(i)} aria-expanded={isOpen}>
+                <button type="button" className="list-item__toggle" onClick={() => toggle(key)} aria-expanded={isOpen}>
                   <span className="field-group__caret" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
                   <span>{def.itemLabel ?? 'Item'} {i + 1}</span>
                   {summary && <span className="list-item__summary">{summary}</span>}
                 </button>
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(i, -1)} disabled={i === 0} title="Move up">↑</button>
-                  <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(i, 1)} disabled={i === items.length - 1} title="Move down">↓</button>
-                  <button type="button" className="btn btn--sm btn--danger" onClick={() => onChange(items.filter((_, j) => j !== i))}>Remove</button>
+                <div className="list-item__actions">
+                  <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(key, -1)} disabled={i === 0} title="Move up">↑</button>
+                  <button type="button" className="btn btn--sm btn--ghost" onClick={() => move(key, 1)} disabled={i === items.length - 1} title="Move down">↓</button>
+                  <button type="button" className="btn btn--sm btn--danger" onClick={() => remove(key)}>Remove</button>
                 </div>
               </div>
               {isOpen && (
                 <div className="form-grid" style={{ marginTop: 12 }}>
                   {(def.fields ?? []).map((sf) => (
-                    <Field key={sf.key} def={sf} value={item[sf.key]} onChange={(v) => setItem(i, { ...item, [sf.key]: v })} />
+                    <Field key={sf.key} def={sf} value={item[sf.key]} onChange={(update) => setItem(key, sf.key, update)} />
                   ))}
                 </div>
               )}
@@ -276,13 +309,14 @@ function ListField({ def, value, onChange }: { readonly def: FieldDef; readonly 
   );
 }
 
-function Field({ def, value, onChange }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: (v: unknown) => void }) {
+function Field({ def, value, onChange: update }: { readonly def: FieldDef; readonly value: unknown; readonly onChange: FieldChange }) {
+  const onChange = (next: unknown) => update(() => next);
   if (def.type === 'period') return <PeriodField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
   if (def.type === 'select') return <SelectField value={value} onChange={onChange} label={def.label} hint={def.hint} options={def.options ?? []} />;
   if (def.type === 'tags') return <TagInput value={value} onChange={onChange} label={def.label} hint={def.hint} />;
   if (def.type === 'bullets') return <BulletEditor value={value} onChange={onChange} label={def.label} hint={def.hint} itemLabel={def.itemLabel} />;
   if (def.type === 'image') return <ImageField value={value} onChange={onChange} label={def.label} hint={def.hint} />;
-  if (def.type === 'list') return <ListField def={def} value={value} onChange={onChange} />;
+  if (def.type === 'list') return <ListField def={def} value={value} onChange={update} />;
   if (def.type === 'textarea') {
     return (
       <div className="field col-span">
@@ -322,7 +356,7 @@ function FieldGroup({ title, defaultOpen, children }: { readonly title: string; 
 }
 
 // Render fields, collapsing consecutive same-group fields into one accordion.
-function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, onField: (key: string, v: unknown) => void): ReactNode[] {
+function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, onField: (key: string, update: FieldUpdate) => void): ReactNode[] {
   const out: ReactNode[] = [];
   let i = 0;
   while (i < fields.length) {
@@ -352,7 +386,7 @@ function renderSectionFields(fields: readonly FieldDef[], value: SectionValue, o
   return out;
 }
 
-function SectionCard({ schema, initial }: { readonly schema: SectionSchema; readonly initial: SectionValue }) {
+function SectionCard({ schema, initial, onSaved }: { readonly schema: SectionSchema; readonly initial: SectionValue; readonly onSaved: (key: string, value: SectionValue) => void }) {
   const { toast } = useToast();
   const { setDirty } = useUnsaved();
   // Normalise the seed so value & saved start in the canonical shape (arrays for
@@ -364,14 +398,18 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
   const dirty = JSON.stringify(normalizeForSave(schema.fields, value)) !== JSON.stringify(saved);
 
   // Surface this section's dirty state to the cross-tab unsaved-changes guard.
-  useEffect(() => { setDirty(schema.key, dirty); }, [dirty, schema.key, setDirty]);
+  useEffect(() => { setDirty(schema.key, dirty); return () => setDirty(schema.key, false); }, [dirty, schema.key, setDirty]);
 
   async function save() {
+    if (saving) return;
+    const draft = value;
+    const clean = normalizeForSave(schema.fields, draft);
     setSaving(true);
     try {
-      const clean = normalizeForSave(schema.fields, value);
       await saveSection(schema.key, clean);
-      setValue(clean); setSaved(clean);
+      setValue((current) => current === draft ? clean : current);
+      setSaved(clean);
+      onSaved(schema.key, clean);
       toast(`${schema.label} saved — live now.`);
     } catch (e) { toast(e instanceof Error ? e.message : 'Save failed', 'err'); }
     finally { setSaving(false); }
@@ -386,33 +424,56 @@ function SectionCard({ schema, initial }: { readonly schema: SectionSchema; read
         <button className="btn btn--primary btn--sm" onClick={save} disabled={saving || !dirty}>{saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}</button>
       </div>
       <div className="form-grid">
-        {renderSectionFields(schema.fields, value, (k, v) => setValue((p) => ({ ...p, [k]: v })))}
+        {renderSectionFields(schema.fields, value, (k, update) => setValue((p) => ({ ...p, [k]: update(p[k]) })))}
       </div>
     </div>
   );
 }
 
 export function ContentPanel() {
-  const { clear } = useUnsaved();
+  const { clear, hasUnsaved } = useUnsaved();
   const [data, setData] = useState<ContentMap | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [nonce, setNonce] = useState(0);
   const [confirm, setConfirm] = useState(false);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<{ kind: 'ok' | 'err'; text: string } | null>(null);
   const [active, setActive] = useState<string>(SECTIONS[0]?.key ?? '');
+  const [pending, setPending] = useState<{ kind: 'section'; key: string } | { kind: 'import' } | null>(null);
 
-  const reload = () => fetchSiteContent().then((d) => { setData(d); setNonce((n) => n + 1); });
-  useEffect(() => { reload(); }, []);
+  const reload = useCallback(async () => {
+    setLoadError(null); setData(null);
+    try {
+      setData(await fetchSiteContentStrict());
+      setNonce((n) => n + 1);
+      return true;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : 'Content could not be loaded.');
+      return false;
+    }
+  }, []);
+  useEffect(() => { void reload(); }, [reload]);
   // Discard the unsaved-changes flags when leaving the Content tab (edits are dropped).
   useEffect(() => () => clear(), [clear]);
+
+  function goSection(key: string) {
+    if (key === active) return;
+    if (hasUnsaved()) { setPending({ kind: 'section', key }); return; }
+    setActive(key);
+  }
+
+  function askImport() {
+    if (hasUnsaved()) { setPending({ kind: 'import' }); return; }
+    setConfirm(true);
+  }
 
   async function doImport() {
     setImporting(true); setMsg(null);
     try {
       const n = await importDefaultContent();
-      await reload();
+      const loaded = await reload();
       setConfirm(false);
-      setMsg({ kind: 'ok', text: `Imported defaults for ${n} sections (existing edits kept).` });
+      if (loaded) setMsg({ kind: 'ok', text: `Imported defaults for ${n} sections (existing edits kept).` });
     } catch (e) {
       setMsg({ kind: 'err', text: e instanceof Error ? e.message : 'Import failed' });
     } finally {
@@ -420,6 +481,7 @@ export function ContentPanel() {
     }
   }
 
+  if (loadError) return <div className="card center-note"><div className="msg msg--err" role="alert">{loadError}</div><button className="btn" style={{ marginTop: 14 }} onClick={() => void reload()}>Retry</button></div>;
   if (!data) return <div className="center-note">Loading…</div>;
   const activeSchema = SECTIONS.find((s) => s.key === active) ?? SECTIONS[0];
   return (
@@ -432,13 +494,13 @@ export function ContentPanel() {
       <div className="content-layout">
         <nav className="content-menu" aria-label="Pages">
           {SECTIONS.map((s) => (
-            <button key={s.key} type="button" className={`content-menu__item ${s.key === active ? 'is-active' : ''}`} onClick={() => setActive(s.key)}>
+            <button key={s.key} type="button" className={`content-menu__item ${s.key === active ? 'is-active' : ''}`} onClick={() => goSection(s.key)}>
               {s.label}
             </button>
           ))}
         </nav>
         <div className="content-body">
-          {activeSchema && <SectionCard key={`${activeSchema.key}-${nonce}`} schema={activeSchema} initial={data[activeSchema.key] ?? activeSchema.default} />}
+          {activeSchema && <SectionCard key={`${activeSchema.key}-${nonce}`} schema={activeSchema} initial={data[activeSchema.key] ?? activeSchema.default} onSaved={(key, value) => setData((prev) => prev ? { ...prev, [key]: value } : prev)} />}
         </div>
       </div>
       </div>
@@ -451,11 +513,21 @@ export function ContentPanel() {
         </RailCard>
         <RailCard title="Content tools">
           <div className="rail-card__actions">
-            <button type="button" className="btn btn--sm" onClick={() => setConfirm(true)}>Import current content</button>
+            <button type="button" className="btn btn--sm" onClick={askImport}>Import current content</button>
           </div>
           <div className="rail-card__note" style={{ marginTop: 8 }}>Seeds defaults for any section not yet stored. Your edits are kept.</div>
         </RailCard>
       </aside>
+
+      {pending && (
+        <ConfirmDialog
+          title="Unsaved changes"
+          message="You have unsaved content edits. Leave this section without saving?"
+          confirmLabel="Leave" danger
+          onConfirm={() => { if (pending.kind === 'section') setActive(pending.key); else setConfirm(true); setPending(null); }}
+          onCancel={() => setPending(null)}
+        />
+      )}
 
       {confirm && (
         <ConfirmDialog

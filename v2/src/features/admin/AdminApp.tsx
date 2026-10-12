@@ -73,16 +73,22 @@ function NotAuthorized({ email }: { readonly email: string | undefined }) {
 
 function AdminShell({ email }: { readonly email: string | undefined }) {
   const [tab, setTab] = useState<Tab>('dashboard');
-  const [pending, setPending] = useState<Tab | null>(null);
+  const [pending, setPending] = useState<Tab | 'sign-out' | null>(null);
   const [navOpen, setNavOpen] = useState(false);
   const { hasUnsaved } = useUnsaved();
 
-  // Guard leaving the Content editor with unsaved changes (popup, not native confirm).
+  // Guard actions that leave the editor with the same in-app confirmation.
   function go(next: Tab) {
     setNavOpen(false);
     if (next === tab) return;
-    if (tab === 'content' && hasUnsaved()) { setPending(next); return; }
+    if (hasUnsaved()) { setPending(next); return; }
     setTab(next);
+  }
+
+  function askSignOut() {
+    setNavOpen(false);
+    if (hasUnsaved()) { setPending('sign-out'); return; }
+    void signOut();
   }
 
   return (
@@ -98,7 +104,7 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
         </nav>
         <div className="admin__sidefoot">
           <span className="admin__who" title={email}>{email}</span>
-          <button className="btn btn--sm btn--ghost" onClick={() => signOut()}>Sign out</button>
+          <button className="btn btn--sm btn--ghost" onClick={askSignOut}>Sign out</button>
         </div>
       </aside>
 
@@ -121,7 +127,7 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
           title="Unsaved changes"
           message="You have unsaved content edits. Leave this section without saving?"
           confirmLabel="Leave" danger
-          onConfirm={() => { if (pending) setTab(pending); setPending(null); }}
+          onConfirm={() => { if (pending === 'sign-out') void signOut(); else if (pending) setTab(pending); setPending(null); }}
           onCancel={() => setPending(null)}
         />
       )}
