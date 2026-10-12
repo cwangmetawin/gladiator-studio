@@ -171,14 +171,14 @@ function buildEarth(
 
   const earthMat = new BABYLON.StandardMaterial('earthMaterial', scene);
 
-  const dayTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_day.jpg`, scene);
+  const dayTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_day.webp`, scene);
   earthMat.diffuseTexture = dayTexture;
 
-  const nightTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_night_2k.jpg`, scene);
+  const nightTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_night_2k.webp`, scene);
   earthMat.emissiveTexture = nightTexture;
   earthMat.emissiveColor = new BABYLON.Color3(0.08, 0.06, 0.03);
 
-  const bumpTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_topology.png`, scene);
+  const bumpTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_topology.webp`, scene);
   earthMat.bumpTexture = bumpTexture;
   earthMat.bumpTexture.level = 0.5;
 
@@ -195,7 +195,7 @@ function buildEarth(
   );
 
   const cloudMat = new BABYLON.StandardMaterial('cloudMaterial', scene);
-  const cloudTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_clouds.png`, scene);
+  const cloudTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_clouds.webp`, scene);
   cloudTexture.hasAlpha = true;
 
   cloudMat.diffuseTexture = cloudTexture;
@@ -516,13 +516,13 @@ interface PlanetDef {
 
 // Recognisable solar-system bodies — each is a section the camera flies into on click.
 const PLANET_DEFS: readonly PlanetDef[] = [
-  { id: 'journey', d: 6.5, r: 30, ang: 8,   y: -6, tex: 'planet_jupiter.jpg', tint: [0.80, 0.66, 0.46] },
-  { id: 'games',   d: 5.0, r: 37, ang: 212, y: 5,  tex: 'planet_saturn.jpg',  ring: true, tint: [0.85, 0.75, 0.52] },
+  { id: 'journey', d: 6.5, r: 30, ang: 8,   y: -6, tex: 'planet_jupiter.webp', tint: [0.80, 0.66, 0.46] },
+  { id: 'games',   d: 5.0, r: 37, ang: 212, y: 5,  tex: 'planet_saturn.webp',  ring: true, tint: [0.85, 0.75, 0.52] },
   { id: 'about',   d: 4.2, r: 20, ang: 56,  y: 6,  earth: true,               tint: [0.20, 0.42, 0.70] },
-  { id: 'team',    d: 3.2, r: 16, ang: 142, y: -3, tex: 'planet_mars.jpg',    tint: [0.72, 0.34, 0.20] },
-  { id: 'live',    d: 4.0, r: 42, ang: 255, y: 8,  tex: 'planet_neptune.png', tint: [0.20, 0.38, 0.80] },
-  { id: 'careers', d: 3.8, r: 24, ang: 322, y: 3,  tex: 'planet_venus.jpg',   tint: [0.85, 0.72, 0.45] },
-  { id: 'contact', d: 2.6, r: 13, ang: 286, y: -5, tex: 'planet_moon.png',    tint: [0.70, 0.72, 0.78] },
+  { id: 'team',    d: 3.2, r: 16, ang: 142, y: -3, tex: 'planet_mars.webp',    tint: [0.72, 0.34, 0.20] },
+  { id: 'live',    d: 4.0, r: 42, ang: 255, y: 8,  tex: 'planet_neptune.webp', tint: [0.20, 0.38, 0.80] },
+  { id: 'careers', d: 3.8, r: 24, ang: 322, y: 3,  tex: 'planet_venus.webp',   tint: [0.85, 0.72, 0.45] },
+  { id: 'contact', d: 2.6, r: 13, ang: 286, y: -5, tex: 'planet_moon.webp',    tint: [0.70, 0.72, 0.78] },
 ];
 
 // A flat, translucent ring sheet: hundreds of fine concentric bands with edge
@@ -582,11 +582,11 @@ function buildSolarSystem(
     if (def.earth) {
       // Real Earth: day surface + bump relief + ocean specular + night city lights.
       mat.diffuseColor = BABYLON.Color3.White();
-      mat.diffuseTexture = tx('earth_day.jpg');
-      const bump = tx('earth_bump.png'); bump.level = 0.35; mat.bumpTexture = bump;
-      mat.specularTexture = tx('earth_specular.png');
+      mat.diffuseTexture = tx('earth_day.webp');
+      const bump = tx('earth_bump.webp'); bump.level = 0.35; mat.bumpTexture = bump;
+      mat.specularTexture = tx('earth_specular.webp');
       mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
-      mat.emissiveTexture = tx('earth_night_2k.jpg');
+      mat.emissiveTexture = tx('earth_night_2k.webp');
       mat.emissiveColor = new BABYLON.Color3(0.42, 0.38, 0.28);
     } else if (def.tex) {
       const surface = tx(def.tex);
@@ -701,8 +701,13 @@ function buildScene(
   };
 
   // ── Deep-space nebula backdrop — baked astrophotography panorama ────────────
-  const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.png`, scene, true);
-  nebulaBg.color = new BABYLON.Color4(0.6, 0.6, 0.66, 1); // dim so foreground UI reads
+  const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.webp`, scene, true);
+  // Starts black and fades up to its dim target once the texture is ready (render
+  // loop), so the cosmos "develops" in rather than popping in seconds after the intro.
+  const NEBULA_RGB = [0.6, 0.6, 0.66] as const; // dim so foreground UI reads
+  const NEBULA_FADE_MS = 1400;
+  let nebulaFade = 0;
+  nebulaBg.color = new BABYLON.Color4(0, 0, 0, 1);
 
   // A fullscreen Layer stretches its texture to the viewport, warping the cosmos on
   // tall (portrait) screens — crop the *sampled* region via the texture matrix so it
@@ -1094,6 +1099,11 @@ function buildScene(
     // cosmos keeps breathing. Amplitudes stay under (1 - scale)/2 to never bare an edge.
     const nebTex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
     if (nebTex) {
+      if (nebulaFade < 1 && nebTex.isReady()) {
+        nebulaFade = Math.min(1, nebulaFade + scene.getEngine().getDeltaTime() / NEBULA_FADE_MS);
+        const k = 1 - (1 - nebulaFade) * (1 - nebulaFade); // ease-out
+        nebulaBg.color = new BABYLON.Color4(NEBULA_RGB[0] * k, NEBULA_RGB[1] * k, NEBULA_RGB[2] * k, 1);
+      }
       nebulaTime += scene.getEngine().getDeltaTime() * 0.001;
       nebTex.uScale = nebUScale;
       nebTex.vScale = nebVScale;
