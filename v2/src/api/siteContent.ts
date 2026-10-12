@@ -35,6 +35,11 @@ export interface SectionSchema {
 export type SectionValue = Record<string, unknown>;
 export type ContentMap = Record<string, SectionValue>;
 
+export interface AdminContent {
+  readonly content: ContentMap;
+  readonly updatedAt: Readonly<Record<string, string | null>>;
+}
+
 export const SECTIONS: readonly SectionSchema[] = [
   {
     key: 'stats',
@@ -206,32 +211,41 @@ export const SECTION_DEFAULTS: ContentMap = Object.fromEntries(
 );
 
 /** Admin reads must surface failures so fallback content cannot be saved over the DB. */
-export async function fetchSiteContentStrict(): Promise<ContentMap> {
-  const { data, error } = await supabase.from('site_content').select('key,value');
+export async function fetchSiteContentStrict(): Promise<AdminContent> {
+  const { data, error } = await supabase.from('site_content').select('key,value,updated_at');
   if (error) throw error;
   const map: ContentMap = {};
-  for (const s of SECTIONS) map[s.key] = { ...s.default };
-  for (const row of data ?? []) {
-    const r = row as { key: string; value: SectionValue };
-    map[r.key] = { ...(map[r.key] ?? {}), ...r.value };
+  const updatedAt: Record<string, string | null> = {};
+  for (const s of SECTIONS) {
+    map[s.key] = { ...s.default };
+    updatedAt[s.key] = null;
   }
-  return map;
+  for (const row of data ?? []) {
+    const r = row as { key: string; value: SectionValue; updated_at: string | null };
+    map[r.key] = { ...(map[r.key] ?? {}), ...r.value };
+    updatedAt[r.key] = r.updated_at;
+  }
+  return { content: map, updatedAt };
 }
 
 /** Load every section row, each merged over its code default. Never throws. */
 export async function fetchSiteContent(): Promise<ContentMap> {
   try {
-    return await fetchSiteContentStrict();
+    return (await fetchSiteContentStrict()).content;
   } catch (err) {
     console.warn('[siteContent] read failed — using defaults:', err);
     return { ...SECTION_DEFAULTS };
   }
 }
 
-/** Upsert one section's whole document (admin-only via RLS). */
-export async function saveSection(key: string, value: SectionValue): Promise<void> {
-  const { error } = await supabase.from('site_content').upsert({ key, value });
+/** Upsert one section's whole document (admin-only via RLS). Returns the DB's
+ *  updated_at, which the column default (insert) and the site_content_touch
+ *  trigger (update) set from the server clock. */
+export async function saveSection(key: string, value: SectionValue): Promise<string> {
+  const { data, error } = await supabase.from('site_content')
+    .upsert({ key, value }).select('updated_at').single();
   if (error) throw error;
+  return (data as { updated_at: string }).updated_at;
 }
 
 /** Seed the DB with the code-default content for any section not yet stored.

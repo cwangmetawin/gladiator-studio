@@ -109,6 +109,15 @@ export async function fetchAllGames(): Promise<AdminGame[]> {
   return (data as GameRow[]).map(rowToAdminGame);
 }
 
+/** Dashboard count without downloading the catalogue, including hidden rows for admins. */
+export async function fetchGameCount(isPublished: boolean): Promise<number> {
+  const { count, error } = await supabase.from('games')
+    .select('id', { count: 'exact', head: true }).eq('is_published', isPublished);
+  if (error) throw error;
+  if (count === null) throw new Error('Game count could not be loaded.');
+  return count;
+}
+
 export async function saveGame(game: AdminGame): Promise<AdminGame> {
   const row = adminGameToRow(game);
   const { data, error } = await supabase.from('games').upsert(row).select().single();

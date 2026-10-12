@@ -4,9 +4,10 @@ import { fetchEnquiries, deleteEnquiry, setEnquiryHandled, sendReply, type Enqui
 import { ConfirmDialog } from './ConfirmDialog';
 import { RailCard } from './Rail';
 import { useToast } from './Toast';
+import type { EnquiryFilter } from './adminNavigation';
+import { buildEnquiriesCsv } from './enquiriesCsv';
 
 const EMAIL_RE = /^([a-z0-9!#$'*+/=^_`{|}~-]+(?:\.[a-z0-9!#$'*+/=^_`{|}~-]+)*)@([a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+)$/i;
-type Filter = 'new' | 'handled' | 'all';
 
 function mailtoRecipient(email: string): string | null {
   const [, local, domain] = email.match(EMAIL_RE) ?? [];
@@ -89,6 +90,7 @@ function EnquiryCard({ e, onReply, onToggleHandled, onDelete }: {
   const recipient = mailtoRecipient(e.email);
   const replyable = recipient !== null;
   const long = e.message.length > 220;
+  const spam = e.enquiryType.startsWith('[honeypot]');
 
   return (
     <div className={`card enq ${e.handled ? 'enq--handled' : ''}`}>
@@ -97,7 +99,7 @@ function EnquiryCard({ e, onReply, onToggleHandled, onDelete }: {
         <div className="enq__meta">
           {e.handled && <span className="tag tag--handled">Handled</span>}
           {e.repliedAt && <span className="tag tag--replied" title={`Replied ${formatDate(e.repliedAt)}`}>Replied</span>}
-          {e.enquiryType && <span className="tag">{e.enquiryType}</span>}
+          {e.enquiryType && <span className={`tag ${spam ? 'tag--hot' : ''}`}>{spam ? 'Suspected spam' : e.enquiryType}</span>}
           <span className={`tag ${e.emailed ? 'tag--ok' : 'tag--off'}`} title={e.emailed ? 'Emailed to the studio inbox' : 'Stored but not emailed'}>
             {e.emailed ? 'Emailed' : 'Not emailed'}
           </span>
@@ -119,12 +121,15 @@ function EnquiryCard({ e, onReply, onToggleHandled, onDelete }: {
   );
 }
 
-export function EnquiriesPanel() {
+export function EnquiriesPanel({ initialFilter = 'new', onChanged }: {
+  readonly initialFilter?: EnquiryFilter;
+  readonly onChanged?: () => void;
+}) {
   const { toast } = useToast();
   const [items, setItems] = useState<Enquiry[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
-  const [filter, setFilter] = useState<Filter>('new');
+  const [filter, setFilter] = useState<EnquiryFilter>(initialFilter);
   const [query, setQuery] = useState('');
   const [pending, setPending] = useState<Enquiry | null>(null); // delete-confirm target
   const [busy, setBusy] = useState(false);
@@ -154,10 +159,25 @@ export function EnquiriesPanel() {
     return list;
   }, [items, filter, query]);
 
+  function exportCsv() {
+    const url = URL.createObjectURL(new Blob([buildEnquiriesCsv(visible)], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `enquiries-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    try { link.click(); }
+    finally {
+      link.remove();
+      // Give the browser time to start the download before releasing its data.
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+  }
+
   async function toggleHandled(e: Enquiry) {
     try {
       const updated = await setEnquiryHandled(e.id, !e.handled);
       setItems((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+      onChanged?.();
       toast(updated.handled ? 'Marked handled.' : 'Reopened.');
     } catch (er) { toast(er instanceof Error ? er.message : 'Update failed', 'err'); }
   }
@@ -168,6 +188,7 @@ export function EnquiriesPanel() {
     try {
       await deleteEnquiry(pending.id);
       setItems((prev) => prev.filter((x) => x.id !== pending.id));
+      onChanged?.();
       toast('Enquiry deleted.');
       setPending(null);
     } catch (er) { toast(er instanceof Error ? er.message : 'Delete failed', 'err'); }
@@ -181,6 +202,7 @@ export function EnquiriesPanel() {
     } else {
       toast('Reply sent, but it could not be marked handled — mark it manually', 'err');
     }
+    onChanged?.();
     setReplyTo((current) => current?.id === id ? null : current);
   }
 
@@ -235,8 +257,15 @@ export function EnquiriesPanel() {
           <div className="rail-stat"><span className="rail-stat__label">Handled</span><span className="rail-stat__value">{counts.handled}</span></div>
           <div className="rail-stat"><span className="rail-stat__label">Emailed</span><span className="rail-stat__value">{counts.emailed}</span></div>
         </RailCard>
+        <RailCard title="Export">
+          <div className="rail-card__actions">
+            <button type="button" className="btn btn--sm" onClick={exportCsv} disabled={loading || err !== null || visible.length === 0}>Export CSV</button>
+          </div>
+          <div className="rail-card__note" style={{ marginTop: 8 }}>Exports the {visible.length} enquiries in your current filter and search.</div>
+        </RailCard>
         <RailCard title="Tips">
           <div className="rail-card__note"><b>Reply</b> sends straight from the studio inbox (no mail app needed) and marks the enquiry handled. <b>Mark handled</b> clears it from <b>New</b> without deleting.</div>
+          <div className="rail-card__note" style={{ marginTop: 8 }}><b>Suspected spam</b> comes from the contact form’s bot trap. Use <b>Delete</b> to clear these enquiries.</div>
         </RailCard>
       </aside>
 
