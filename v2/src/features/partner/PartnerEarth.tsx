@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { Engine } from '@babylonjs/core'; // type-only — erased at build
+import type { Engine } from '@/shared/babylon/babylonCore'; // type-only — erased at build
 
 // Live low-orbit Earth backdrop for the Client Area: a large, slowly-rotating
 // textured Earth whose lit horizon curves across the lower frame, an atmosphere
@@ -17,7 +17,7 @@ export function PartnerEarth() {
     const onResize = () => engine?.resize();
 
     (async () => {
-      const B = await import('@babylonjs/core');
+      const B = await import('@/shared/babylon/babylonCore');
       const canvas = canvasRef.current;
       if (disposed || !canvas) return;
 

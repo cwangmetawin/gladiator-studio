@@ -3,7 +3,7 @@ import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { soundEngine } from '@/shared/utils/soundEngine';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
-type BabylonModule = typeof import('@babylonjs/core');
+type BabylonModule = typeof import('@/shared/babylon/babylonCore');
 
 // ─── Mobile detection ─────────────────────────────────────────────────────────
 const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth <= 767;
@@ -1232,7 +1232,7 @@ export default function StarfieldBackground() {
 
     let disposed = false;
 
-    import('@babylonjs/core').then((BABYLON) => {
+    import('@/shared/babylon/babylonCore').then((BABYLON) => {
       if (disposed) return;
 
       const engine = new BABYLON.Engine(canvas, true, {
