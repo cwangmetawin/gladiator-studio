@@ -290,6 +290,12 @@
   -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
+/* Below 360 px the "Offline" label pushes the sound toggle 8 px off-screen.
+   The dot's colour still shows the state, and the readout keeps its aria-label. */
+@media (max-width: 359px) {
+  .shell-bar__status-text { display: none; }
+}
+
 /* ── Command-bar nav button ─────────────────────────────────────────────────── */
 
 .navbtn {

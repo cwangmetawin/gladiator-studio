@@ -133,7 +133,7 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientAr
         Gladiator<span aria-hidden="true" style={{ color: 'var(--color-text-dim)' }}>·</span>Studio
       </span>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 12 : 22 }}>
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 12 : 22 }}>
         <span className="readout" aria-label={isConnected ? 'Live feed connected' : 'Live feed offline'}>
           <span
             aria-hidden="true"
@@ -144,7 +144,7 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientAr
               boxShadow: `0 0 8px ${isConnected ? 'var(--color-live)' : 'var(--color-ember)'}`,
             }}
           />
-          {isConnected ? 'Live' : 'Offline'}
+          <span className="shell-bar__status-text">{isConnected ? 'Live' : 'Offline'}</span>
         </span>
 
         {!isMobile && (
