@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { motion, useIsPresent } from 'framer-motion';
+import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { X, ChevronLeft, ChevronRight, Play, LayoutGrid, Layers } from 'lucide-react';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
@@ -50,6 +51,7 @@ function DeckCard({ game, cellW, cellH, target, grid, centre, onClick }: DeckCar
       data-cursor={grid || centre ? 'PLAY' : 'VIEW'}
       aria-label={grid || centre ? `Play ${game.title}` : `Focus ${game.title}`}
       aria-hidden={!grid && Math.abs(target.scale) < 0.4 ? true : undefined}
+      tabIndex={target.opacity === 0 ? -1 : undefined}
       onClick={onClick}
       initial={false}
       animate={{ x: target.x, y: target.y, scale: target.scale, opacity: target.opacity }}
@@ -105,9 +107,13 @@ interface GameCoverflowProps {
   readonly loading: boolean;
   readonly onClose: () => void;
   readonly suspended: boolean;
+  readonly returnFocusRef: RefObject<HTMLElement | null>;
 }
 
-export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverflowProps) {
+export function GameCoverflow({ games, loading, onClose, suspended, returnFocusRef }: GameCoverflowProps) {
+  const titleId = useId();
+  const isPresent = useIsPresent();
+  const dialogRef = useDialogFocus<HTMLDivElement>({ active: isPresent, onEscape: onClose, returnFocusRef });
   const [active, setActive] = useState(0);
   const [tab, setTab] = useState<TabId>('all');
   const [view, setView] = useState<'coverflow' | 'grid'>('coverflow');
@@ -177,18 +183,17 @@ export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverf
 
   // Keyboard nav
   useEffect(() => {
-    if (suspended) return;
+    if (suspended || !isPresent) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented) return;
       if (e.key === 'Enter' && e.target instanceof Element && e.target.closest('button, a, input, select, textarea')) return;
       if (view === 'coverflow' && e.key === 'ArrowRight') { e.preventDefault(); go(1); }
       else if (view === 'coverflow' && e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
-      else if (e.key === 'Escape') { e.preventDefault(); onClose(); }
       else if (e.key === 'Enter' && list[active]) { playGame(list[active]); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, onClose, playGame, list, active, view, suspended]);
+  }, [go, playGame, list, active, view, suspended, isPresent]);
 
   // Wheel nav (carousel only)
   const onWheel = useCallback((e: React.WheelEvent) => {
@@ -243,6 +248,7 @@ export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverf
 
   return (
     <motion.div
+      ref={dialogRef}
       className="coverflow"
       initial={{ opacity: 0, scale: 1.06 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -250,9 +256,11 @@ export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverf
       transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
       role="dialog"
       aria-modal="true"
-      aria-label="Game catalogue"
+      aria-labelledby={titleId}
+      tabIndex={-1}
       onWheel={onWheel}
     >
+      <span id={titleId} className="sr-only">Game catalogue</span>
       <header className="coverflow__bar">
         <span className="coverflow__eyebrow">◆ {list.length} {list.length === 1 ? 'title' : 'titles'}</span>
         <div className="tablist coverflow__tabs" role="tablist" aria-label="Game category">
@@ -308,7 +316,7 @@ export function GameCoverflow({ games, loading, onClose, suspended }: GameCoverf
           />
         ))}
         {loading && <div className="coverflow__loading">Loading catalogue…</div>}
-        {!loading && list.length === 0 && <div className="coverflow__loading">No titles in this category</div>}
+        {!loading && list.length === 0 && <div className="coverflow__loading" role="status">{games.length === 0 ? 'New titles are on the way.' : 'No titles in this category'}</div>}
       </div>
 
       {/* Reserved banner zone (carousel only) — fixed height so the deck never

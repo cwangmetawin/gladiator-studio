@@ -92,9 +92,10 @@ interface GameGridProps {
   readonly loading: boolean;
   readonly activeTab: FilterTab;
   readonly onPlayGame: (game: Game) => void;
+  readonly emptyCatalogue?: boolean;
 }
 
-function GameGrid({ games, loading, activeTab, onPlayGame }: GameGridProps) {
+function GameGrid({ games, loading, activeTab, onPlayGame, emptyCatalogue }: GameGridProps) {
   if (loading) {
     return (
       <div style={GRID_STYLE} aria-busy="true" aria-label="Loading games">
@@ -105,9 +106,9 @@ function GameGrid({ games, loading, activeTab, onPlayGame }: GameGridProps) {
 
   if (games.length === 0) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 0' }}>
+      <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '64px 0' }}>
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: 12, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-text-dim)' }}>
-          No titles in this category
+          {emptyCatalogue ? 'New titles are on the way.' : 'No titles in this category'}
         </p>
       </div>
     );
@@ -185,7 +186,7 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
       {loading ? (
         <GameGrid games={[]} loading activeTab={activeTab} onPlayGame={handlePlayGame} />
       ) : currentGames.length === 0 ? (
-        <GameGrid games={[]} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} />
+        <GameGrid games={[]} loading={false} activeTab={activeTab} onPlayGame={handlePlayGame} emptyCatalogue={slotGames.length + miniGames.length === 0} />
       ) : (
         <>
           {featured && <FeaturedCard key={featured.id} game={featured} heroImage={featured.landscapeImage ?? FEATURED_HERO} onPlayGame={handlePlayGame} />}

@@ -41,3 +41,7 @@ Uses Tailwind with bright, elegant design featuring:
 - **Accent colors**: Pink palette for highlights
 - **Background**: Light gradient from slate-50 to blue-50
 - **Theme**: Clean, modern light theme with soft shadows and elegant gradients
+
+## Current Phase
+
+- **Phase 2 end node (opened 2026-10-12):** all six backlog items meet the measurable criteria in `docs/plans/2026-10-12-phase-2-backlog.md` (no `signUp`, empty catalogue never falls back, 7/7 dialogs pass the keyboard focus probe, FilmGrain buffers ≤ 3 MiB at any viewport, Babylon payload ≤ 737 KB gzip, iPhone Safari Earth rim blue), each PR gated, previewed, approved and verified on production, then the owner signs off.

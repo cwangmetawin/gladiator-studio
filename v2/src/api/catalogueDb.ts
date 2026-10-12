@@ -1,5 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import type { Game, GameCategory } from '@/shared/types/game';
+import { selectCatalogueRows } from './catalogueRead';
 
 // ─── DB row (snake_case) ↔ Game (camelCase) ─────────────────────────────────
 
@@ -70,7 +71,7 @@ export function adminGameToRow(g: AdminGame): Record<string, unknown> {
 
 // ─── Public read (anon, published only) ─────────────────────────────────────
 
-/** Read the published catalogue. Null when unseeded/unavailable; empty when all hidden. */
+/** Read the published catalogue. Null only when unavailable; zero published rows is empty. */
 export async function fetchCatalogueFromDb(): Promise<{ slotGames: Game[]; miniGames: Game[] } | null> {
   try {
     const { data, error } = await supabase
@@ -79,13 +80,9 @@ export async function fetchCatalogueFromDb(): Promise<{ slotGames: Game[]; miniG
       .eq('is_published', true)
       .order('sort_order', { ascending: true })
       .order('release_date', { ascending: false, nullsFirst: false });
-    if (error) throw error;
-    if (!data || data.length === 0) {
-      const { count, error: countError } = await supabase.from('games').select('id', { head: true, count: 'exact' });
-      if (countError) throw countError;
-      return count != null && count > 0 ? { slotGames: [], miniGames: [] } : null;
-    }
-    const games = (data as GameRow[]).map(rowToAdminGame);
+    const rows = selectCatalogueRows(data as GameRow[] | null, Boolean(error));
+    if (rows === null) throw error;
+    const games = rows.map(rowToAdminGame);
     return {
       slotGames: games.filter((g) => g.category === 'slot'),
       miniGames: games.filter((g) => g.category === 'mini'),

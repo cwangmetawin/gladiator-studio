@@ -44,12 +44,6 @@ export async function signIn(email: string, password: string): Promise<void> {
   if (error) throw error;
 }
 
-export async function signUp(email: string, password: string): Promise<{ needsConfirmation: boolean }> {
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) throw error;
-  return { needsConfirmation: !data.session };
-}
-
 export async function signOut(): Promise<void> {
   await supabase.auth.signOut();
 }

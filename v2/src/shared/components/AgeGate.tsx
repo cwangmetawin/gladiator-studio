@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId } from 'react';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 const STORAGE_KEY = 'gladiator_age_verified';
 
@@ -35,10 +36,13 @@ const BACKDROP: React.CSSProperties = {
 };
 
 export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
+  const titleId = useId();
+  const descriptionId = useId();
+  const dialogRef = useDialogFocus<HTMLDivElement>();
   if (rejected) {
     return (
       <div style={BACKDROP}>
-        <div className="glass" style={{ maxWidth: 420, width: '100%', padding: 'clamp(24px, 5vw, 44px) clamp(20px, 5vw, 40px)', textAlign: 'center' }}>
+        <div ref={dialogRef} className="glass" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={{ maxWidth: 420, width: '100%', padding: 'clamp(24px, 5vw, 44px) clamp(20px, 5vw, 40px)', textAlign: 'center' }}>
           <div
             aria-hidden="true"
             style={{
@@ -50,10 +54,10 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
           >
             ✕
           </div>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 14px' }}>
+          <h2 id={titleId} style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 14px' }}>
             Access Denied
           </h2>
-          <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+          <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
             You must be 18 or older to access this website. Please close this tab.
           </p>
           <p style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', fontSize: 10, marginTop: 22, letterSpacing: '0.04em' }}>
@@ -69,7 +73,7 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
 
   return (
     <div style={BACKDROP}>
-      <div className="glass" role="dialog" aria-modal="true" aria-labelledby="age-title" style={{ maxWidth: 460, width: '100%', padding: 'clamp(20px, 5vw, 48px)', textAlign: 'center' }}>
+      <div ref={dialogRef} className="glass" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={{ maxWidth: 460, width: '100%', padding: 'clamp(20px, 5vw, 48px)', textAlign: 'center' }}>
         <img
           src="/gladiator-logo.svg"
           alt="Gladiator Studio"
@@ -91,11 +95,11 @@ export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
           18+
         </div>
 
-        <h2 id="age-title" style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 12px' }}>
+        <h2 id={titleId} style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 12px' }}>
           Age Verification
         </h2>
 
-        <p style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: '0 0 26px', maxWidth: '34ch', marginInline: 'auto' }}>
+        <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: '0 0 26px', maxWidth: '34ch', marginInline: 'auto' }}>
           This site features gambling-related content for users aged 18 and over. By entering, you confirm you meet the minimum age in your jurisdiction.
         </p>
 
