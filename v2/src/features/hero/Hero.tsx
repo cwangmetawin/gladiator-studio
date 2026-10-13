@@ -11,6 +11,8 @@ import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
 import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import { BigWinFlash } from './BigWinFlash';
+import type { PanelId as TransitionTarget } from '@/shared/motion/transition';
+import { motionTokens } from '@/shared/motion/tokens';
 import './hero.css';
 
 const EXPO = [0.16, 1, 0.3, 1] as const;
@@ -132,11 +134,12 @@ function IdentityHub({ compact }: { readonly compact?: boolean }) {
 export interface HeroProps {
   readonly panelSide?: 'left' | 'right';
   readonly active?: boolean;
+  readonly target?: TransitionTarget;
 }
 
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
-export function Hero({ active = true }: HeroProps) {
+export function Hero({ active = true, target = 'none' }: HeroProps) {
   const s = useStudioStats();
   const nodes = NODES.map((n) => ({ ...n, meta: withCatalogueCounts(n.meta, s) }));
   const isMobile = useIsMobile();
@@ -202,8 +205,8 @@ export function Hero({ active = true }: HeroProps) {
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, position: 'relative', zIndex: 5 }}>
           <IdentityHub compact />
           <div role="group" aria-label="Primary actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>
-            <Button variant="primary" onClick={() => openPanel('games')}>Explore Games</Button>
-            <Button variant="secondary" onClick={() => openPanel('contact')}>Partner With Us</Button>
+            <Button variant="primary" aria-pressed={target === 'games'} onClick={() => openPanel('games')}>Explore Games</Button>
+            <Button variant="secondary" aria-pressed={target === 'contact'} onClick={() => openPanel('contact')}>Partner With Us</Button>
           </div>
           {/* The desktop constellation, folded into a compact holo console for phones. */}
           <nav aria-label="Sections" className="mobile-nodes">
@@ -211,6 +214,7 @@ export function Hero({ active = true }: HeroProps) {
               const Icon = n.icon;
               return (
                 <button key={n.panelId} type="button" className="mobile-node" style={{ animationDelay: `${0.35 + i * 0.05}s` }}
+                  aria-pressed={target === n.panelId}
                   aria-label={n.panelId === 'games' ? `Open ${n.label} (${n.meta})` : undefined}
                   onClick={() => openPanel(n.panelId)}>
                   <span className="mobile-node__ring" aria-hidden="true"><Icon size={17} /></span>
@@ -227,8 +231,9 @@ export function Hero({ active = true }: HeroProps) {
 
   // ─── Desktop: galaxy holotable ─────────────────────────────────────────────────
   return (
-    <section id="home" ref={stageRef} className="hero-stage" aria-label="Gladiator Studio — navigation"
-      style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden' }}>
+    <section id="home" ref={stageRef} className="hero-stage" aria-label="Gladiator Studio — navigation" data-dimming={target !== 'none'}
+      style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden',
+        '--hub-dim-ms': `${motionTokens.hubDimMs}ms`, '--narrative-ease': motionTokens.cssEase } as CSSProperties}>
       <div className="tech-grid" aria-hidden="true" />
       <div className="hero-aura" aria-hidden="true" />
       <div className="hero-flare" aria-hidden="true" style={{ top: '6%', right: '12%' }} />
@@ -238,11 +243,11 @@ export function Hero({ active = true }: HeroProps) {
       <svg className="holo-lines" aria-hidden="true">
         {nodes.map((n, i) => (
           <line key={n.panelId} x1={`${HUB_X}%`} y1={`${HUB_Y}%`} x2={`${n.x}%`} y2={`${n.y}%`}
-            className={`holo-line${hovered === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${0.3 + i * 0.07}s` }} />
+            className={`holo-line${hovered === n.panelId || target === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${0.3 + i * 0.07}s` }} />
         ))}
         {nodes.map((n, i) => (
           <line key={`flow-${n.panelId}`} x1={`${HUB_X}%`} y1={`${HUB_Y}%`} x2={`${n.x}%`} y2={`${n.y}%`}
-            className={`holo-line-flow${hovered === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${i * 0.45}s` }} />
+            className={`holo-line-flow${hovered === n.panelId || target === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${i * 0.45}s` }} />
         ))}
       </svg>
 
@@ -252,12 +257,13 @@ export function Hero({ active = true }: HeroProps) {
           const Icon = n.icon;
           return (
             <button key={n.panelId} type="button" className="holo-node" aria-label={`Open ${n.label}${n.panelId === 'games' ? ` (${n.meta})` : ''}`} data-cursor="OPEN"
+              aria-pressed={target === n.panelId}
               style={{ left: `${n.x}%`, top: `${n.y}%`, animationDelay: `${0.5 + i * 0.08}s`,
                 ['--dur' as string]: `${6 + (i % 4) * 0.9}s`, ['--delay' as string]: `${((i * 0.7) % 3).toFixed(2)}s` } as CSSProperties}
               onMouseEnter={() => { setHovered(n.panelId); soundEngine.hover(); }}
               onMouseMove={onNodeMove}
               onMouseLeave={onNodeLeave}
-              onFocus={() => setHovered(n.panelId)} onBlur={() => setHovered(null)}
+              onFocus={() => { setHovered(n.panelId); soundEngine.hover(); }} onBlur={() => setHovered(null)}
               onClick={() => { openPanel(n.panelId); fireRipple(n.panelId); }}>
               <span className="holo-node__float">
                 <span className="holo-node__lock" aria-hidden="true" />

@@ -3,6 +3,10 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
 import { motion, useIsPresent } from 'framer-motion';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
+import { motionTokens, transitionTimeline } from '@/shared/motion/tokens';
+import type { TransitionState } from '@/shared/motion/transition';
+import { PanelMotionContext } from '@/shared/motion/panelMotion';
+import { Reveal } from '@/shared/ui/Reveal';
 import { X, ChevronLeft, ChevronRight, Play, LayoutGrid, Layers } from 'lucide-react';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
@@ -40,9 +44,10 @@ interface DeckCardProps {
   readonly grid: boolean;
   readonly centre: boolean;
   readonly onClick: () => void;
+  readonly durationMs?: number;
 }
 
-function DeckCard({ game, cellW, cellH, target, grid, centre, onClick }: DeckCardProps) {
+function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, durationMs }: DeckCardProps) {
   const [err, setErr] = useState(false);
   return (
     <motion.button
@@ -55,7 +60,7 @@ function DeckCard({ game, cellW, cellH, target, grid, centre, onClick }: DeckCar
       onClick={onClick}
       initial={false}
       animate={{ x: target.x, y: target.y, scale: target.scale, opacity: target.opacity }}
-      transition={SPRING}
+      transition={durationMs === undefined ? SPRING : { duration: durationMs / 1000, ease: motionTokens.ease }}
       style={{ position: 'absolute', top: 0, left: 0, width: cellW, height: cellH, zIndex: target.z }}
     >
       {(!game.image || err) ? (
@@ -79,12 +84,7 @@ function HeroBanner({ game, onPlay }: { readonly game: Game; readonly onPlay: ()
   const [failed, setFailed] = useState(false);
   if (!game.landscapeImage || failed) return null;
   return (
-    <motion.div
-      className="coverflow__hero"
-      initial={{ opacity: 0, y: 14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-    >
+    <Reveal className="coverflow__hero" y={14}>
       <img
         className="coverflow__hero-art"
         src={game.landscapeImage}
@@ -98,7 +98,7 @@ function HeroBanner({ game, onPlay }: { readonly game: Game; readonly onPlay: ()
           <Play size={15} /> Play Demo
         </button>
       </div>
-    </motion.div>
+    </Reveal>
   );
 }
 
@@ -108,12 +108,15 @@ interface GameCoverflowProps {
   readonly onClose: () => void;
   readonly suspended: boolean;
   readonly returnFocusRef: RefObject<HTMLElement | null>;
+  readonly narrative: TransitionState;
 }
 
-export function GameCoverflow({ games, loading, onClose, suspended, returnFocusRef }: GameCoverflowProps) {
+export function GameCoverflow({ games, loading, onClose, suspended, returnFocusRef, narrative }: GameCoverflowProps) {
   const titleId = useId();
   const isPresent = useIsPresent();
   const dialogRef = useDialogFocus<HTMLDivElement>({ active: isPresent, onEscape: onClose, returnFocusRef });
+  const timeline = transitionTimeline(narrative.mode, narrative.kind);
+  const closing = narrative.phase === 'closing';
   const [active, setActive] = useState(0);
   const [tab, setTab] = useState<TabId>('all');
   const [view, setView] = useState<'coverflow' | 'grid'>('coverflow');
@@ -245,24 +248,30 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
 
   const grid = view === 'grid';
   const activeGame = list[active];
+  const instantContent = narrative.mode !== 'desktop' || narrative.phase === 'open';
 
   return (
+    <PanelMotionContext.Provider value={{ timeline, enteredAt: narrative.panelStartedAt,
+      settled: narrative.phase === 'open', instantContent: narrative.mode !== 'desktop' }}>
     <motion.div
       ref={dialogRef}
       className="coverflow"
-      initial={{ opacity: 0, scale: 1.06 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+      initial={narrative.phase === 'open' ? false : { opacity: 0 }}
+      animate={{ opacity: closing ? 0 : 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: (isPresent ? closing ? timeline.exitMs : timeline.frameMs : closing ? 0 : timeline.exitMs) / 1000, ease: motionTokens.ease }}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
       tabIndex={-1}
       onWheel={onWheel}
+      style={{ pointerEvents: closing ? 'none' : 'auto' }}
     >
       <span id={titleId} className="sr-only">Game catalogue</span>
       <header className="coverflow__bar">
-        <span className="coverflow__eyebrow">◆ {loading ? 'Titles' : `${list.length} ${list.length === 1 ? 'title' : 'titles'}`}</span>
+        <Reveal stage="eyebrow" y={0}>
+          <span className="coverflow__eyebrow">◆ {loading ? 'Titles' : `${list.length} ${list.length === 1 ? 'title' : 'titles'}`}</span>
+        </Reveal>
         <div className="tablist coverflow__tabs" role="tablist" aria-label="Game category">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" className="tab" aria-selected={t.id === tab}
@@ -288,7 +297,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
 
       {/* Deck — every card is absolutely placed by computed coordinates and tweened
           between the fan and the grid, so the grid can never overlap. */}
-      <div
+      <motion.div
         ref={deckRef}
         className={`coverflow__deck ${grid ? 'is-grid' : 'is-carousel'}`}
         data-cursor={grid ? undefined : 'DRAG'}
@@ -296,6 +305,10 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerLeave={onPointerUp}
+        initial={instantContent ? false : { opacity: 0 }} animate={{ opacity: 1 }}
+        transition={{ duration: instantContent ? 0 : timeline.revealMs / 1000,
+          delay: instantContent ? 0 : Math.max(0, narrative.panelStartedAt + timeline.titleDelayMs - performance.now()) / 1000,
+          ease: motionTokens.ease }}
       >
         {grid && <div aria-hidden="true" style={{ height: geo.totalH }} />}
         {!loading && list.map((g, i) => (
@@ -307,6 +320,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
             target={targetFor(i)}
             grid={grid}
             centre={!grid && i === active}
+            durationMs={narrative.mode === 'reduced' ? 0 : narrative.phase === 'flying' ? timeline.frameMs : undefined}
             onClick={() => {
               if (grid) { playGame(g); return; }
               if (dragged.current) return;
@@ -317,7 +331,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         ))}
         {loading && <div className="coverflow__loading">Loading catalogue…</div>}
         {!loading && list.length === 0 && <div className="coverflow__loading" role="status">{games.length === 0 ? 'New titles are on the way.' : 'No titles in this category'}</div>}
-      </div>
+      </motion.div>
 
       {/* Reserved banner zone (carousel only) — fixed height so the deck never
           resizes and the fan never shifts vertically, whether or not the focused
@@ -340,5 +354,6 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         </nav>
       )}
     </motion.div>
+    </PanelMotionContext.Provider>
   );
 }

@@ -294,7 +294,12 @@
     rotateX(calc(var(--my, 0) * -2.5deg)) rotateY(calc(var(--mx, 0) * 2.5deg));
   transform-style: preserve-3d;
   will-change: transform;
+  transition: opacity var(--hub-dim-ms) var(--narrative-ease);
 }
+.hero-stage[data-dimming="true"] .hub-layer { opacity: 0; }
+.hero-stage[data-dimming="true"] .holo-node:not([aria-pressed="true"]) .holo-node__float { opacity: 0.3; }
+.holo-node__float { transition: opacity var(--hub-dim-ms) var(--narrative-ease); }
+.mobile-node[aria-pressed="true"] .mobile-node__ring { border-color: var(--color-holo-300); box-shadow: 0 0 20px rgba(79,195,247,0.45); }
 
 .holo-lines {
   position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; overflow: visible;

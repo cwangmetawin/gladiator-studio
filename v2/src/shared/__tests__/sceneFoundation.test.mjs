@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { motionModuleUrls } from './motionModuleUrls.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');
@@ -28,6 +29,7 @@ if (process.env.MUTATE_FRAME_TIME === '1') {
   timeSource = timeSource.replace(target, '1 - Math.exp(-rate / REFERENCE_FPS)');
 }
 const timeUrl = moduleUrl(timeSource);
+const motionUrls = motionModuleUrls(moduleUrl, source, timeUrl);
 const { approach, approachRate, frameDeltaSeconds, perSecond, secondsFromFrames, tweenProgress } = await import(timeUrl);
 const timeImports = (src) => src.replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`);
 const loopUrl = moduleUrl(timeImports(source('../../features/starfield/renderLoop.ts')));
@@ -204,6 +206,9 @@ test('the real star builder gives Babylon an updatable colour buffer and static 
     .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
     .replace("from './renderLoop'", `from '${loopUrl}'`)
     .replace("from './starTwinkle'", `from '${twinkleUrl}'`)
+    .replace("from '@/shared/motion/transitionStore'", `from '${motionUrls.store}'`)
+    .replace("from '@/features/journey/journeyMotion'", `from '${motionUrls.journey}'`)
+    .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
     .replace('function buildStarField(', 'export function buildStarField(');
   const { buildStarField } = await import(moduleUrl(starfieldSource));
   const engine = new NullEngine();
