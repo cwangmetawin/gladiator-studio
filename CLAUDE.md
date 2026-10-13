@@ -44,4 +44,4 @@ Uses Tailwind with bright, elegant design featuring:
 
 ## Current Phase
 
-- **Phase 2 end node (opened 2026-10-12):** all six backlog items meet the measurable criteria in `docs/plans/2026-10-12-phase-2-backlog.md` (no `signUp`, empty catalogue never falls back, 7/7 dialogs pass the keyboard focus probe, FilmGrain buffers ≤ 3 MiB at any viewport, Babylon payload ≤ 737 KB gzip, iPhone Safari Earth rim blue), each PR gated, previewed, approved and verified on production, then the owner signs off.
+- **Phase 3 end node (opened 2026-10-13, owner approved):** milestones M0–M4 in `docs/plans/2026-10-13-phase-3b-signature.md` (M0 live counts and back-office RTPs, done; M1 time-based scene that stops rendering when covered; M2 camera narrative; M3 game star trails; M4 brand shader, post-processing, type motion, sound and loader hand-off) each meet their measurable criteria without regressing mobile Lighthouse ≥ 54, desktop ≥ 90, accessibility and best practices 100, overflow 0 and real-device ≥ 50 fps; each PR gated, previewed, owner-approved and verified on production; then the owner signs off. Phases 1 and 2 are closed.
