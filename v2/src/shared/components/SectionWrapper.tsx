@@ -22,7 +22,10 @@ export function SectionWrapper({ id, children, className = '', style }: SectionW
       {panel ? Children.map(children, child => {
         if (child == null || typeof child === 'boolean') return child;
         if (isValidElement(child) && (child.type === SectionHeading || child.type === Reveal)) return child;
-        return <Reveal>{child}</Reveal>;
+        // Keep the section's flex column inside the wrapper: a wrapped Fragment's children
+        // (e.g. the featured card, whose aspect-ratio height floor needs flex-item sizing)
+        // must lay out exactly as they did as direct children of the section.
+        return <Reveal className="flex flex-col gap-6">{child}</Reveal>;
       }) : children}
     </section>
   );
