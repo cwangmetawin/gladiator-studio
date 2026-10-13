@@ -41,6 +41,7 @@ export function createTransitionStore(clock: TransitionClock = {
       return () => { listeners.delete(listener); };
     },
     request: (target: PanelId): void => dispatch({ type: 'request', target, now: clock.now() }),
+    focusGame: (game: string): void => dispatch({ type: 'focus-game', game, now: clock.now() }),
     configure: (mode: MotionMode): void => dispatch({ type: 'configure', mode, now: clock.now() }),
   };
 }

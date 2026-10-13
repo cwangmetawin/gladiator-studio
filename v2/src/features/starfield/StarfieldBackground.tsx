@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
-import { soundEngine } from '@/shared/utils/soundEngine';
 import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } from '@/shared/utils/frameTime';
 import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
 import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
 import { transitionStore } from '@/shared/motion/transitionStore';
 import { journeyMotion } from '@/features/journey/journeyMotion';
 import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
+import { installGameSky } from './gameSkyRenderer';
+import { skyStore } from './skyStore';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -494,109 +495,6 @@ function buildScene(
   sunMat.backFaceCulling = false;
   sunGlow.material = sunMat;
 
-  // ── Live-win sparkles ───────────────────────────────────────────────────────
-  // Every live win used to fire a beam on the Earth; now each one is born as a
-  // twinkling star somewhere out in the cosmos, then fades. Bigger wins burn
-  // brighter, larger and longer (cyan → gold → red).
-  const SPARKLE_CYAN = new BABYLON.Color3(0.55, 0.85, 1.0);
-  const SPARKLE_GOLD = new BABYLON.Color3(1.0, 0.85, 0.45);
-  const SPARKLE_RED  = new BABYLON.Color3(1.0, 0.45, 0.4);
-
-  // One shared 4-point star-flare texture for every sparkle (drawn once).
-  const sparkleTex = new BABYLON.DynamicTexture('sparkleTex', 128, scene, true);
-  {
-    const c = sparkleTex.getContext() as CanvasRenderingContext2D;
-    const cx = 64, cy = 64;
-    c.clearRect(0, 0, 128, 128);
-    const core = c.createRadialGradient(cx, cy, 0, cx, cy, 60);
-    core.addColorStop(0, 'rgba(255,255,255,1)');
-    core.addColorStop(0.18, 'rgba(255,255,255,0.82)');
-    core.addColorStop(0.5, 'rgba(255,255,255,0.16)');
-    core.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = core; c.beginPath(); c.arc(cx, cy, 60, 0, Math.PI * 2); c.fill();
-    c.globalCompositeOperation = 'lighter';
-    const hg = c.createLinearGradient(cx - 60, 0, cx + 60, 0);
-    hg.addColorStop(0, 'rgba(255,255,255,0)'); hg.addColorStop(0.5, 'rgba(255,255,255,0.9)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = hg; c.fillRect(cx - 60, cy - 2, 120, 4);
-    const vg = c.createLinearGradient(0, cy - 60, 0, cy + 60);
-    vg.addColorStop(0, 'rgba(255,255,255,0)'); vg.addColorStop(0.5, 'rgba(255,255,255,0.9)'); vg.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = vg; c.fillRect(cx - 2, cy - 60, 4, 120);
-    sparkleTex.update();
-  }
-  sparkleTex.hasAlpha = true;
-
-  interface Sparkle {
-    readonly mesh: InstanceType<BabylonModule['Mesh']>;
-    readonly mat: InstanceType<BabylonModule['StandardMaterial']>;
-    readonly born: number;
-    readonly life: number;
-    readonly size: number;
-    readonly twinkle: number;
-  }
-  const sparkles: Sparkle[] = [];
-  const MAX_SPARKLES = 28;
-  let sparkleSeq = 0;
-
-  function fireSparkle(amount: number): void {
-    while (sparkles.length > MAX_SPARKLES) {
-      const old = sparkles.shift();
-      if (old) { old.mesh.dispose(); old.mat.dispose(); }
-    }
-    let color = SPARKLE_CYAN, size = 1.6, life = 1800;
-    if (amount >= 25000)     { color = SPARKLE_RED;  size = 5.0; life = 3600; }
-    else if (amount >= 5000) { color = SPARKLE_GOLD; size = 3.6; life = 3200; }
-    else if (amount >= 1000) { color = SPARKLE_GOLD; size = 2.6; life = 2600; }
-
-    // Random point on a shell well beyond the planet orbits, biased flatter in Y.
-    const u = Math.random() * 2 - 1;
-    const t = Math.random() * Math.PI * 2;
-    const r = 55 + Math.random() * 70;
-    const s = Math.sqrt(1 - u * u);
-    const id = sparkleSeq++;
-
-    const mesh = BABYLON.MeshBuilder.CreatePlane('sparkle_' + id, { size: 1 }, scene);
-    mesh.position = new BABYLON.Vector3(s * Math.cos(t) * r, u * r * 0.6, s * Math.sin(t) * r);
-    mesh.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
-    mesh.scaling.setAll(0.01);
-    const mat = new BABYLON.StandardMaterial('sparkleMat_' + id, scene);
-    mat.disableLighting = true;
-    mat.emissiveColor = color;
-    mat.diffuseTexture = sparkleTex;
-    mat.useAlphaFromDiffuseTexture = true;
-    mat.alphaMode = BABYLON.Constants.ALPHA_ADD;
-    mat.backFaceCulling = false;
-    mat.alpha = 0;
-    mesh.material = mat;
-
-    sparkles.push({ mesh, mat, born: Date.now(), life, size, twinkle: 6 + Math.random() * 6 });
-  }
-
-  function updateSparkles(): void {
-    if (sparkles.length === 0) return;
-    const now = Date.now();
-    for (let i = sparkles.length - 1; i >= 0; i--) {
-      const sp = sparkles[i];
-      if (!sp) continue;
-      const p = (now - sp.born) / sp.life;
-      if (p >= 1) { sp.mesh.dispose(); sp.mat.dispose(); sparkles.splice(i, 1); continue; }
-      const grow = p < 0.25 ? p / 0.25 : 1;            // pop in over the first quarter
-      const fade = p < 0.25 ? 1 : 1 - (p - 0.25) / 0.75; // then ease out
-      const flick = 0.68 + 0.32 * Math.sin(((now - sp.born) / 1000) * sp.twinkle);
-      sp.mesh.scaling.setAll(sp.size * (0.4 + 0.6 * grow));
-      sp.mat.alpha = fade * flick;
-    }
-  }
-
-  let lastWinSoundAt = 0;
-  const unsubscribeWins = sceneEvents.onWin(({ amount }) => {
-    fireSparkle(amount);
-    const now = Date.now();
-    if (now - lastWinSoundAt > 2500) { lastWinSoundAt = now; soundEngine.alert(); }
-  });
-  const unsubscribeRings = sceneEvents.onRing(({ amount }) => {
-    fireSparkle(amount);
-  });
-
   // The adapter snapshots the real Babylon pose whenever the shared request changes.
   let focalPanelId = 'none';
   let cameraHasPanel = false;
@@ -709,7 +607,7 @@ function buildScene(
     blackholeActive = active;
   });
 
-  scene.onDisposeObservable.addOnce(() => { unsubscribeWins(); unsubscribeRings(); unsubscribeCameraTarget(); unsubscribeBlackhole(); });
+  scene.onDisposeObservable.addOnce(() => { unsubscribeCameraTarget(); unsubscribeBlackhole(); });
 
   // ── Render loop ────────────────────────────────────────────────────────────
   let nebulaTime = 0;
@@ -830,12 +728,10 @@ function buildScene(
       activePanelLight.intensity = 0.4 * tweenProgress(panelLightElapsed, PANEL_LIGHT_DURATION);
     }
 
-    // Live-win sparkles — twinkle and fade among the stars
-    updateSparkles();
-
     // Camera target fixed at origin (no mouse parallax)
   });
 
+  installGameSky(BABYLON, scene, starMesh, nebulaBg, getDeltaSeconds);
   return scene;
 }
 
@@ -899,6 +795,9 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;
         if (motionQuery.matches && !suspendedRef.current && !document.hidden) renderStatic();
       });
+      const unsubscribeStaticSky = skyStore.subscribe(() => {
+        if (motionQuery.matches && !suspendedRef.current && !document.hidden) renderStatic();
+      });
       syncLoopRef.current = startLoop;
       startLoop();
       motionQuery.addEventListener('change', startLoop);
@@ -929,6 +828,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         document.removeEventListener('visibilitychange', startLoop);
         syncLoopRef.current = null;
         unsubscribeStaticTransition();
+        unsubscribeStaticSky();
         loop.dispose();
         scene.dispose();
         engine.dispose();

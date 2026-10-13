@@ -11,6 +11,9 @@ import { fetchGameData, GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameDat
 import { CatalogueStatsProvider } from '@/shared/content/StudioStats';
 import type { GameData } from '@/shared/types/game';
 import { StarfieldCanvas } from '@/features/starfield/StarfieldCanvas';
+import { ConstellationDoors } from '@/features/starfield/ConstellationDoors';
+import { useGameSky } from '@/features/starfield/useGameSky';
+import { isSceneCovered } from '@/features/starfield/renderLoop';
 import { useFeederSocket } from '@/features/live-feed/useFeederSocket';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { WarpTransition } from '@/features/partner/WarpTransition';
@@ -29,7 +32,6 @@ import { isPanelId, type PanelId } from '@/shared/motion/transition';
 import { motionTokens, transitionTimeline, type MotionMode } from '@/shared/motion/tokens';
 
 const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
-const GameShowcase = lazy(() => import('@/features/games/GameShowcase').then(m => ({ default: m.GameShowcase })));
 const GameCoverflow = lazy(() => import('@/features/games/GameCoverflow').then(m => ({ default: m.GameCoverflow })));
 const AboutSection = lazy(() => import('@/features/about/AboutSection').then(m => ({ default: m.AboutSection })));
 const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => ({ default: m.TeamSection })));
@@ -486,6 +488,7 @@ export function App() {
   const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
   const isMobile = useIsMobile();
   const transition = useTransition(isMobile);
+  const skyRootRef = useGameSky(verified && introComplete, isMobile, transition.mode === 'reduced');
   const activePanel = transition.panel;
   const timeline = transitionTimeline(transition.mode, transition.kind);
   const playTimerRef = useRef<number | null>(null);
@@ -515,6 +518,23 @@ export function App() {
     const focused = document.activeElement;
     panelOpenerRef.current = focused instanceof HTMLElement ? focused : null;
   }, []);
+
+  const handleFocusGame = useCallback((title: string) => {
+    if (!title.trim()) return;
+    cancelPendingPlay();
+    rememberPanelOpener('games');
+    soundEngine.panelOpen();
+    transitionStore.focusGame(title);
+  }, [cancelPendingPlay, rememberPanelOpener]);
+
+  useEffect(() => {
+    const handler = (event: Event): void => {
+      const title: unknown = (event as CustomEvent<unknown>).detail;
+      if (typeof title === 'string') handleFocusGame(title);
+    };
+    window.addEventListener('focus-game', handler);
+    return () => window.removeEventListener('focus-game', handler);
+  }, [handleFocusGame]);
 
   useEffect(() => {
     fetchGameData().then(setGameData);
@@ -591,8 +611,8 @@ export function App() {
 
   const activeSide: 'left' | 'right' = LEFT_PANELS.includes(activePanel) ? 'left' : 'right';
 
-  // Desktop Games opens a full-screen 3D coverflow instead of the side panel.
-  const showCoverflow = activePanel === 'games' && !isMobile;
+  // Both layouts keep the sky visible behind the translucent catalogue.
+  const showCoverflow = activePanel === 'games';
   const allGames = useMemo(() => {
     const all = [...(gameData?.slotGames ?? []), ...(gameData?.miniGames ?? [])];
     return all.slice().sort((a, b) => b.timeline.localeCompare(a.timeline));
@@ -614,12 +634,13 @@ export function App() {
   return (
     <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
-    <div data-transition={transition.phase} data-transition-target={transition.target}
+    <div ref={skyRootRef} data-transition={transition.phase} data-transition-target={transition.target}
+      data-trail="0.00" data-sky-game="" data-constellations="0"
       style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
       <a href="#main" className="skip-to-content">Skip to content</a>
 
       {/* 3D scene — always behind everything */}
-      <StarfieldCanvas suspended={playingGame !== null || clientArea !== 'closed' || (isMobile && activePanel !== 'none')} />
+      <StarfieldCanvas suspended={isSceneCovered(playingGame !== null, clientArea !== 'closed', isMobile, activePanel)} />
 
       {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
       <div className="fx-holo" aria-hidden="true" />
@@ -646,6 +667,9 @@ export function App() {
         </motion.div>
       </main>
 
+      <ConstellationDoors active={transition.phase === 'idle' && !drawerOpen && playingGame === null && clientArea === 'closed'}
+        phone={isMobile} games={allGames} onFocusGame={handleFocusGame} />
+
       {/* Top status bar — hidden on mobile when a panel is open, and for the
           full-screen coverflow (whose own header carries the tabs + close). */}
       {!(isMobile && activePanel !== 'none') && !showCoverflow && (
@@ -656,7 +680,7 @@ export function App() {
           Shares App's single feeder socket (no second connection). */}
       {transition.phase === 'idle' && <LiveTicker events={events} isConnected={isConnected} />}
 
-      {/* Full-screen 3D coverflow — desktop Games */}
+      {/* Translucent catalogue — desktop and phone Games */}
       <AnimatePresence>
         {showCoverflow && (
           <Suspense fallback={null}>
@@ -665,7 +689,7 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* Sliding content panel (other sections + mobile Games) */}
+      {/* Sliding content panel (other sections) */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
         {activePanel !== 'none' && !showCoverflow && (
           <ContentPanel panelId={activePanel} side={activeSide} label={NAV_ITEMS.find(item => item.panelId === activePanel)?.label ?? activePanel}
@@ -673,9 +697,6 @@ export function App() {
             onClose={handleClose} isMobile={isMobile} onMenu={() => setDrawerOpen(true)} returnFocusRef={panelOpenerRef} transition={transition}>
             <ErrorBoundary>
               <Suspense fallback={<PanelSpinner />}>
-                {activePanel === 'games' && (
-                  <GameShowcase slotGames={gameData?.slotGames ?? []} miniGames={gameData?.miniGames ?? []} loading={gameData === null} />
-                )}
                 {activePanel === 'about' && <AboutSection />}
                 {activePanel === 'team' && <TeamSection />}
                 {activePanel === 'journey' && <JourneySection />}

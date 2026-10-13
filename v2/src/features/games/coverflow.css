@@ -287,7 +287,21 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cf-card, .cf-card__sheen { transition: none; }
+  .cf-card, .cf-card__sheen, .deck-card__sheen, .coverflow__deck { transition: none; }
+}
+
+@media (max-width: 767px) {
+  .coverflow { padding: calc(12px + env(safe-area-inset-top, 0px)) 8px calc(14px + env(safe-area-inset-bottom, 0px)); }
+  .coverflow__bar { flex-wrap: wrap; row-gap: 10px; }
+  .coverflow__eyebrow { font-size: 9px; letter-spacing: 0.1em; }
+  .coverflow__right { gap: 6px; }
+  .coverflow__tabs { order: 3; flex-basis: 100%; justify-content: center; min-width: 0; }
+  .coverflow__hero-zone { height: clamp(100px, 22vh, 160px); }
+  .coverflow__hero-art { max-height: clamp(62px, 14vh, 104px); max-width: 90vw; }
+  .coverflow__hero { gap: 6px; }
+  .coverflow__hero-actions { gap: 8px; }
+  .coverflow__rtp { font-size: 10px; }
+  .coverflow__nav { margin-top: 8px; }
 }
 
 /* ── Unified deck — same cards FLIP between carousel fan and tiled grid ───────── */

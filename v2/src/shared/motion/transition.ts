@@ -16,10 +16,13 @@ export interface TransitionState {
   readonly panelStartedAt: number;
   readonly hubVisible: boolean;
   readonly revision: number;
+  /** A catalogue destination carried through the ordinary camera/panel transition. */
+  readonly focusGame: string | null;
 }
 
 export type TransitionEvent =
   | { readonly type: 'request'; readonly target: PanelId; readonly now: number }
+  | { readonly type: 'focus-game'; readonly game: string; readonly now: number }
   | { readonly type: 'tick'; readonly now: number }
   | { readonly type: 'configure'; readonly mode: MotionMode; readonly now: number };
 
@@ -30,7 +33,7 @@ export function isPanelId(value: unknown): value is PanelId {
 export function initialTransition(mode: MotionMode = 'desktop'): TransitionState {
   return {
     phase: 'idle', target: 'none', previousTarget: 'none', panel: 'none',
-    mode, kind: 'open', startedAt: 0, panelStartedAt: 0, hubVisible: true, revision: 0,
+    mode, kind: 'open', startedAt: 0, panelStartedAt: 0, hubVisible: true, revision: 0, focusGame: null,
   };
 }
 
@@ -42,6 +45,7 @@ function request(state: TransitionState, target: PanelId, now: number): Transiti
   return {
     ...state, phase: target === 'none' ? 'closing' : 'flying', kind, target,
     previousTarget: state.target, startedAt: now, revision: state.revision + 1,
+    focusGame: null,
     panel: immediate ? target : state.panel,
     panelStartedAt: immediate ? now : state.panelStartedAt,
     hubVisible: target === 'none' && timeline.hubAtMs === 0,
@@ -50,6 +54,12 @@ function request(state: TransitionState, target: PanelId, now: number): Transiti
 
 /** Pure, elapsed-time state machine: a stale tick can never select an old target. */
 export function transitionReducer(state: TransitionState, event: TransitionEvent): TransitionState {
+  if (event.type === 'focus-game') {
+    const game = event.game.trim();
+    if (!game) return state;
+    const next = request(state, 'games', event.now);
+    return next.focusGame === game ? next : { ...next, focusGame: game };
+  }
   if (event.type === 'request') return request(state, event.target, event.now);
   if (event.type === 'configure') {
     if (event.mode === state.mode) return state;

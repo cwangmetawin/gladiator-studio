@@ -1,0 +1,35 @@
+.constellation-doors {
+  position: fixed;
+  inset: 0;
+  z-index: 15;
+  overflow: hidden;
+  pointer-events: none;
+}
+.constellation {
+  position: absolute;
+  width: 160px;
+  height: 44px;
+  padding: 5px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  border: 1px solid var(--color-line);
+  border-left: 2px solid var(--constellation-accent, var(--color-holo-500));
+  border-radius: var(--radius-sm);
+  background: rgba(5, 8, 18, 0.72);
+  color: var(--color-ice-50);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.constellation[hidden], .constellation-doors[hidden] { display: none; }
+.constellation:hover { border-color: var(--constellation-accent, var(--color-holo-500)); }
+.constellation:focus-visible { outline: 2px solid var(--color-holo-300); outline-offset: 3px; }
+.constellation__name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.constellation__count { font-size: 9px; color: var(--color-text-soft); }
+@media (max-width: 767px) {
+  .constellation { width: 128px; padding-inline: 8px; }
+  .constellation__name { font-size: 10px; }
+}
