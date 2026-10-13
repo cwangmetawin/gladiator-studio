@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { Engine } from '@/shared/babylon/babylonCore'; // type-only — erased at build
+import { frameDeltaSeconds, perSecond } from '@/shared/utils/frameTime';
+import { hardwareScalingLevel } from '@/shared/utils/renderResolution';
 
 // Live low-orbit Earth backdrop for the Client Area: a large, slowly-rotating
 // textured Earth whose lit horizon curves across the lower frame, an atmosphere
@@ -14,7 +16,12 @@ export function PartnerEarth() {
     const reduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let disposed = false;
     let engine: Engine | null = null;
-    const onResize = () => engine?.resize();
+    const onResize = () => {
+      if (!engine) return;
+      // Let Babylon track any DPR change before applying the absolute cap.
+      engine.resize();
+      engine.setHardwareScalingLevel(hardwareScalingLevel(window.devicePixelRatio || 1));
+    };
 
     (async () => {
       const B = await import('@/shared/babylon/babylonCore');
@@ -23,6 +30,7 @@ export function PartnerEarth() {
 
       engine = new B.Engine(canvas, true, { adaptToDeviceRatio: true });
       if (disposed) { engine.dispose(); engine = null; return; }
+      engine.setHardwareScalingLevel(hardwareScalingLevel(window.devicePixelRatio || 1));
       const scene = new B.Scene(engine);
       scene.clearColor = new B.Color4(0, 0, 0, 0); // transparent → CSS starfield shows behind the Earth
 
@@ -42,7 +50,7 @@ export function PartnerEarth() {
       const R = 4.7;
       const yOff = -R - 1.4; // push the globe down to a true bottom horizon — content sits over dark sky above it
 
-      // Earth material — replicated from the homepage's buildEarth: day diffuse +
+      // Earth material — day diffuse +
       // SUBTLE night-lights emissive + topology BUMP map (the surface detail/relief)
       // + specular. Same textures the homepage ships.
       const earth = B.MeshBuilder.CreateSphere('e', { diameter: R * 2, segments: 96 }, scene);
@@ -102,12 +110,15 @@ export function PartnerEarth() {
       // corrupted blocks / grey wash on some hardware). Stars + atmosphere glow are
       // done robustly in CSS instead (.partner__stars / .partner__atmo).
       window.addEventListener('resize', onResize);
-      const spin = reduced ? 0 : 0.00018;
+      const spin = reduced ? 0 : perSecond(0.00018);
+      let orbitTime = performance.now() / 1000;
       engine.runRenderLoop(() => {
-        if (disposed) return;
-        earth.rotation.y += spin;
-        clouds.rotation.y += spin * 1.25;
-        if (!reduced) camera.alpha = baseAlpha + Math.sin(performance.now() * 0.00003) * 0.16; // gentle orbit drift
+        if (disposed || !engine) return;
+        const dt = frameDeltaSeconds(engine.getDeltaTime());
+        earth.rotation.y += spin * dt;
+        clouds.rotation.y += spin * 1.25 * dt;
+        orbitTime += dt;
+        if (!reduced) camera.alpha = baseAlpha + Math.sin(orbitTime * 0.03) * 0.16; // gentle orbit drift
         scene.render();
       });
     })().catch(() => { /* backdrop is decorative — never block the page */ });

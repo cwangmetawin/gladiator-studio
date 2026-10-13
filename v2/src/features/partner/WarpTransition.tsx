@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { cappedDevicePixelRatio } from '@/shared/utils/renderResolution';
 
 // Holographic warp into the Client Area — the same star-streak language as the
 // homepage WarpIntro, shortened, with a holo-cyan flash. Pure Canvas 2D, so it
@@ -39,8 +40,9 @@ export function WarpTransition({ onComplete }: WarpTransitionProps) {
     const mk = (): Star => { const z = Math.random(); return { x: Math.random() * 2 - 1, y: Math.random() * 2 - 1, z, prevZ: z }; };
     const stars: Star[] = Array.from({ length: STAR_COUNT }, mk);
 
+    let dpr = 1;
     const resize = () => {
-      const dpr = window.devicePixelRatio || 1;
+      dpr = cappedDevicePixelRatio(window.devicePixelRatio || 1);
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = `${window.innerWidth}px`;
@@ -58,7 +60,6 @@ export function WarpTransition({ onComplete }: WarpTransitionProps) {
     const frame = (ts: number) => {
       if (startT === 0) startT = ts;
       const t = ts - startT;
-      const dpr = window.devicePixelRatio || 1;
       const w = canvas.width / dpr, h = canvas.height / dpr;
       const cx = w / 2, cy = h / 2;
 

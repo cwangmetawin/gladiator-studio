@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } from '@/shared/utils/frameTime';
+import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
+import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -11,24 +14,17 @@ const IS_MOBILE = typeof window !== 'undefined' && window.innerWidth <= 767;
 // ─── Constants (scaled for mobile) ────────────────────────────────────────────
 const STAR_COUNT = IS_MOBILE ? 1800 : 3000;
 const SKY_RADIUS = 220;
-const EARTH_RADIUS = IS_MOBILE ? 3.5 : 5;
-const EARTH_SEGMENTS = IS_MOBILE ? 32 : 64;
-const EARTH_ROTATION_SPEED = 0.0002;
-const ATMOSPHERE_SCALE = 1.025;
-
-// Orbital ring constants
-const RING_RADIUS = IS_MOBILE ? 5.5 : 7.5;
-const RING_TILT_DEG = 23.4;
-const RING_TILT_RAD = (RING_TILT_DEG * Math.PI) / 180;
-const RING_ROTATION_SPEED = 0.0008;
-
 // Camera constants — push further back on mobile, center earth behind logo
 const CAMERA_ALPHA = -Math.PI / 2;
 const CAMERA_BETA = IS_MOBILE ? Math.PI / 2 : Math.PI / 2.5; // mobile: straight-on view, earth centered
 const CAMERA_RADIUS = IS_MOBILE ? 36 : 30;
-const CAMERA_AUTO_ROTATE = IS_MOBILE ? 0.00035 : 0.00060; // idle drift through the cosmos
-const CAMERA_PANEL_DRIFT  = 0.00040; // gentle orbit kept alive while a planet is framed
-const CAMERA_LERP_SPEED = 0.02;
+const CAMERA_AUTO_ROTATE = perSecond(IS_MOBILE ? 0.00035 : 0.00060); // idle drift through the cosmos
+const CAMERA_PANEL_DRIFT  = perSecond(0.00040); // gentle orbit kept alive while a planet is framed
+const CAMERA_LERP_RATE = approachRate(0.02);
+const CAMERA_FAST_RATE = approachRate(0.06);
+const CAMERA_RETURN_RATE = approachRate(0.03);
+const CAMERA_OFFSET_RATE = approachRate(0.04);
+const PANEL_LIGHT_DURATION = secondsFromFrames(30);
 
 // Per-panel camera fly-to targets (alpha, beta, radius for ArcRotateCamera)
 const MOBILE_ZOOM = IS_MOBILE ? 4 : 0; // extra distance on mobile
@@ -44,41 +40,6 @@ const CAMERA_TARGETS: Record<string, { readonly alpha: number; readonly beta: nu
   'careers': { alpha: -0.8,          beta: Math.PI / 2,   radius: 22 + MOBILE_ZOOM },
   'contact': { alpha: 0.3,           beta: Math.PI / 1.8, radius: 16 + MOBILE_ZOOM },
 };
-
-// Atmosphere inline shaders
-const ATMOSPHERE_VERTEX_SHADER = `
-precision highp float;
-attribute vec3 position;
-attribute vec3 normal;
-uniform mat4 worldViewProjection;
-uniform mat4 world;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPos;
-void main() {
-  gl_Position = worldViewProjection * vec4(position, 1.0);
-  vWorldNormal = normalize((world * vec4(normal, 0.0)).xyz);
-  vWorldPos = (world * vec4(position, 1.0)).xyz;
-}
-`;
-
-const ATMOSPHERE_FRAGMENT_SHADER = `
-precision highp float;
-uniform vec3 eyePosition;
-uniform vec3 glowColor;
-uniform float glowIntensity;
-varying vec3 vWorldNormal;
-varying vec3 vWorldPos;
-void main() {
-  vec3 viewDir = normalize(eyePosition - vWorldPos);
-  float NdotV = max(dot(vWorldNormal, viewDir), 0.0);
-  if (NdotV > 0.45) discard;
-  float rim = 1.0 - NdotV;
-  float edge = pow(rim, 3.5) * glowIntensity;
-  float mask = smoothstep(0.55, 1.0, rim);
-  float total = edge * mask;
-  gl_FragColor = vec4(glowColor * total, total * 0.4);
-}
-`;
 
 // ─── Starfield builder ────────────────────────────────────────────────────────
 
@@ -129,7 +90,6 @@ function buildStarField(
   const starMesh = new BABYLON.Mesh('stars', scene);
   const vertexData = new BABYLON.VertexData();
   vertexData.positions = positions;
-  vertexData.colors = colors;
 
   const indices: number[] = [];
   for (let i = 0; i < STAR_COUNT; i++) {
@@ -137,6 +97,9 @@ function buildStarField(
   }
   vertexData.indices = indices;
   vertexData.applyToMesh(starMesh);
+  const colorBuffer = Float32Array.from(colors);
+  // Positions stay static; only the colour buffer needs uploads for twinkle.
+  starMesh.setVerticesData('color', colorBuffer, true);
 
   const mat = new BABYLON.StandardMaterial('starMat', scene);
   mat.disableLighting = true;
@@ -147,207 +110,9 @@ function buildStarField(
   mat.pointSize = 2.5;
   starMesh.material = mat;
   starMesh.hasVertexAlpha = true;
-  starMesh.metadata = { baseAlpha, twPhase, twSpeed, colors: Float32Array.from(colors) };
+  starMesh.metadata = { baseAlpha, twPhase, twSpeed, colors: colorBuffer } satisfies StarTwinkleData;
 
   return starMesh;
-}
-
-// ─── Earth sphere builder ─────────────────────────────────────────────────────
-
-interface EarthMeshes {
-  readonly sphere: InstanceType<BabylonModule['Mesh']>;
-  readonly cloudSphere: InstanceType<BabylonModule['Mesh']>;
-}
-
-function buildEarth(
-  BABYLON: BabylonModule,
-  scene: InstanceType<BabylonModule['Scene']>,
-): EarthMeshes {
-  const sphere = BABYLON.MeshBuilder.CreateSphere(
-    'earth',
-    { diameter: EARTH_RADIUS * 2, segments: EARTH_SEGMENTS },
-    scene,
-  );
-
-  const earthMat = new BABYLON.StandardMaterial('earthMaterial', scene);
-
-  const dayTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_day.webp`, scene);
-  earthMat.diffuseTexture = dayTexture;
-
-  const nightTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_night_2k.webp`, scene);
-  earthMat.emissiveTexture = nightTexture;
-  earthMat.emissiveColor = new BABYLON.Color3(0.08, 0.06, 0.03);
-
-  const bumpTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_topology.webp`, scene);
-  earthMat.bumpTexture = bumpTexture;
-  earthMat.bumpTexture.level = 0.5;
-
-  earthMat.specularColor = new BABYLON.Color3(0.3, 0.3, 0.35);
-  earthMat.specularPower = 24;
-
-  sphere.material = earthMat;
-  sphere.rotation.x = Math.PI;
-
-  const cloudSphere = BABYLON.MeshBuilder.CreateSphere(
-    'clouds',
-    { diameter: EARTH_RADIUS * 2.02, segments: 48 },
-    scene,
-  );
-
-  const cloudMat = new BABYLON.StandardMaterial('cloudMaterial', scene);
-  const cloudTexture = new BABYLON.Texture(`${window.location.origin}/textures/earth_clouds.webp`, scene);
-  cloudTexture.hasAlpha = true;
-
-  cloudMat.diffuseTexture = cloudTexture;
-  cloudMat.opacityTexture = cloudTexture;
-  cloudMat.specularColor = BABYLON.Color3.Black();
-  cloudMat.backFaceCulling = true;
-  cloudMat.alpha = 0.04;
-  cloudSphere.material = cloudMat;
-  cloudSphere.rotation.x = Math.PI;
-
-  return { sphere, cloudSphere };
-}
-
-// ─── Atmosphere builder ───────────────────────────────────────────────────────
-
-function buildAtmosphere(
-  BABYLON: BabylonModule,
-  scene: InstanceType<BabylonModule['Scene']>,
-): InstanceType<BabylonModule['ShaderMaterial']> {
-  const diameter = EARTH_RADIUS * 2 * ATMOSPHERE_SCALE;
-
-  const mesh = BABYLON.MeshBuilder.CreateSphere(
-    'atmosphere',
-    { diameter, segments: 48 },
-    scene,
-  );
-
-  BABYLON.Effect.ShadersStore['atmosphereVertexShader'] = ATMOSPHERE_VERTEX_SHADER;
-  BABYLON.Effect.ShadersStore['atmosphereFragmentShader'] = ATMOSPHERE_FRAGMENT_SHADER;
-
-  const material = new BABYLON.ShaderMaterial(
-    'atmosphereMaterial',
-    scene,
-    { vertex: 'atmosphere', fragment: 'atmosphere' },
-    {
-      attributes: ['position', 'normal'],
-      uniforms: ['worldViewProjection', 'world', 'eyePosition', 'glowColor', 'glowIntensity'],
-      needAlphaBlending: true,
-    },
-  );
-
-  material.setColor3('glowColor', new BABYLON.Color3(0.15, 0.25, 0.8));
-  material.setFloat('glowIntensity', 0.8);
-  material.backFaceCulling = true;
-  material.alphaMode = BABYLON.Constants.ALPHA_ADD;
-
-  mesh.material = material;
-
-  return material;
-}
-
-// ─── Orbital ring builder ─────────────────────────────────────────────────────
-
-interface OrbitalRingResult {
-  readonly container: InstanceType<BabylonModule['TransformNode']>;
-  readonly bands: ReadonlyArray<{
-    readonly mesh: InstanceType<BabylonModule['Mesh']>;
-    readonly material: InstanceType<BabylonModule['StandardMaterial']>;
-    readonly rotationOffset: number;
-  }>;
-  readonly energyNodes: ReadonlyArray<{
-    readonly mesh: InstanceType<BabylonModule['Mesh']>;
-    angle: number;
-    readonly speed: number;
-    readonly radius: number;
-  }>;
-}
-
-function buildOrbitalRing(
-  BABYLON: BabylonModule,
-  scene: InstanceType<BabylonModule['Scene']>,
-): OrbitalRingResult {
-  const container = new BABYLON.TransformNode('orbitalRingContainer', scene);
-  container.rotation.x = RING_TILT_RAD;
-
-  const bandConfigs = [
-    { radius: RING_RADIUS,        tube: 0.018, alpha: 0.15,  speedMul:  1.0, color: '#4da6ff' },
-    { radius: RING_RADIUS - 0.25, tube: 0.006, alpha: 0.08,  speedMul:  1.3, color: '#60b0ff' },
-    { radius: RING_RADIUS + 0.25, tube: 0.006, alpha: 0.08,  speedMul:  0.7, color: '#7b8cff' },
-    { radius: RING_RADIUS,        tube: 0.12,  alpha: 0.025, speedMul:  1.0, color: '#3388dd' },
-    { radius: RING_RADIUS + 0.6,  tube: 0.004, alpha: 0.05,  speedMul: -0.5, color: '#9966ff' },
-  ] as const;
-
-  const bands: Array<{
-    mesh: InstanceType<BabylonModule['Mesh']>;
-    material: InstanceType<BabylonModule['StandardMaterial']>;
-    rotationOffset: number;
-  }> = [];
-
-  for (let i = 0; i < bandConfigs.length; i++) {
-    const cfg = bandConfigs[i];
-    if (!cfg) continue;
-    const mesh = BABYLON.MeshBuilder.CreateTorus(
-      'ringBand_' + i,
-      { diameter: cfg.radius * 2, thickness: cfg.tube * 2, tessellation: 128 },
-      scene,
-    );
-    mesh.parent = container;
-
-    const mat = new BABYLON.StandardMaterial('ringBandMat_' + i, scene);
-    mat.emissiveColor = BABYLON.Color3.FromHexString(cfg.color);
-    mat.diffuseColor = BABYLON.Color3.Black();
-    mat.specularColor = BABYLON.Color3.Black();
-    mat.disableLighting = true;
-    mat.alpha = cfg.alpha;
-    mat.backFaceCulling = false;
-    mesh.material = mat;
-
-    bands.push({ mesh, material: mat, rotationOffset: cfg.speedMul });
-  }
-
-  const nodeCount = 12;
-  const energyNodes: Array<{
-    mesh: InstanceType<BabylonModule['Mesh']>;
-    angle: number;
-    speed: number;
-    radius: number;
-  }> = [];
-
-  for (let i = 0; i < nodeCount; i++) {
-    const angle = (i / nodeCount) * Math.PI * 2;
-    const radius = RING_RADIUS + (Math.random() - 0.5) * 0.4;
-    const speed = RING_ROTATION_SPEED * (1.5 + Math.random() * 1.5) * (Math.random() > 0.5 ? 1 : -1);
-    const size = 0.03 + Math.random() * 0.04;
-
-    const mesh = BABYLON.MeshBuilder.CreateSphere(
-      'energyNode_' + i,
-      { diameter: size, segments: 6 },
-      scene,
-    );
-    mesh.parent = container;
-
-    const mat = new BABYLON.StandardMaterial('energyNodeMat_' + i, scene);
-    mat.emissiveColor = BABYLON.Color3.Lerp(
-      BABYLON.Color3.FromHexString('#4da6ff'),
-      BABYLON.Color3.White(),
-      0.6,
-    );
-    mat.disableLighting = true;
-    mat.alpha = 0.8;
-    mesh.material = mat;
-
-    mesh.position.set(
-      Math.cos(angle) * radius,
-      0,
-      Math.sin(angle) * radius,
-    );
-
-    energyNodes.push({ mesh, angle, speed, radius });
-  }
-
-  return { container, bands, energyNodes };
 }
 
 // ─── Distant planets builder ─────────────────────────────────────────────────
@@ -620,7 +385,7 @@ function buildSolarSystem(
       ringMesh = ring;
     }
 
-    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: 0.0007 + Math.random() * 0.0006, ring: ringMesh };
+    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: perSecond(0.0007 + Math.random() * 0.0006), ring: ringMesh };
   });
 }
 
@@ -629,6 +394,7 @@ function buildSolarSystem(
 function buildScene(
   BABYLON: BabylonModule,
   engine: InstanceType<BabylonModule['Engine']>,
+  getDeltaSeconds: () => number,
 ): InstanceType<BabylonModule['Scene']> {
   const scene = new BABYLON.Scene(engine);
   // Pure black space background
@@ -674,32 +440,6 @@ function buildScene(
   rimLight.intensity = 0.5;
   rimLight.diffuse = new BABYLON.Color3(0.4, 0.5, 0.8);
 
-  // ── GlowLayer — exact feeder ───────────────────────────────────────────────
-  const glowLayer = new BABYLON.GlowLayer('earthGlow', scene, {
-    blurKernelSize: 16,
-    mainTextureRatio: 0.25,
-  });
-  glowLayer.intensity = 0.4;
-  // ONLY glow meshes with metadata.glowEnabled — prevents bleeding light across scene
-  glowLayer.customEmissiveColorSelector = (
-    mesh: InstanceType<BabylonModule['AbstractMesh']>,
-    _subMesh: InstanceType<BabylonModule['SubMesh']>,
-    _material: InstanceType<BabylonModule['Material']>,
-    result: InstanceType<BabylonModule['Color4']>,
-  ) => {
-    if ((mesh.metadata as Record<string, unknown> | null)?.glowEnabled) {
-      const mat = mesh.material as InstanceType<BabylonModule['StandardMaterial']> | null;
-      if (mat && 'emissiveColor' in mat) {
-        const alpha = mat.alpha ?? 1.0;
-        result.set(mat.emissiveColor.r, mat.emissiveColor.g, mat.emissiveColor.b, alpha * 0.5);
-      } else {
-        result.set(0, 0, 0, 0);
-      }
-    } else {
-      result.set(0, 0, 0, 0);
-    }
-  };
-
   // ── Deep-space nebula backdrop — baked astrophotography panorama ────────────
   const nebulaBg = new BABYLON.Layer('nebulaBg', `${window.location.origin}/nebula.webp`, scene, true);
   // Dim so foreground UI reads. Keep in step with the CSS stand-in in
@@ -733,23 +473,9 @@ function buildScene(
 
   // ── Starfield — subtle parallax over the nebula backdrop ─────────────────────
   const starMesh = buildStarField(BABYLON, scene);
-
-  // ── Earth + clouds — retired: built but hidden (superseded by the gold
-  //    gladiator galactic core). Refs kept so the render loop stays safe. ─────
-  const { sphere: earthSphere, cloudSphere } = buildEarth(BABYLON, scene);
-  earthSphere.setEnabled(false);
-  cloudSphere.setEnabled(false);
-
-  // ── Atmosphere shader — hidden with the earth ──────────────────────────────
-  const atmosphereMaterial = buildAtmosphere(BABYLON, scene);
-  const atmosphereMesh = scene.getMeshByName('atmosphere') as InstanceType<BabylonModule['Mesh']> | null;
-  if (atmosphereMesh) atmosphereMesh.setEnabled(false);
-
-  // ── Orbital ring — hidden with the earth ───────────────────────────────────
-  const orbitalRing = buildOrbitalRing(BABYLON, scene);
-  for (const band of orbitalRing.bands) band.mesh.setEnabled(false);
-  for (const node of orbitalRing.energyNodes) node.mesh.setEnabled(false);
-
+  const updateTwinkle = createStarTwinkle(starMesh.metadata as StarTwinkleData, (colors) => {
+    starMesh.updateVerticesData('color', colors);
+  });
 
   // ── Distant planets + nebulas ──────────────────────────────────────────────
   const planets = buildDistantPlanets(BABYLON, scene);
@@ -783,15 +509,6 @@ function buildScene(
   sunMat.alphaMode = BABYLON.Constants.ALPHA_ADD;
   sunMat.backFaceCulling = false;
   sunGlow.material = sunMat;
-
-  // ── Effects container — rotates with earth so beams stick to surface ───────
-  const effectsContainer = new BABYLON.TransformNode('effectsContainer', scene);
-
-  // ── Earth entry animation — start at near-zero scale ──────────────────────
-  earthSphere.scaling.setAll(0.01);
-  cloudSphere.scaling.setAll(0.01);
-  if (atmosphereMesh) atmosphereMesh.scaling.setAll(0.01);
-  effectsContainer.scaling.setAll(0.01);
 
   // ── Live-win sparkles ───────────────────────────────────────────────────────
   // Every live win used to fire a beam on the Earth; now each one is born as a
@@ -918,6 +635,7 @@ function buildScene(
   // ── Active holographic frame — disposed on each panel change ────────────────
   // Active panel light — colored point light only, no ugly frame meshes
   let activePanelLight: InstanceType<BabylonModule['PointLight']> | null = null;
+  let panelLightElapsed = 0;
 
   // Camera screen offset target — shifts earth to non-panel center
   let targetScreenOffsetX = 0;
@@ -978,15 +696,7 @@ function buildScene(
     light.intensity = 0;
     light.range = 20;
     activePanelLight = light;
-
-    // Fade light in over 30 frames
-    let elapsed = 0;
-    const obs = scene.onBeforeRenderObservable.add(() => {
-      elapsed++;
-      const t = Math.min(elapsed / 30, 1);
-      light.intensity = 0.4 * t;
-      if (elapsed >= 30) scene.onBeforeRenderObservable.remove(obs);
-    });
+    panelLightElapsed = 0;
 
     // ── Particle burst at camera direction ────────────────────────────────────
     const ps = new BABYLON.ParticleSystem('panelBurst_' + Date.now(), 80, scene);
@@ -1012,7 +722,7 @@ function buildScene(
   // ── Blackhole effect state ────────────────────────────────────────────────
   let blackholeActive = false;
   let blackholeProgress = 0; // 0 = normal, 1 = full blackhole
-  const BLACKHOLE_SPEED = 0.015; // ~67 frames (~1.1s) to full effect
+  const BLACKHOLE_SPEED = perSecond(0.015); // ~1.1s to full effect
 
   const unsubscribeBlackhole = sceneEvents.onBlackhole((active) => {
     blackholeActive = active;
@@ -1021,16 +731,15 @@ function buildScene(
   scene.onDisposeObservable.addOnce(() => { unsubscribeWins(); unsubscribeRings(); unsubscribeCameraTarget(); unsubscribeBlackhole(); });
 
   // ── Render loop ────────────────────────────────────────────────────────────
-  let entryFrame = 0;
-  let twinkleClock = 0;
   let nebulaTime = 0;
-  const ENTRY_DURATION = 120;
+  let moonOrbitAngle = performance.now() * 0.00005;
   scene.registerBeforeRender(() => {
+    const dt = getDeltaSeconds();
     // ── Blackhole effect — camera zooms in, scene darkens, stars compress ───
     if (blackholeActive && blackholeProgress < 1) {
-      blackholeProgress = Math.min(1, blackholeProgress + BLACKHOLE_SPEED);
+      blackholeProgress = Math.min(1, blackholeProgress + BLACKHOLE_SPEED * dt);
     } else if (!blackholeActive && blackholeProgress > 0) {
-      blackholeProgress = Math.max(0, blackholeProgress - BLACKHOLE_SPEED * 0.7);
+      blackholeProgress = Math.max(0, blackholeProgress - BLACKHOLE_SPEED * 0.7 * dt);
     }
     if (blackholeProgress > 0.001) {
       const t = blackholeProgress;
@@ -1042,7 +751,7 @@ function buildScene(
 
       // Camera pulls BACK — radius explodes outward into deep space
       const targetRadius = 18 + extreme * 200; // 18 → 218
-      camera.radius += (targetRadius - camera.radius) * 0.06;
+      camera.radius = approach(camera.radius, targetRadius, CAMERA_FAST_RATE, dt);
       // FOV narrows slightly — tunnel vision into the void
       camera.fov = 0.8 - eased * 0.3;
 
@@ -1077,138 +786,78 @@ function buildScene(
         );
       }
 
-      // GlowLayer fades as we leave
-      if (glowLayer) glowLayer.intensity = Math.max(0, 0.4 * (1 - eased));
-      // Atmosphere disappears
-      if (atmosphereMaterial) {
-        (atmosphereMaterial as unknown as { alpha: number }).alpha = Math.max(0, 1 - t * 3);
-      }
     } else if (blackholeProgress <= 0.001 && (camera.fov < 0.79 || camera.radius > 20)) {
       // ── RETURN from deep space — fly back to earth ──
-      camera.fov += (0.8 - camera.fov) * 0.04;
-      camera.radius += (cameraTargetRadius - camera.radius) * 0.03;
+      camera.fov = approach(camera.fov, 0.8, CAMERA_OFFSET_RATE, dt);
+      camera.radius = approach(camera.radius, cameraTargetRadius, CAMERA_RETURN_RATE, dt);
       scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
       if (starMesh) { starMesh.scaling.setAll(1); starMesh.visibility = 1; }
-      if (glowLayer) glowLayer.intensity += (0.4 - glowLayer.intensity) * 0.05;
     }
 
     // Nebula slow drift — pan the baked backdrop within its inset headroom so the
     // cosmos keeps breathing. Amplitudes stay under (1 - scale)/2 to never bare an edge.
     const nebTex = nebulaBg.texture as InstanceType<BabylonModule['Texture']> | null;
     if (nebTex) {
-      nebulaTime += scene.getEngine().getDeltaTime() * 0.001;
+      nebulaTime += dt;
       nebTex.uScale = nebUScale;
       nebTex.vScale = nebVScale;
       nebTex.uOffset = (1 - nebUScale) / 2 + 0.025 * Math.sin(nebulaTime * 0.05);
       nebTex.vOffset = (1 - nebVScale) / 2 + 0.020 * Math.cos(nebulaTime * 0.04);
     }
 
-    // Stars: gentle drift + per-star twinkle (buffer update throttled to every 2nd frame)
-    if (starMesh) {
-      starMesh.rotation.y += 0.00010;
-      twinkleClock++;
-      const md = starMesh.metadata as
-        | { baseAlpha: Float32Array; twPhase: Float32Array; twSpeed: Float32Array; colors: Float32Array }
-        | undefined;
-      if (md && (twinkleClock & 1) === 0) {
-        const { baseAlpha, twPhase, twSpeed, colors } = md;
-        const tms = twinkleClock * 0.05;
-        for (let i = 0; i < baseAlpha.length; i++) {
-          const tw = 0.5 + 0.5 * Math.sin(twPhase[i]! + tms * twSpeed[i]!);
-          colors[i * 4 + 3] = baseAlpha[i]! * (0.35 + 0.65 * tw);
-        }
-        starMesh.updateVerticesData('color', colors);
-      }
-    }
-
-    // Earth entry animation — spin-zoom from tiny to full scale over ENTRY_DURATION frames
-    if (entryFrame < ENTRY_DURATION) {
-      entryFrame++;
-      const t = entryFrame / ENTRY_DURATION;
-      // Cubic ease-out: fast growth at start, decelerates toward end
-      const eased = 1 - Math.pow(1 - t, 3);
-
-      earthSphere.scaling.setAll(eased);
-      cloudSphere.scaling.setAll(eased * 1.01);
-      if (atmosphereMesh) atmosphereMesh.scaling.setAll(eased * 1.025);
-      effectsContainer.scaling.setAll(eased);
-
-      // Extra spin that starts fast and slows as scale approaches 1
-      const extraSpin = (1 - eased) * 0.05;
-      earthSphere.rotation.y += extraSpin;
-      cloudSphere.rotation.y += extraSpin;
-    }
-
-    // Earth + clouds
-    earthSphere.rotation.y += EARTH_ROTATION_SPEED;
-    cloudSphere.rotation.y += EARTH_ROTATION_SPEED * 1.15;
-    // Sync effects container rotation with earth Y — mirrors feeder Earth.ts update()
-    effectsContainer.rotation.y = earthSphere.rotation.y;
-
-    // Atmosphere eye position
-    if (scene.activeCamera) {
-      const camPos = scene.activeCamera.position;
-      atmosphereMaterial.setVector3('eyePosition', camPos);
-    }
-
-    // Orbital ring bands
-    for (const band of orbitalRing.bands) {
-      band.mesh.rotation.y += RING_ROTATION_SPEED * band.rotationOffset;
-    }
-
-    // Energy nodes
-    for (const node of orbitalRing.energyNodes) {
-      node.angle += node.speed;
-      node.mesh.position.set(
-        Math.cos(node.angle) * node.radius,
-        0,
-        Math.sin(node.angle) * node.radius,
-      );
-    }
+    // Stars: gentle drift + time-based twinkle, uploaded at most 30 Hz.
+    starMesh.rotation.y += perSecond(0.00010) * dt;
+    updateTwinkle(dt);
 
     // Distant planet rotations
-    planets.mars.rotation.y += 0.0003;
-    planets.gasGiant.rotation.y += 0.00015;
-    planets.iceMoon.rotation.y += 0.0008;
+    planets.mars.rotation.y += perSecond(0.0003) * dt;
+    planets.gasGiant.rotation.y += perSecond(0.00015) * dt;
+    planets.iceMoon.rotation.y += perSecond(0.0008) * dt;
 
     // Solar-system nav planets spin; fade out the non-focal ones while a panel is
     // open so the framed planet stands alone (no others crowding the close-up).
     for (const p of navPlanets) {
-      p.mesh.rotation.y += p.spin;
+      p.mesh.rotation.y += p.spin * dt;
       const targetVis = !cameraHasPanel || p.panelId === focalPanelId ? 1 : 0;
-      const vis = p.mesh.visibility + (targetVis - p.mesh.visibility) * 0.06;
+      const vis = approach(p.mesh.visibility, targetVis, CAMERA_FAST_RATE, dt);
       p.mesh.visibility = vis;
       p.mesh.setEnabled(vis > 0.012);
       if (p.ring) { p.ring.visibility = vis; p.ring.setEnabled(vis > 0.012); }
     }
 
     // Ice moon orbits earth
-    const t = performance.now() * 0.00005;
-    planets.iceMoon.position.x = 12 * Math.cos(t);
-    planets.iceMoon.position.z = 12 * Math.sin(t);
+    moonOrbitAngle += 0.05 * dt;
+    planets.iceMoon.position.x = 12 * Math.cos(moonOrbitAngle);
+    planets.iceMoon.position.z = 12 * Math.sin(moonOrbitAngle);
 
     // Nebulas slow drift rotation
-    planets.nebula1.rotation.y += 0.00005;
-    planets.nebula2.rotation.y -= 0.00004;
+    planets.nebula1.rotation.y += perSecond(0.00005) * dt;
+    planets.nebula2.rotation.y -= perSecond(0.00004) * dt;
 
     // Continuous orbital drift so the cosmos never freezes — a faster free
     // wander on the overview, a gentle keep-alive orbit while a planet is framed.
-    cameraTargetAlpha += cameraHasPanel ? CAMERA_PANEL_DRIFT : CAMERA_AUTO_ROTATE;
+    cameraTargetAlpha += (cameraHasPanel ? CAMERA_PANEL_DRIFT : CAMERA_AUTO_ROTATE) * dt;
 
     // Smooth camera lerp to target position
-    camera.alpha  += (cameraTargetAlpha  - camera.alpha)  * CAMERA_LERP_SPEED;
-    camera.beta   += (cameraTargetBeta   - camera.beta)   * CAMERA_LERP_SPEED;
-    camera.radius += (cameraTargetRadius - camera.radius) * CAMERA_LERP_SPEED;
+    camera.alpha  = approach(camera.alpha, cameraTargetAlpha, CAMERA_LERP_RATE, dt);
+    camera.beta   = approach(camera.beta, cameraTargetBeta, CAMERA_LERP_RATE, dt);
+    camera.radius = approach(camera.radius, cameraTargetRadius, CAMERA_LERP_RATE, dt);
 
     // Fly the orbit pivot toward the active planet (or back to the core)
     const ct = camera.target;
-    ct.x += (cameraTargetPos.x - ct.x) * CAMERA_LERP_SPEED;
-    ct.y += (cameraTargetPos.y - ct.y) * CAMERA_LERP_SPEED;
-    ct.z += (cameraTargetPos.z - ct.z) * CAMERA_LERP_SPEED;
+    ct.x = approach(ct.x, cameraTargetPos.x, CAMERA_LERP_RATE, dt);
+    ct.y = approach(ct.y, cameraTargetPos.y, CAMERA_LERP_RATE, dt);
+    ct.z = approach(ct.z, cameraTargetPos.z, CAMERA_LERP_RATE, dt);
 
     // Screen offset — shifts earth to center of non-panel space
     const currentOffsetX = camera.targetScreenOffset.x;
-    camera.targetScreenOffset.x = currentOffsetX + (targetScreenOffsetX - currentOffsetX) * 0.04;
+    camera.targetScreenOffset.x = approach(currentOffsetX, targetScreenOffsetX, CAMERA_OFFSET_RATE, dt);
+
+    // Fade the current panel light over the original 30/60 = 0.5 seconds.
+    if (activePanelLight && panelLightElapsed < PANEL_LIGHT_DURATION) {
+      panelLightElapsed = Math.min(PANEL_LIGHT_DURATION, panelLightElapsed + dt);
+      activePanelLight.intensity = 0.4 * tweenProgress(panelLightElapsed, PANEL_LIGHT_DURATION);
+    }
 
     // Live-win sparkles — twinkle and fade among the stars
     updateSparkles();
@@ -1221,10 +870,21 @@ function buildScene(
 
 // ─── React component ──────────────────────────────────────────────────────────
 
-export default function StarfieldBackground() {
+interface StarfieldBackgroundProps {
+  readonly suspended: boolean;
+}
+
+export default function StarfieldBackground({ suspended }: StarfieldBackgroundProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const suspendedRef = useRef(suspended);
+  const syncLoopRef = useRef<(() => void) | null>(null);
   const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    suspendedRef.current = suspended;
+    syncLoopRef.current?.();
+  }, [suspended]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1244,45 +904,45 @@ export default function StarfieldBackground() {
       });
       if (IS_MOBILE) engine.setHardwareScalingLevel(1.5);
 
-      const scene = buildScene(BABYLON, engine);
+      let dt = 0;
+      const scene = buildScene(BABYLON, engine, () => dt);
 
-      // Honor prefers-reduced-motion and pause on hidden tabs. A single static
-      // frame keeps the backdrop visible while stopping the continuous RAF loop
-      // (per-frame satellite trail rebuilds, flyby spawns, camera lerps) — the
-      // dominant GPU/battery cost the CSS reduced-motion blanket cannot touch.
+      // Keep the last frame when preferences, hidden tabs or full-screen
+      // overlays stop the continuous render loop. The engine stays mounted.
       const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-      const renderStatic = (): void => {
-        // Force entry-animated bodies to final scale so the single frozen frame
-        // shows the full earth (the scale-up tween cannot run when frozen).
-        for (const name of ['earth', 'clouds', 'atmosphere']) {
-          const mesh = scene.getMeshByName(name);
-          if (mesh) mesh.scaling.setAll(1);
-        }
-        const fx = scene.getTransformNodeByName('effectsContainer');
-        if (fx) fx.scaling.setAll(1);
-        scene.render();
-      };
-      const startLoop = (): void => {
-        engine.stopRenderLoop();
-        if (disposed) return;
-        if (motionQuery.matches || document.hidden) {
-          renderStatic();
-        } else {
-          engine.runRenderLoop(() => { if (!disposed) scene.render(); });
-        }
-      };
+      const getState = () => ({
+        reducedMotion: motionQuery.matches,
+        hidden: document.hidden,
+        suspended: suspendedRef.current,
+      });
+      const loop = createRenderLoop({
+        getState,
+        getDeltaTime: () => engine.getDeltaTime(),
+        render: (deltaSeconds) => { dt = deltaSeconds; scene.render(); },
+        start: (render) => engine.runRenderLoop(render),
+        stop: () => engine.stopRenderLoop(),
+      });
+      const { startLoop, renderStatic } = loop;
+      syncLoopRef.current = startLoop;
       startLoop();
       motionQuery.addEventListener('change', startLoop);
       document.addEventListener('visibilitychange', startLoop);
 
       function handleResize(): void {
         engine.resize();
+        // Resizing clears the drawing buffer, including a preserved frame.
+        if (!shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic();
       }
       window.addEventListener('resize', handleResize);
 
       // Fade the cosmos in once the scene's meshes + textures are ready, instead
       // of hard-cutting the backdrop in the instant Babylon finishes loading.
-      const reveal = (): void => { if (!disposed) setRevealed(true); };
+      const reveal = (): void => {
+        if (disposed) return;
+        // Reduced motion still needs a complete frame once textures are ready.
+        if (!shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic();
+        setRevealed(true);
+      };
       scene.executeWhenReady(reveal);
       const revealTimer = window.setTimeout(reveal, 2200); // safety net for slow textures
 
@@ -1291,7 +951,8 @@ export default function StarfieldBackground() {
         window.removeEventListener('resize', handleResize);
         motionQuery.removeEventListener('change', startLoop);
         document.removeEventListener('visibilitychange', startLoop);
-        engine.stopRenderLoop();
+        syncLoopRef.current = null;
+        loop.dispose();
         scene.dispose();
         engine.dispose();
       };

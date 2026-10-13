@@ -66,13 +66,17 @@ function NebulaBackdrop() {
 
 // ─── Public component ─────────────────────────────────────────────────────────
 
-export function StarfieldCanvas() {
+interface StarfieldCanvasProps {
+  readonly suspended: boolean;
+}
+
+export function StarfieldCanvas({ suspended }: StarfieldCanvasProps) {
   return (
     <>
       <NebulaBackdrop />
       <WebGLErrorBoundary>
         <Suspense fallback={null}>
-          <StarfieldBackground />
+          <StarfieldBackground suspended={suspended} />
         </Suspense>
       </WebGLErrorBoundary>
     </>
