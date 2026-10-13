@@ -1,3 +1,5 @@
+import { sceneReadiness } from '@/features/starfield/sceneReadiness';
+
 // Warm the HTTP cache with the homepage scene's first-visible textures while the
 // visitor is still on the age gate / warp intro, so the cosmos is ready the moment
 // the HUD appears instead of developing in seconds later. Babylon requests the same
@@ -13,6 +15,20 @@ const FIRST_VISIBLE = [
 ] as const;
 
 let started = false;
+let modulePromise: Promise<typeof import('@/shared/babylon/babylonCore')> | null = null;
+
+export function loadSceneModule(): Promise<typeof import('@/shared/babylon/babylonCore')> {
+  if (!modulePromise) {
+    modulePromise = import('@/shared/babylon/babylonCore').then(module => {
+      sceneReadiness.mark('module');
+      return module;
+    }).catch((error: unknown) => {
+      modulePromise = null; // A failed speculative fetch can retry on acceptance.
+      throw error;
+    });
+  }
+  return modulePromise;
+}
 
 export function preloadSceneTextures(): void {
   if (started || typeof window === 'undefined') return;
@@ -25,4 +41,15 @@ export function preloadSceneTextures(): void {
     img.decoding = 'async';
     img.src = src;
   }
+}
+
+export function preloadScene(): void {
+  preloadSceneTextures();
+  void loadSceneModule().catch(() => {});
+  void import('@/features/starfield/StarfieldBackground').catch(() => {});
+}
+
+/** A frame plus a task lets the age gate paint before speculative downloads. */
+export function scheduleScenePreload(): void {
+  requestAnimationFrame(() => { window.setTimeout(preloadScene, 0); });
 }

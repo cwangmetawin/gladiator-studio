@@ -12,6 +12,7 @@ import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { skyStore } from '@/features/starfield/skyStore';
 import { catalogueFocusIndex } from './catalogueFocus';
+import { createCatalogueLock } from '@/shared/audio/transitionSound';
 import './coverflow.css';
 
 function isSafeUrl(url: string): boolean {
@@ -46,10 +47,11 @@ interface DeckCardProps {
   readonly grid: boolean;
   readonly centre: boolean;
   readonly onClick: () => void;
+  readonly onLock: () => void;
   readonly durationMs?: number;
 }
 
-function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, durationMs }: DeckCardProps) {
+function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, onLock, durationMs }: DeckCardProps) {
   const [err, setErr] = useState(false);
   return (
     <motion.button
@@ -60,6 +62,7 @@ function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, durationM
       aria-hidden={!grid && Math.abs(target.scale) < 0.4 ? true : undefined}
       tabIndex={target.opacity === 0 ? -1 : undefined}
       onClick={onClick}
+      onAnimationComplete={() => { if (centre && !grid) onLock(); }}
       initial={false}
       animate={{ x: target.x, y: target.y, scale: target.scale, opacity: target.opacity }}
       transition={durationMs === undefined ? SPRING : { duration: durationMs / 1000, ease: motionTokens.ease }}
@@ -125,6 +128,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   const [size, setSize] = useState({ w: 1000, h: 520 });
   const wheelAcc = useRef(0);
   const wheelLock = useRef(false);
+  const catalogueLock = useMemo(() => createCatalogueLock(() => soundEngine.catalogueFocus()), []);
 
   const list = useMemo(() => {
     if (tab === 'all') return games;
@@ -140,7 +144,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   }, [games, narrative.focusGame]);
 
   const clamp = useCallback((i: number) => Math.max(0, Math.min(i, list.length - 1)), [list.length]);
-  const go = useCallback((dir: number) => { soundEngine.click(); setActive((a) => clamp(a + dir)); }, [clamp]);
+  const go = useCallback((dir: number) => { setActive((a) => clamp(a + dir)); }, [clamp]);
 
   const playGame = useCallback((game: Game) => {
     if (!isSafeUrl(game.link)) { console.warn(`Coverflow: unsafe link blocked for "${game.title}"`); return; }
@@ -262,7 +266,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
     if (el?.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
     if (el) { el.style.transition = narrative.mode === 'reduced' ? 'none' : 'transform 0.35s var(--ease-out-expo)'; el.style.transform = 'translateX(0px)'; }
     const steps = Math.round(dx / STEP);
-    if (steps !== 0) { soundEngine.click(); setActive(clamp(dragStartActive.current - steps)); }
+    if (steps !== 0) setActive(clamp(dragStartActive.current - steps));
   }, [clamp, narrative.mode]);
 
   const cancelDrag = useCallback(() => {
@@ -284,9 +288,15 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
 
   const grid = view === 'grid';
   const activeGame = list[active];
+  const focusedTitleRef = useRef(activeGame?.title);
+  focusedTitleRef.current = activeGame?.title;
   useLayoutEffect(() => {
-    if (activeGame) skyStore.focusGame(activeGame.title);
-  }, [activeGame]);
+    if (activeGame) {
+      skyStore.focusGame(activeGame.title);
+      catalogueLock.prime(activeGame.title);
+      if (narrative.mode === 'reduced' && !grid && !suspended && !closing && isPresent) catalogueLock.lock(activeGame.title);
+    }
+  }, [activeGame, catalogueLock, narrative.mode, grid, suspended, closing, isPresent]);
   const instantContent = narrative.mode !== 'desktop' || narrative.phase === 'open';
 
   return (
@@ -316,7 +326,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         <div className="tablist coverflow__tabs" role="tablist" aria-label="Game category">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" className="tab" aria-selected={t.id === tab}
-              data-cursor="VIEW" onClick={() => { soundEngine.click(); setTab(t.id); setActive(0); }}>
+              data-cursor="VIEW" onClick={() => { setTab(t.id); setActive(0); }}>
               {t.label}
             </button>
           ))}
@@ -364,11 +374,14 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
             grid={grid}
             centre={!grid && i === active}
             durationMs={narrative.mode === 'reduced' ? 0 : narrative.phase === 'flying' ? timeline.frameMs : undefined}
+            onLock={() => {
+              if (g.title === focusedTitleRef.current && !dragging.current && !suspended && !closing && isPresent) catalogueLock.lock(g.title);
+            }}
             onClick={() => {
               if (grid) { playGame(g); return; }
               if (dragged.current) return;
               if (i === active) playGame(g);
-              else { soundEngine.click(); setActive(i); }
+              else setActive(i);
             }}
           />
         ))}

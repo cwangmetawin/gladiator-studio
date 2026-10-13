@@ -13,6 +13,7 @@ import { PartnerEarth } from './PartnerEarth';
 import { LiveTicker } from '@/features/live-feed/LiveTicker';
 import partnerDefault from '@/api/partnerDefault.json';
 import './partner.css';
+import { SoundToggle } from '@/shared/ui/SoundToggle';
 
 interface ValueProp { readonly tag: string; readonly title: string; readonly body: string }
 interface Step { readonly step: string; readonly body: string }
@@ -129,6 +130,7 @@ export function PartnerArea({ onClose, events, isConnected, totalEvents, totalAm
           <span className="readout">Wagered <span className="readout__value readout__value--gold" style={{ animation: waFlash ? 'value-glow 0.6s ease-out' : undefined }}>{wagered}</span></span>
         </div>
         <div className="partner__topbar-right">
+          <SoundToggle />
           <span className="readout partner__uplink-label">Partner Uplink</span>
           <button type="button" className="partner__disengage" onClick={onClose}>
             Disengage <ChevronRight size={14} aria-hidden="true" />

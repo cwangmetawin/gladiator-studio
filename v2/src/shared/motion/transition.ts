@@ -85,7 +85,7 @@ export function transitionReducer(state: TransitionState, event: TransitionEvent
     };
   }
   if (state.target !== 'none' && elapsed >= timeline.panelAtMs
-    && (state.panel !== state.target || state.panelStartedAt < state.startedAt)) {
+    && (state.panel !== state.target || state.panelStartedAt < state.startedAt + timeline.panelAtMs)) {
     return { ...state, panel: state.target, panelStartedAt: state.startedAt + timeline.panelAtMs };
   }
   if (state.target === 'none' && elapsed >= timeline.hubAtMs && !state.hubVisible) {
@@ -97,7 +97,7 @@ export function transitionReducer(state: TransitionState, event: TransitionEvent
 export function nextTransitionDeadline(state: TransitionState): number | null {
   if (state.phase === 'idle' || state.phase === 'open') return null;
   const t = transitionTimeline(state.mode, state.kind);
-  if (state.target !== 'none' && (state.panel !== state.target || state.panelStartedAt < state.startedAt)) {
+  if (state.target !== 'none' && (state.panel !== state.target || state.panelStartedAt < state.startedAt + t.panelAtMs)) {
     return state.startedAt + t.panelAtMs;
   }
   if (state.target === 'none' && !state.hubVisible) return state.startedAt + t.hubAtMs;

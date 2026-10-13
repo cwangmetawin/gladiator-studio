@@ -1,8 +1,8 @@
-import { Suspense, lazy, useEffect, useLayoutEffect, useId, useMemo, useState, useCallback, useRef } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useId, useMemo, useState, useCallback, useRef, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion, MotionConfig, useIsPresent } from 'framer-motion';
 import '@/styles/index.css';
 import {
-  X, ExternalLink, Volume2, VolumeOff, Menu, Maximize2,
+  X, ExternalLink, Menu, Maximize2,
   Gamepad2, Info, Users, Map, Radio, Briefcase, Mail,
 } from 'lucide-react';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
@@ -20,6 +20,10 @@ import { WarpTransition } from '@/features/partner/WarpTransition';
 import { AgeGate, useAgeGate } from '@/shared/components/AgeGate';
 import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { preloadScene, scheduleScenePreload } from '@/shared/utils/preloadScene';
+import { sceneReadiness } from '@/features/starfield/sceneReadiness';
+import { bindTransitionSounds, createWarpSounds } from '@/shared/audio/transitionSound';
+import { SoundToggle } from '@/shared/ui/SoundToggle';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
@@ -75,30 +79,6 @@ function useValueFlash(value: number): boolean {
   }, [value]);
 
   return flashing;
-}
-
-// ─── Sound toggle ─────────────────────────────────────────────────────────────
-
-function SoundToggle() {
-  const [isMuted, setIsMuted] = useState(() => soundEngine.isMuted());
-
-  const toggle = useCallback(() => {
-    setIsMuted(soundEngine.toggleMute());
-  }, []);
-
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      onMouseEnter={() => soundEngine.hover()}
-      className="icon-btn"
-      aria-label={isMuted ? 'Unmute ambient sound' : 'Mute ambient sound'}
-      title={isMuted ? 'Sound off' : 'Sound on'}
-      style={{ color: isMuted ? 'var(--color-text-mute)' : HOLO }}
-    >
-      {isMuted ? <VolumeOff size={15} aria-hidden="true" /> : <Volume2 size={15} aria-hidden="true" />}
-    </button>
-  );
 }
 
 // ─── Top status bar ─────────────────────────────────────────────────────────
@@ -181,7 +161,7 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientAr
             className="btn btn--primary"
             style={{ minHeight: 36, padding: '0.5rem 1.1rem' }}
             onMouseEnter={() => soundEngine.hover()}
-            onClick={() => { soundEngine.click(); onClientArea(); }}
+            onClick={onClientArea}
           >
             Client Area
             <ExternalLink size={12} aria-hidden="true" />
@@ -243,7 +223,7 @@ function CommandBar({ activePanel, onActivate, visible, durationMs }: CommandBar
             type="button"
             className="navbtn"
             aria-pressed={activePanel === panelId}
-            onClick={() => { soundEngine.click(); onActivate(panelId); }}
+            onClick={() => onActivate(panelId)}
             onMouseEnter={() => soundEngine.hover()}
           >
             {label}
@@ -340,7 +320,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, 
                 type="button"
                 className="btn btn--primary"
                 style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { soundEngine.click(); onClose(); onClientArea(); }}
+                onClick={() => { onClose(); onClientArea(); }}
               >
                 Client Area
                 <ExternalLink size={12} aria-hidden="true" />
@@ -487,6 +467,8 @@ export function App() {
   const [playingGame, setPlayingGame] = useState<{ title: string; link: string } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
+  const warpSounds = useMemo(() => createWarpSounds(soundEngine), []);
+  const sceneReady = useSyncExternalStore(sceneReadiness.subscribe, sceneReadiness.getSnapshot, sceneReadiness.getSnapshot);
   const isMobile = useIsMobile();
   const transition = useTransition(isMobile);
   const skyRootRef = useGameSky(verified && introComplete, isMobile, transition.mode === 'reduced');
@@ -495,6 +477,34 @@ export function App() {
   const playTimerRef = useRef<number | null>(null);
   const panelOpenerRef = useRef<HTMLElement | null>(null);
   const previousPhase = useRef(transition.phase);
+  useLayoutEffect(() => {
+    const root = document.getElementById('root');
+    if (sceneReady) root?.setAttribute('data-scene-ready', sceneReady);
+    else root?.removeAttribute('data-scene-ready');
+  }, [sceneReady]);
+  useEffect(() => soundEngine.initGestureUnlock(), []);
+  useEffect(() => bindTransitionSounds(transitionStore, soundEngine), []);
+  useEffect(() => scheduleScenePreload(), []);
+  useEffect(() => { if (verified) preloadScene(); }, [verified]);
+  const handleVerify = useCallback(() => {
+    preloadScene();
+    soundEngine.unlock();
+    verify();
+  }, [verify]);
+  const completeIntro = useCallback(() => {
+    setIntroComplete(true);
+    soundEngine.startAmbient();
+  }, []);
+  const openClientArea = useCallback(() => {
+    if (warpSounds.start()) setClientArea('transitioning');
+  }, [warpSounds]);
+  const arriveClientArea = useCallback(() => {
+    if (warpSounds.arrive()) setClientArea('open');
+  }, [warpSounds]);
+  const closeClientArea = useCallback(() => {
+    warpSounds.cancel();
+    setClientArea('closed');
+  }, [warpSounds]);
   useLayoutEffect(() => {
     // Mobile menu visibility is restored in this commit, after dialog cleanup.
     if (transition.phase === 'idle' && previousPhase.current !== 'idle') {
@@ -524,7 +534,6 @@ export function App() {
     if (!title.trim()) return;
     cancelPendingPlay();
     rememberPanelOpener('games');
-    soundEngine.panelOpen();
     transitionStore.focusGame(title);
   }, [cancelPendingPlay, rememberPanelOpener]);
 
@@ -582,7 +591,7 @@ export function App() {
       e.preventDefault();
       cancelPendingPlay();
       if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
-      else if (transitionStore.getSnapshot().target !== 'none') { soundEngine.panelClose(); transitionStore.request('none'); }
+      else if (transitionStore.getSnapshot().target !== 'none') transitionStore.request('none');
       else if (drawerOpen) setDrawerOpen(false);
     };
     window.addEventListener('keydown', onKey);
@@ -593,14 +602,11 @@ export function App() {
     cancelPendingPlay();
     rememberPanelOpener(id);
     const next = transitionStore.getSnapshot().target === id ? 'none' : id;
-    if (next === 'none') soundEngine.panelClose();
-    else soundEngine.panelOpen();
     transitionStore.request(next);
   }, [cancelPendingPlay, rememberPanelOpener]);
 
   const handleClose = useCallback(() => {
     cancelPendingPlay();
-    soundEngine.panelClose();
     transitionStore.request('none');
   }, [cancelPendingPlay]);
 
@@ -625,23 +631,22 @@ export function App() {
   }, [gameData]);
 
   if (!verified) {
-    return <AgeGate onVerify={verify} onReject={reject} rejected={!showGate} />;
-  }
-
-  if (!introComplete) {
-    return <WarpIntro onComplete={() => { setIntroComplete(true); soundEngine.startAmbient(); }} />;
+    return <AgeGate onVerify={handleVerify} onReject={reject} rejected={!showGate} />;
   }
 
   return (
     <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
     <div ref={skyRootRef} data-transition={transition.phase} data-transition-target={transition.target}
+      data-scene-ready={sceneReady ?? undefined}
       data-trail="0.00" data-sky-game="" data-constellations="0"
       style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
-      <a href="#main" className="skip-to-content">Skip to content</a>
-
       {/* 3D scene — always behind everything */}
       <StarfieldCanvas suspended={isSceneCovered(playingGame !== null, clientArea !== 'closed', isMobile, activePanel)} />
+
+      {!introComplete && <WarpIntro onComplete={completeIntro} />}
+      {introComplete && <>
+      <a href="#main" className="skip-to-content">Skip to content</a>
 
       {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
       <div className="fx-holo" aria-hidden="true" />
@@ -674,7 +679,7 @@ export function App() {
       {/* Top status bar — hidden on mobile when a panel is open, and for the
           full-screen coverflow (whose own header carries the tabs + close). */}
       {!(isMobile && activePanel !== 'none') && !showCoverflow && (
-        <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} onClientArea={() => setClientArea('transitioning')} />
+        <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} onClientArea={openClientArea} />
       )}
 
       {/* Homepage live-wins ticker — horizontal crawl across the hero's bottom edge.
@@ -726,7 +731,7 @@ export function App() {
             onClose={() => setDrawerOpen(false)}
             activePanel={transition.target}
             onActivate={handleActivate}
-            onClientArea={() => { transitionStore.request('none'); setClientArea('transitioning'); }}
+            onClientArea={() => { transitionStore.request('none'); openClientArea(); }}
           />
         </>
       ) : (
@@ -757,13 +762,14 @@ export function App() {
       <AnimatePresence>
         {clientArea !== 'closed' && (
           <Suspense key="partner-area" fallback={null}>
-            <PartnerArea onClose={() => setClientArea('closed')} events={events} isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} />
+            <PartnerArea onClose={closeClientArea} events={events} isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} />
           </Suspense>
         )}
       </AnimatePresence>
       {clientArea === 'transitioning' && (
-        <WarpTransition onComplete={() => setClientArea('open')} />
+        <WarpTransition onComplete={arriveClientArea} />
       )}
+      </>}
     </div>
     </MotionConfig>
     </CatalogueStatsProvider>

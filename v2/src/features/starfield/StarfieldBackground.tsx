@@ -8,6 +8,8 @@ import { journeyMotion } from '@/features/journey/journeyMotion';
 import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
 import { installGameSky } from './gameSkyRenderer';
 import { skyStore } from './skyStore';
+import { sceneReadiness } from './sceneReadiness';
+import { loadSceneModule } from '@/shared/utils/preloadScene';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -747,6 +749,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
   const suspendedRef = useRef(suspended);
   const syncLoopRef = useRef<(() => void) | null>(null);
   const [revealed, setRevealed] = useState(false);
+  const [failure, setFailure] = useState<Error | null>(null);
 
   useEffect(() => {
     suspendedRef.current = suspended;
@@ -758,9 +761,11 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
     if (!canvas) return;
 
     let disposed = false;
+    sceneReadiness.resetScene();
 
-    import('@/shared/babylon/babylonCore').then((BABYLON) => {
+    loadSceneModule().then((BABYLON) => {
       if (disposed) return;
+      sceneReadiness.mark('module');
 
       const engine = new BABYLON.Engine(canvas, true, {
         antialias: true,
@@ -769,9 +774,12 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         // frame survives page compositing instead of clearing to black.
         preserveDrawingBuffer: true,
       });
+      cleanupRef.current = () => engine.dispose();
       if (IS_MOBILE) engine.setHardwareScalingLevel(1.5);
 
       let dt = 0;
+      let sceneReady = false;
+      let frameReady = false;
       const scene = buildScene(BABYLON, engine, () => dt);
 
       // Keep the last frame when preferences, hidden tabs or full-screen
@@ -785,7 +793,15 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       const loop = createRenderLoop({
         getState,
         getDeltaTime: () => engine.getDeltaTime(),
-        render: (deltaSeconds) => { dt = deltaSeconds; scene.render(); },
+        render: (deltaSeconds) => {
+          dt = deltaSeconds;
+          scene.render();
+          if (sceneReady && !frameReady) {
+            frameReady = true;
+            setRevealed(true);
+            sceneReadiness.mark('frame');
+          }
+        },
         start: (render) => engine.runRenderLoop(render),
         stop: () => engine.stopRenderLoop(),
       });
@@ -810,19 +826,16 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       }
       window.addEventListener('resize', handleResize);
 
-      // Fade the cosmos in once the scene's meshes + textures are ready, instead
-      // of hard-cutting the backdrop in the instant Babylon finishes loading.
-      const reveal = (): void => {
+      // Only a render after executeWhenReady may release the normal-motion intro.
+      scene.executeWhenReady(() => {
         if (disposed) return;
-        // Reduced motion still needs a complete frame once textures are ready.
-        if (!shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic();
-        setRevealed(true);
-      };
-      scene.executeWhenReady(reveal);
-      const revealTimer = window.setTimeout(reveal, 2200); // safety net for slow textures
+        sceneReady = true;
+        sceneReadiness.mark('scene');
+        // Reduced motion still paints its complete, preserved static frame.
+        if (!suspendedRef.current && !document.hidden) renderStatic();
+      });
 
       cleanupRef.current = () => {
-        window.clearTimeout(revealTimer);
         window.removeEventListener('resize', handleResize);
         motionQuery.removeEventListener('change', startLoop);
         document.removeEventListener('visibilitychange', startLoop);
@@ -834,7 +847,9 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         engine.dispose();
       };
     }).catch((err: unknown) => {
+      if (disposed) return;
       console.warn('[StarfieldBackground] Babylon.js failed to load:', err);
+      setFailure(err instanceof Error ? err : new Error('Scene initialization failed'));
     });
 
     return () => {
@@ -843,6 +858,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       cleanupRef.current = null;
     };
   }, []);
+
+  if (failure) throw failure; // Preserve StarfieldCanvas's WebGL boundary / nebula.
 
   return (
     <canvas
@@ -857,7 +874,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         pointerEvents: 'none',
         display: 'block',
         opacity: revealed ? 1 : 0,
-        transition: 'opacity 1.4s ease-out',
+        transition: 'opacity 0.2s ease-out',
       }}
     />
   );

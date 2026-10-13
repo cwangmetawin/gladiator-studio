@@ -109,7 +109,7 @@ export function ContentPanel({ panelId, side, label, index, count, onClose, chil
                 <Menu size={15} aria-hidden="true" />
               </button>
             )}
-            <button ref={closeRef} type="button" onClick={() => { soundEngine.click(); onClose(); }} className="icon-btn" aria-label={`Close ${label} panel`}>
+            <button ref={closeRef} type="button" onClick={onClose} className="icon-btn" aria-label={`Close ${label} panel`}>
               <X size={15} aria-hidden="true" />
             </button>
           </div>
