@@ -2,6 +2,7 @@ import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, Reveal, CountUp } from '@/shared/ui';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import { lines } from '@/shared/utils/text';
 import aboutDefault from '@/api/aboutDefault.json';
 
@@ -46,7 +47,7 @@ export function AboutSection() {
             Every title in our catalogue carries ULTRA volatility and RTPs above 96%, engineered for the crypto-native player who plays for life-changing hits. Our stack is built on WebGL, Babylon.js 3D, and TypeScript — running on AWS and GCP infrastructure capable of serving millions of concurrent sessions. We own the full production pipeline: game design, mathematics, front-end rendering, back-end integration, and live ops.
           </p>
           <p className="body-text">
-            For operators and aggregators, integrating Gladiator Studio means accessing a battle-tested library of 34 titles backed by MetaWin platform infrastructure: seamless API integration, real-time bet data via our feeder system, and dedicated account support.
+            {withCatalogueCounts('For operators and aggregators, integrating Gladiator Studio means accessing a battle-tested library of {{games}} titles backed by MetaWin platform infrastructure: seamless API integration, real-time bet data via our feeder system, and dedicated account support.', s)}
           </p>
         </div>
       </Reveal>
@@ -72,7 +73,7 @@ export function AboutSection() {
           <div className="card card--hover">
             {card.tag && <span className="card__label">{card.tag}</span>}
             {card.title && <h3 className="card__title" style={{ overflowWrap: 'anywhere' }}>{card.title}</h3>}
-            {card.body && <p className="body-text" style={{ overflowWrap: 'anywhere' }}>{card.body}</p>}
+            {card.body && <p className="body-text" style={{ overflowWrap: 'anywhere' }}>{withCatalogueCounts(card.body, s)}</p>}
           </div>
         </Reveal>
       ))}

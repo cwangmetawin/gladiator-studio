@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Button, Divider, CountUp } from '@/shared/ui';
 import { useSection } from '@/shared/content/SiteContentContext';
+import { useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import { lines, safeHref } from '@/shared/utils/text';
 import careersDefault from '@/api/careersDefault.json';
 
@@ -235,6 +237,7 @@ function JobCard({ job, index, showDetails, onToggleDetails }: JobCardProps) {
 // ---------------------------------------------------------------------------
 
 export function CareersSection() {
+  const s = useStudioStats();
   const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(new Set());
 
   function handleToggle(id: string) {
@@ -258,7 +261,7 @@ export function CareersSection() {
     .map((p, i) => ({
       id: p.id || `pos-${i}`,
       title: p.title, department: p.department, location: p.location, type: p.type,
-      summary: p.summary, description: p.description,
+      summary: withCatalogueCounts(p.summary, s), description: withCatalogueCounts(p.description, s),
       requirements: lines(p.requirements), niceToHave: lines(p.niceToHave),
       applyUrl: safeHref(p.applyUrl),
     }));

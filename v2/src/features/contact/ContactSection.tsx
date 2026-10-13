@@ -5,6 +5,8 @@ import { SectionHeading, Reveal } from '@/shared/ui';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
 import { useSection } from '@/shared/content/SiteContentContext';
+import { useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import { supabase } from '@/lib/supabase';
 
 type EnquiryType = '' | 'Game Integration' | 'Request a Demo' | 'Distribution Partnership' | 'Press and Media' | 'Careers' | 'Other';
@@ -18,7 +20,7 @@ const INITIAL_FORM: FormFields = { name: '', company: '', email: '', enquiryType
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const PARTNER_TYPES: readonly { readonly label: string; readonly description: string }[] = [
-  { label: 'Operators', description: 'Integrate 34 titles via a single API. Sandbox environment and a dedicated technical account manager included.' },
+  { label: 'Operators', description: 'Integrate {{games}} titles via a single API. Sandbox environment and a dedicated technical account manager included.' },
   { label: 'Aggregators', description: 'Add Gladiator + MetaWin Originals to your content portfolio. Full catalogue, one connection.' },
   { label: 'Platforms', description: 'Looking for high-volatility, crypto-native content? Our games are built to perform in your lobby from day one.' },
 ] as const;
@@ -67,6 +69,7 @@ function enquiryEmail(fields: FormFields): { subject: string; body: string } {
 }
 
 export function ContactSection() {
+  const s = useStudioStats();
   const { email } = useSection('contact', { email: CONTACT.email });
   const channels = DIRECT_CHANNELS.map((c) => (c.label === 'Email' ? { ...c, value: email, href: `mailto:${email}` } : c));
   const [fields, setFields] = useState<FormFields>(() => {
@@ -181,7 +184,7 @@ export function ContactSection() {
           {PARTNER_TYPES.map((p) => (
             <div key={p.label} className="card card--hover" style={{ padding: '0.85rem 1rem' }}>
               <span className="card__label" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
-              <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{p.description}</p>
+              <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{withCatalogueCounts(p.description, s)}</p>
             </div>
           ))}
         </div>

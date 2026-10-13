@@ -8,6 +8,8 @@ import { Dropzone } from './Dropzone';
 import { useToast } from './Toast';
 import { RailCard } from './Rail';
 import type { GameState } from './adminNavigation';
+import { defaultRtp } from '@/shared/utils/gameRtp';
+import { withGameCategory } from './gameEditorRtp';
 
 interface PendingConfirm {
   readonly title: string;
@@ -22,12 +24,13 @@ type CatFilter = 'all' | 'slot' | 'mini';
 
 const BLANK: AdminGame = {
   id: 0, title: '', description: '', link: '', timeline: '', image: '', landscapeImage: '',
-  slug: '', genre: '', rtp: undefined, volatility: undefined, category: 'slot',
+  slug: '', genre: '', rtp: defaultRtp('slot'), volatility: undefined, category: 'slot',
   isHot: false, sortOrder: 0, isPublished: true,
 };
 
 function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame; readonly onClose: () => void; readonly onSaved: (g: AdminGame) => void }) {
   const [g, setG] = useState<AdminGame>(initial);
+  const [rtpEdited, setRtpEdited] = useState(initial.id !== 0);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const set = <K extends keyof AdminGame>(k: K, v: AdminGame[K]) => setG((p) => ({ ...p, [k]: v }));
@@ -54,7 +57,10 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
           </div>
           <div className="field">
             <label>Category</label>
-            <select className="select" value={g.category} onChange={(e) => set('category', e.target.value as AdminGame['category'])}>
+            <select className="select" value={g.category} onChange={(e) => {
+              const category = e.target.value as AdminGame['category'];
+              setG((p) => withGameCategory(p, category, rtpEdited));
+            }}>
               <option value="slot">Slot</option>
               <option value="mini">Original (mini)</option>
             </select>
@@ -83,7 +89,10 @@ function GameEditor({ initial, onClose, onSaved }: { readonly initial: AdminGame
           </div>
           <div className="field">
             <label>RTP %</label>
-            <input className="input" type="number" step="0.01" value={g.rtp ?? ''} onChange={(e) => set('rtp', e.target.value === '' ? undefined : Number(e.target.value))} />
+            <input className="input" type="number" step="0.01" value={g.rtp ?? ''} onChange={(e) => {
+              setRtpEdited(true);
+              set('rtp', e.target.value === '' ? undefined : Number(e.target.value));
+            }} />
           </div>
           <div className="field">
             <label>Volatility</label>

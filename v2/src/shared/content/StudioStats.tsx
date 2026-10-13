@@ -1,11 +1,13 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import type { Game, GameData } from '@/shared/types/game';
+import { catalogueMaxRtp } from '@/shared/utils/gameRtp';
 import { useSection } from './SiteContentContext';
 
 // ─── Studio numbers ─────────────────────────────────────────────────────────
-// games / slots / originals are AUTO-COUNTED from the live catalogue (single
-// source of truth — never hand-typed). markets / rtp / years are marketing
-// figures that can't be computed, so they're edited ONCE in the admin's
-// "Studio Stats" section and shared across Hero, About and Team.
+// games / slots / originals / max RTP are DERIVED from the live catalogue (single
+// source of truth — never hand-typed). markets / years are marketing figures
+// that can't be computed, so they're edited ONCE in the admin's "Studio Stats"
+// section and shared across Hero, About and Team.
 
 export interface CatalogueCounts {
   readonly games: number;
@@ -13,10 +15,15 @@ export interface CatalogueCounts {
   readonly originals: number;
 }
 
-const CountsCtx = createContext<CatalogueCounts>({ games: 0, slots: 0, originals: 0 });
+const CatalogueCtx = createContext<GameData>({ slotGames: [], miniGames: [] });
 
-export function CatalogueStatsProvider({ counts, children }: { readonly counts: CatalogueCounts; readonly children: ReactNode }) {
-  return <CountsCtx.Provider value={counts}>{children}</CountsCtx.Provider>;
+export function CatalogueStatsProvider({ catalogue, children }: { readonly catalogue: GameData; readonly children: ReactNode }) {
+  return <CatalogueCtx.Provider value={catalogue}>{children}</CatalogueCtx.Provider>;
+}
+
+export function useCatalogueGames(): readonly Game[] {
+  const { slotGames, miniGames } = useContext(CatalogueCtx);
+  return useMemo(() => [...slotGames, ...miniGames], [slotGames, miniGames]);
 }
 
 export interface StudioStats extends CatalogueCounts {
@@ -26,12 +33,15 @@ export interface StudioStats extends CatalogueCounts {
 }
 
 export function useStudioStats(): StudioStats {
-  const counts = useContext(CountsCtx);
-  const s = useSection('stats', { markets: 7, rtp: 97.5, years: 10 });
+  const games = useCatalogueGames();
+  const { slotGames, miniGames } = useContext(CatalogueCtx);
+  const s = useSection('stats', { markets: 7, years: 10 });
   return {
-    ...counts,
+    games: games.length,
+    slots: slotGames.length,
+    originals: miniGames.length,
     markets: Number(s.markets) || 0,
-    rtp: Number(s.rtp) || 0,
+    rtp: catalogueMaxRtp(games),
     years: Number(s.years) || 0,
   };
 }

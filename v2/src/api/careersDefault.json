@@ -55,7 +55,7 @@
       "department": "Engineering",
       "location": "Remote / London",
       "type": "Full-time",
-      "summary": "Build and scale the game server infrastructure behind 34 live titles across 7 markets.",
+      "summary": "Build and scale the game server infrastructure behind {{games}} live titles across 7 markets.",
       "description": "Architect and maintain game backend services — bet processing, RNG integration, real-time feeder data pipeline, and operator API layer. Work with AWS and GCP across multiple regions. Sub-100ms round-trip is the baseline, not the goal.",
       "requirements": "5+ years backend development (Node.js / TypeScript preferred)\nExperience with AWS (EC2, Lambda, CloudFront, RDS) or GCP\nStrong understanding of distributed systems and high-throughput APIs\nDatabase design and optimization (SQL + NoSQL)\nExperience with real-time data streaming",
       "niceToHave": "iGaming or fintech backend experience\nBigQuery / data pipeline architecture\nBlockchain / crypto transaction processing",

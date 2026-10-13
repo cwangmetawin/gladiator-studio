@@ -262,7 +262,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
     >
       <span id={titleId} className="sr-only">Game catalogue</span>
       <header className="coverflow__bar">
-        <span className="coverflow__eyebrow">◆ {list.length} {list.length === 1 ? 'title' : 'titles'}</span>
+        <span className="coverflow__eyebrow">◆ {loading ? 'Titles' : `${list.length} ${list.length === 1 ? 'title' : 'titles'}`}</span>
         <div className="tablist coverflow__tabs" role="tablist" aria-label="Game category">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" className="tab" aria-selected={t.id === tab}
@@ -333,7 +333,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
           <button type="button" className="coverflow__arrow" data-cursor="PREV" aria-label="Previous" onClick={() => go(-1)} disabled={active === 0}>
             <ChevronLeft size={22} />
           </button>
-          <span className="coverflow__count">{list.length ? active + 1 : 0} / {list.length}</span>
+          <span className="coverflow__count">{loading ? '— / —' : `${list.length ? active + 1 : 0} / ${list.length}`}</span>
           <button type="button" className="coverflow__arrow" data-cursor="NEXT" aria-label="Next" onClick={() => go(1)} disabled={active >= list.length - 1}>
             <ChevronRight size={22} />
           </button>

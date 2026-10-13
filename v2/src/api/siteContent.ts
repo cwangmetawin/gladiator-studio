@@ -46,11 +46,10 @@ export const SECTIONS: readonly SectionSchema[] = [
     label: 'Studio Stats',
     fields: [
       { key: 'markets', label: 'Markets', type: 'number', hint: 'Shared across Hero, About & Team.' },
-      { key: 'rtp', label: 'Max RTP %', type: 'number' },
       { key: 'years', label: 'Years experience', type: 'number' },
     ],
-    // games / slots / originals are auto-counted from the live catalogue — not edited here.
-    default: { markets: 7, rtp: 97.5, years: 10 },
+    // games / slots / originals / max RTP come from the live catalogue — not edited here.
+    default: { markets: 7, years: 10 },
   },
   {
     key: 'hero',

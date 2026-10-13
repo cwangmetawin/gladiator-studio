@@ -16,9 +16,9 @@ function getHotGames(slotGames: readonly Game[], miniGames: readonly Game[]): re
   return [...slotGames, ...miniGames].filter((g) => g.isHot === true);
 }
 
-function buildTabLabel(id: FilterTab, slotCount: number, miniCount: number): string {
-  if (id === 'slot') return `Slots (${slotCount})`;
-  if (id === 'mini') return `Originals (${miniCount})`;
+function buildTabLabel(id: FilterTab, slotCount: number, miniCount: number, loading: boolean): string {
+  if (id === 'slot') return loading ? 'Slots' : `Slots (${slotCount})`;
+  if (id === 'mini') return loading ? 'Originals' : `Originals (${miniCount})`;
   return 'Hot';
 }
 
@@ -138,11 +138,11 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
 
   const tabs = useMemo(
     (): readonly TabDefinition[] => [
-      { id: 'slot', label: buildTabLabel('slot', slotGames.length, miniGames.length) },
-      { id: 'mini', label: buildTabLabel('mini', slotGames.length, miniGames.length) },
-      { id: 'new', label: buildTabLabel('new', slotGames.length, miniGames.length) },
+      { id: 'slot', label: buildTabLabel('slot', slotGames.length, miniGames.length, loading) },
+      { id: 'mini', label: buildTabLabel('mini', slotGames.length, miniGames.length, loading) },
+      { id: 'new', label: buildTabLabel('new', slotGames.length, miniGames.length, loading) },
     ],
-    [slotGames.length, miniGames.length],
+    [slotGames.length, miniGames.length, loading],
   );
 
   const currentGames = useMemo((): readonly Game[] => {
