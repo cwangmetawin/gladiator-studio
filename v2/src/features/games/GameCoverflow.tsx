@@ -261,6 +261,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
       exit={{ opacity: 0 }}
       transition={{ duration: (isPresent ? closing ? timeline.exitMs : timeline.frameMs : closing ? 0 : timeline.exitMs) / 1000, ease: motionTokens.ease }}
       role="dialog"
+      aria-modal="true"
       aria-labelledby={titleId}
       tabIndex={-1}
       onWheel={onWheel}
