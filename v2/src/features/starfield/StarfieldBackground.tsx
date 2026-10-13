@@ -4,6 +4,9 @@ import { soundEngine } from '@/shared/utils/soundEngine';
 import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } from '@/shared/utils/frameTime';
 import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
 import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
+import { transitionStore } from '@/shared/motion/transitionStore';
+import { journeyMotion } from '@/features/journey/journeyMotion';
+import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -18,28 +21,9 @@ const SKY_RADIUS = 220;
 const CAMERA_ALPHA = -Math.PI / 2;
 const CAMERA_BETA = IS_MOBILE ? Math.PI / 2 : Math.PI / 2.5; // mobile: straight-on view, earth centered
 const CAMERA_RADIUS = IS_MOBILE ? 36 : 30;
-const CAMERA_AUTO_ROTATE = perSecond(IS_MOBILE ? 0.00035 : 0.00060); // idle drift through the cosmos
-const CAMERA_PANEL_DRIFT  = perSecond(0.00040); // gentle orbit kept alive while a planet is framed
-const CAMERA_LERP_RATE = approachRate(0.02);
 const CAMERA_FAST_RATE = approachRate(0.06);
-const CAMERA_RETURN_RATE = approachRate(0.03);
 const CAMERA_OFFSET_RATE = approachRate(0.04);
 const PANEL_LIGHT_DURATION = secondsFromFrames(30);
-
-// Per-panel camera fly-to targets (alpha, beta, radius for ArcRotateCamera)
-const MOBILE_ZOOM = IS_MOBILE ? 4 : 0; // extra distance on mobile
-const CAMERA_TARGETS: Record<string, { readonly alpha: number; readonly beta: number; readonly radius: number }> = {
-  'none':    { alpha: CAMERA_ALPHA,  beta: CAMERA_BETA, radius: (IS_MOBILE ? 36 : 30) },
-  'cosmos':  { alpha: -0.6,          beta: Math.PI / 2.25, radius: 52 }, // wide star-sea view (Games coverflow); matches no planet → all fade
-
-  'games':   { alpha: -0.5,          beta: Math.PI / 3,   radius: 14 + MOBILE_ZOOM },
-  'about':   { alpha: 0.8,           beta: Math.PI / 2.2, radius: 16 + MOBILE_ZOOM },
-  'team':    { alpha: -1.2,          beta: Math.PI / 2.8, radius: 15 + MOBILE_ZOOM },
-  'journey': { alpha: 1.5,           beta: Math.PI / 3.5, radius: 20 + MOBILE_ZOOM },
-  'live':    { alpha: 0,             beta: Math.PI / 4,   radius: 12 + MOBILE_ZOOM },
-  'careers': { alpha: -0.8,          beta: Math.PI / 2,   radius: 22 + MOBILE_ZOOM },
-  'contact': { alpha: 0.3,           beta: Math.PI / 1.8, radius: 16 + MOBILE_ZOOM },
-};
 
 // ─── Starfield builder ────────────────────────────────────────────────────────
 
@@ -613,13 +597,29 @@ function buildScene(
     fireSparkle(amount);
   });
 
-  // ── Camera lerp state — mutated by the camera target subscription ──────────
-  let focalPanelId       = 'none'; // which planet is currently framed (fade the rest)
-  let cameraTargetAlpha  = CAMERA_ALPHA;
-  let cameraTargetBeta   = CAMERA_BETA;
-  let cameraTargetRadius = CAMERA_RADIUS;
-  let cameraHasPanel     = false;
-  let cameraTargetPos    = BABYLON.Vector3.Zero(); // orbit pivot — flies to the active planet
+  // The adapter snapshots the real Babylon pose whenever the shared request changes.
+  let focalPanelId = 'none';
+  let cameraHasPanel = false;
+  const homePose = { alpha: CAMERA_ALPHA, beta: CAMERA_BETA, radius: CAMERA_RADIUS, x: 0, y: 0, z: 0, screenX: 0 };
+  const cameraNarrative = createCameraNarrative({
+    read: () => ({ alpha: camera.alpha, beta: camera.beta, radius: camera.radius,
+      x: camera.target.x, y: camera.target.y, z: camera.target.z, screenX: camera.targetScreenOffset.x }),
+    write: pose => {
+      camera.alpha = pose.alpha;
+      camera.beta = pose.beta;
+      camera.radius = pose.radius;
+      camera.target.set(pose.x, pose.y, pose.z);
+      camera.targetScreenOffset.x = pose.screenX;
+    },
+    target: panel => {
+      const planet = PLANET_BY_PANEL.get(panel);
+      return panelCameraPose(panel, homePose, planet ? {
+        x: planet.position.x, y: planet.position.y, z: planet.position.z, radius: planet.viewRadius,
+      } : undefined);
+    },
+    journey: journeyMotion.getSnapshot,
+    isPhone: () => window.innerWidth <= 767,
+  });
 
   // ── Panel glow colors — one per panelId ─────────────────────────────────────
   const PANEL_GLOW_COLORS: Record<string, string> = {
@@ -637,40 +637,16 @@ function buildScene(
   let activePanelLight: InstanceType<BabylonModule['PointLight']> | null = null;
   let panelLightElapsed = 0;
 
-  // Camera screen offset target — shifts earth to non-panel center
-  let targetScreenOffsetX = 0;
-
-  const unsubscribeCameraTarget = sceneEvents.onCameraTarget(({ panelId }) => {
-    // ── Camera target lerp ───────────────────────────────────────────────────
-    const target = CAMERA_TARGETS[panelId] ?? CAMERA_TARGETS['none'] ?? { alpha: CAMERA_ALPHA, beta: Math.PI / 2.5, radius: CAMERA_RADIUS };
-    cameraTargetAlpha  = target.alpha;
-    cameraTargetBeta   = target.beta;
+  let cameraRevision = -1;
+  const syncCameraTarget = () => {
+    const state = transitionStore.getSnapshot();
+    if (cameraRevision === state.revision) return;
+    cameraRevision = state.revision;
+    cameraNarrative.sync(state);
+    if (state.mode === 'phone' || window.innerWidth <= 767) return;
+    const panelId = state.target === 'games' ? 'cosmos' : state.target;
     focalPanelId = panelId;
-    // Fly the camera INTO the section's planet; overview returns to the core.
-    const planet = PLANET_BY_PANEL.get(panelId);
-    cameraTargetPos    = planet ? planet.position : BABYLON.Vector3.Zero();
-    cameraTargetRadius = planet ? planet.viewRadius : target.radius;
-    cameraHasPanel     = panelId !== 'none';
-
-    // Offset earth to center of non-panel space (panel is ~45vw, desktop only)
-    if (IS_MOBILE) {
-      // Mobile: panels are fullscreen, no X offset needed
-      targetScreenOffsetX = 0;
-    } else {
-      // Shift the framed planet into the centre of the free (non-panel) half.
-      // Offset must scale with the view radius — the screen shift it produces is
-      // offset / (2·radius·tan(fov/2)·aspect), so a fixed value drifts off-screen
-      // at close-up radii. ~0.30·radius lands the planet ~72% across the viewport.
-      const LEFT_CHECK = new Set(['games', 'about', 'team', 'journey']);
-      const shift = cameraTargetRadius * 0.30;
-      if (panelId === 'none') {
-        targetScreenOffsetX = 0;
-      } else if (LEFT_CHECK.has(panelId)) {
-        targetScreenOffsetX = shift;   // planet sits in the right free space
-      } else {
-        targetScreenOffsetX = -shift;  // planet sits in the left free space
-      }
-    }
+    cameraHasPanel = panelId !== 'none';
 
     // ── Clean up previous light ──────────────────────────────────────────────
     if (activePanelLight) {
@@ -693,10 +669,12 @@ function buildScene(
     );
     light.diffuse = lightColor;
     light.specular = lightColor;
-    light.intensity = 0;
+    light.intensity = state.mode === 'reduced' ? 0.4 : 0;
     light.range = 20;
     activePanelLight = light;
     panelLightElapsed = 0;
+
+    if (state.mode === 'reduced') return;
 
     // ── Particle burst at camera direction ────────────────────────────────────
     const ps = new BABYLON.ParticleSystem('panelBurst_' + Date.now(), 80, scene);
@@ -717,10 +695,13 @@ function buildScene(
     ps.targetStopDuration = 0.4;
     ps.disposeOnStop = true;
     ps.start();
-  });
+  };
+  const unsubscribeCameraTarget = transitionStore.subscribe(syncCameraTarget);
+  syncCameraTarget();
 
   // ── Blackhole effect state ────────────────────────────────────────────────
   let blackholeActive = false;
+  let wasBlackhole = false;
   let blackholeProgress = 0; // 0 = normal, 1 = full blackhole
   const BLACKHOLE_SPEED = perSecond(0.015); // ~1.1s to full effect
 
@@ -742,6 +723,7 @@ function buildScene(
       blackholeProgress = Math.max(0, blackholeProgress - BLACKHOLE_SPEED * 0.7 * dt);
     }
     if (blackholeProgress > 0.001) {
+      wasBlackhole = true;
       const t = blackholeProgress;
       // Ease-in: slow start then explosive acceleration
       const eased = t * t;
@@ -786,10 +768,9 @@ function buildScene(
         );
       }
 
-    } else if (blackholeProgress <= 0.001 && (camera.fov < 0.79 || camera.radius > 20)) {
+    } else if (blackholeProgress <= 0.001 && camera.fov < 0.79) {
       // ── RETURN from deep space — fly back to earth ──
       camera.fov = approach(camera.fov, 0.8, CAMERA_OFFSET_RATE, dt);
-      camera.radius = approach(camera.radius, cameraTargetRadius, CAMERA_RETURN_RATE, dt);
       scene.clearColor = new BABYLON.Color4(0.02, 0.02, 0.04, 1);
       if (starMesh) { starMesh.scaling.setAll(1); starMesh.visibility = 1; }
     }
@@ -819,7 +800,7 @@ function buildScene(
     for (const p of navPlanets) {
       p.mesh.rotation.y += p.spin * dt;
       const targetVis = !cameraHasPanel || p.panelId === focalPanelId ? 1 : 0;
-      const vis = approach(p.mesh.visibility, targetVis, CAMERA_FAST_RATE, dt);
+      const vis = transitionStore.getSnapshot().mode === 'reduced' ? targetVis : approach(p.mesh.visibility, targetVis, CAMERA_FAST_RATE, dt);
       p.mesh.visibility = vis;
       p.mesh.setEnabled(vis > 0.012);
       if (p.ring) { p.ring.visibility = vis; p.ring.setEnabled(vis > 0.012); }
@@ -834,24 +815,14 @@ function buildScene(
     planets.nebula1.rotation.y += perSecond(0.00005) * dt;
     planets.nebula2.rotation.y -= perSecond(0.00004) * dt;
 
-    // Continuous orbital drift so the cosmos never freezes — a faster free
-    // wander on the overview, a gentle keep-alive orbit while a planet is framed.
-    cameraTargetAlpha += (cameraHasPanel ? CAMERA_PANEL_DRIFT : CAMERA_AUTO_ROTATE) * dt;
-
-    // Smooth camera lerp to target position
-    camera.alpha  = approach(camera.alpha, cameraTargetAlpha, CAMERA_LERP_RATE, dt);
-    camera.beta   = approach(camera.beta, cameraTargetBeta, CAMERA_LERP_RATE, dt);
-    camera.radius = approach(camera.radius, cameraTargetRadius, CAMERA_LERP_RATE, dt);
-
-    // Fly the orbit pivot toward the active planet (or back to the core)
-    const ct = camera.target;
-    ct.x = approach(ct.x, cameraTargetPos.x, CAMERA_LERP_RATE, dt);
-    ct.y = approach(ct.y, cameraTargetPos.y, CAMERA_LERP_RATE, dt);
-    ct.z = approach(ct.z, cameraTargetPos.z, CAMERA_LERP_RATE, dt);
-
-    // Screen offset — shifts earth to center of non-panel space
-    const currentOffsetX = camera.targetScreenOffset.x;
-    camera.targetScreenOffset.x = approach(currentOffsetX, targetScreenOffsetX, CAMERA_OFFSET_RATE, dt);
+    // The timed flight shares React's clock. Journey alone uses a reversible scrub.
+    if (!blackholeActive && blackholeProgress <= 0.001) {
+      if (wasBlackhole) {
+        cameraNarrative.resume(transitionStore.getSnapshot(), performance.now());
+        wasBlackhole = false;
+      }
+      cameraNarrative.update(transitionStore.getSnapshot(), performance.now(), dt);
+    }
 
     // Fade the current panel light over the original 30/60 = 0.5 seconds.
     if (activePanelLight && panelLightElapsed < PANEL_LIGHT_DURATION) {
@@ -923,6 +894,11 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         stop: () => engine.stopRenderLoop(),
       });
       const { startLoop, renderStatic } = loop;
+      canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;
+      const unsubscribeStaticTransition = transitionStore.subscribe(() => {
+        canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;
+        if (motionQuery.matches && !suspendedRef.current && !document.hidden) renderStatic();
+      });
       syncLoopRef.current = startLoop;
       startLoop();
       motionQuery.addEventListener('change', startLoop);
@@ -952,6 +928,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         motionQuery.removeEventListener('change', startLoop);
         document.removeEventListener('visibilitychange', startLoop);
         syncLoopRef.current = null;
+        unsubscribeStaticTransition();
         loop.dispose();
         scene.dispose();
         engine.dispose();

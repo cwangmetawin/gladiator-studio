@@ -1,4 +1,6 @@
-import type { ReactNode } from 'react';
+import { useContext, type ReactNode } from 'react';
+import { PanelMotionContext } from '@/shared/motion/panelMotion';
+import { Reveal } from './Reveal';
 import { Eyebrow } from './Eyebrow';
 import { DecodeText } from './DecodeText';
 
@@ -19,6 +21,16 @@ export function SectionHeading({
   as: Tag = 'h2',
   className = '',
 }: SectionHeadingProps) {
+  const panel = useContext(PanelMotionContext);
+  if (panel) {
+    return (
+      <div className={`flex flex-col gap-3 ${className}`.trim()}>
+        {eyebrow && <Reveal stage="eyebrow" y={0}><Eyebrow dot>{eyebrow}</Eyebrow></Reveal>}
+        <Reveal stage="title" y={8}><Tag className="section-heading">{title}</Tag></Reveal>
+        {lede && <Reveal stage="body" y={8}><p className="section-lede">{lede}</p></Reveal>}
+      </div>
+    );
+  }
   return (
     <div className={`flex flex-col gap-3 ${className}`.trim()}>
       {eyebrow && <Eyebrow dot>{eyebrow}</Eyebrow>}

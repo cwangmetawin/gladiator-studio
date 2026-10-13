@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useId, useMemo, useState, useCallback, useRef } from 'react';
+import { Suspense, lazy, useEffect, useLayoutEffect, useId, useMemo, useState, useCallback, useRef } from 'react';
 import { AnimatePresence, motion, MotionConfig, useIsPresent } from 'framer-motion';
 import '@/styles/index.css';
 import {
@@ -22,6 +22,11 @@ import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
 import { CursorFX } from '@/shared/ui/CursorFX';
 import { LiveTicker } from '@/features/live-feed/LiveTicker';
+import { ContentPanel } from '@/shared/motion/ContentPanel';
+import { transitionStore } from '@/shared/motion/transitionStore';
+import { useTransition } from '@/shared/motion/useTransition';
+import { isPanelId, type PanelId } from '@/shared/motion/transition';
+import { motionTokens, transitionTimeline, type MotionMode } from '@/shared/motion/tokens';
 
 const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
 const GameShowcase = lazy(() => import('@/features/games/GameShowcase').then(m => ({ default: m.GameShowcase })));
@@ -37,8 +42,6 @@ const PartnerArea = lazy(() => import('@/features/partner/PartnerArea').then(m =
 const BAR_H = 56;
 const HOLO = 'var(--color-holo-500)';
 const HOLO_DIM = 'var(--color-line)';
-
-type PanelId = 'none' | 'games' | 'about' | 'team' | 'journey' | 'live' | 'careers' | 'contact';
 
 const NAV_ITEMS: readonly { label: string; panelId: PanelId; icon: React.ComponentType<{ size?: number }> }[] = [
   { label: 'Games', panelId: 'games', icon: Gamepad2 },
@@ -188,17 +191,6 @@ function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientAr
 
 // ─── Content panel (sliding glass drawer) ─────────────────────────────────────
 
-interface ContentPanelProps {
-  readonly panelId: PanelId;
-  readonly side: 'left' | 'right';
-  readonly onClose: () => void;
-  readonly children: React.ReactNode;
-  readonly isMobile: boolean;
-  /** Mobile only: opens the nav drawer from the panel header (the floating menu
-   *  button is hidden while a full-screen panel is open so it never covers content). */
-  readonly onMenu?: () => void;
-}
-
 function PanelSpinner() {
   return (
     <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 48, color: HOLO }}>
@@ -212,92 +204,26 @@ function PanelSpinner() {
   );
 }
 
-function ContentPanel({ panelId, side, onClose, children, isMobile, onMenu }: ContentPanelProps) {
-  const isLeft = side === 'left';
-  const navItem = NAV_ITEMS.find(n => n.panelId === panelId);
-  const index = navItem ? NAV_ITEMS.indexOf(navItem) + 1 : 0;
-  const label = navItem?.label ?? panelId;
-  const indexLabel = `${String(index).padStart(2, '0')} / ${String(NAV_ITEMS.length).padStart(2, '0')}`;
-
-  return (
-    <motion.aside
-      key={panelId}
-      initial={{ x: isLeft ? '-101%' : '101%' }}
-      animate={{ x: 0 }}
-      exit={{ x: isLeft ? '-101%' : '101%' }}
-      transition={{ type: 'spring', stiffness: 320, damping: 38 }}
-      aria-label={`${label} panel`}
-      className="glass"
-      style={{
-        position: 'fixed',
-        top: isMobile ? 0 : BAR_H,
-        bottom: isMobile ? 0 : BAR_H,
-        [isLeft ? 'left' : 'right']: 0,
-        width: isMobile ? '100vw' : 'clamp(340px, 44vw, 660px)',
-        borderRadius: 0,
-        [isLeft ? 'borderRight' : 'borderLeft']: `1px solid ${HOLO_DIM}`,
-        borderTop: 'none', borderBottom: 'none',
-        [isLeft ? 'borderLeft' : 'borderRight']: 'none',
-        zIndex: 40,
-        display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
-        pointerEvents: 'auto',
-        paddingTop: isMobile ? 'env(safe-area-inset-top, 0px)' : 0,
-      }}
-    >
-      {/* Header */}
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '16px 20px', borderBottom: `1px solid ${HOLO_DIM}`, flexShrink: 0,
-      }}>
-        <span className="eyebrow">
-          <span className="eyebrow__dot animate-electric-pulse" aria-hidden="true" />
-          {label}
-          <span style={{ color: 'var(--color-text-dim)', marginLeft: 8 }}>{indexLabel}</span>
-        </span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {isMobile && onMenu && (
-            <button type="button" onClick={() => { soundEngine.click(); onMenu(); }} className="icon-btn" aria-label="Open menu">
-              <Menu size={15} aria-hidden="true" />
-            </button>
-          )}
-          <button type="button" onClick={() => { soundEngine.click(); onClose(); }} className="icon-btn" aria-label={`Close ${label} panel`}>
-            <X size={15} aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
-      {/* Scrollable content */}
-      <div
-        className="panel-content"
-        style={{
-          flex: 1, overflowY: 'auto', overflowX: 'hidden', overscrollBehavior: 'contain', padding: 'clamp(20px, 3vw, 36px)',
-          // Full-screen on phones: keep the last row clear of the iOS home indicator.
-          paddingBottom: isMobile ? 'calc(28px + env(safe-area-inset-bottom, 0px))' : undefined,
-        }}
-      >
-        {children}
-      </div>
-    </motion.aside>
-  );
-}
-
 // ─── Desktop command bar ──────────────────────────────────────────────────────
 
 interface CommandBarProps {
   readonly activePanel: PanelId;
   readonly onActivate: (id: PanelId) => void;
+  readonly visible: boolean;
+  readonly durationMs: number;
 }
 
-function CommandBar({ activePanel, onActivate }: CommandBarProps) {
+function CommandBar({ activePanel, onActivate, visible, durationMs }: CommandBarProps) {
+  const isPresent = useIsPresent();
   return (
     <motion.nav
       aria-label="Primary"
       className="shell-bar"
       initial={{ y: BAR_H, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
+      animate={visible ? { y: 0, opacity: 1 } : { y: BAR_H, opacity: 0 }}
       exit={{ y: BAR_H, opacity: 0 }}
-      transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: isPresent ? durationMs / 1000 : 0, ease: motionTokens.ease }}
+      inert={!visible}
       style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
         minHeight: BAR_H,
@@ -340,12 +266,14 @@ interface MobileDrawerProps {
   readonly onActivate: (id: PanelId) => void;
   /** The top bar hides its Client Area button on phones — this is the mobile route in. */
   readonly onClientArea: () => void;
+  readonly motionMode: MotionMode;
 }
 
-function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }: MobileDrawerProps) {
+function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, motionMode }: MobileDrawerProps) {
   const titleId = useId();
   const isolationRef = useRef<HTMLDivElement>(null);
   const dialogRef = useDialogFocus<HTMLElement>({ active: isOpen, onEscape: onClose, isolationRef });
+  const durationMs = motionMode === 'reduced' ? motionTokens.reducedFadeMs : motionTokens.phonePanelMs;
   const handleSelect = useCallback((id: PanelId) => {
     // Selecting the already-open section keeps it open (handleActivate toggles).
     if (id !== activePanel) onActivate(id);
@@ -359,7 +287,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
           <motion.div
             key="drawer-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: durationMs / 1000, ease: motionTokens.ease }}
             onClick={onClose}
             style={{ position: 'fixed', inset: 0, zIndex: 60, background: 'rgba(3,4,8,0.6)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
           />
@@ -370,8 +298,9 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
             aria-modal="true"
             aria-labelledby={titleId}
             tabIndex={-1}
-            initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
-            transition={{ type: 'spring', stiffness: 360, damping: 36 }}
+            initial={{ x: '100%', opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: '100%', opacity: 0 }}
+            transition={{ duration: durationMs / 1000, ease: motionTokens.ease,
+              x: { duration: motionMode === 'reduced' ? 0 : durationMs / 1000, ease: motionTokens.ease } }}
             className="glass"
             style={{
               position: 'fixed', top: 0, right: 0, bottom: 0, zIndex: 61, width: 280,
@@ -422,12 +351,13 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea }
   );
 }
 
-function MobileMenuButton({ onClick }: { readonly onClick: () => void }) {
+function MobileMenuButton({ onClick, visible }: { readonly onClick: () => void; readonly visible: boolean }) {
   return (
     <motion.button
       type="button"
       onClick={onClick}
       aria-label="Open menu"
+      aria-hidden={!visible} tabIndex={visible ? 0 : -1}
       whileTap={{ scale: 0.92 }}
       className="glass"
       style={{
@@ -437,6 +367,7 @@ function MobileMenuButton({ onClick }: { readonly onClick: () => void }) {
         width: 54, height: 54, borderRadius: '50%',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         color: HOLO, cursor: 'pointer',
+        visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none',
       }}
     >
       <Menu size={22} aria-hidden="true" />
@@ -550,13 +481,23 @@ export function App() {
   const { verified, verify, reject, showGate } = useAgeGate();
   const [introComplete, setIntroComplete] = useState(false);
   const [gameData, setGameData] = useState<GameData | null>(null);
-  const [activePanel, setActivePanel] = useState<PanelId>('none');
   const [playingGame, setPlayingGame] = useState<{ title: string; link: string } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
   const isMobile = useIsMobile();
+  const transition = useTransition(isMobile);
+  const activePanel = transition.panel;
+  const timeline = transitionTimeline(transition.mode, transition.kind);
   const playTimerRef = useRef<number | null>(null);
-  const catalogueOpenerRef = useRef<HTMLElement | null>(null);
+  const panelOpenerRef = useRef<HTMLElement | null>(null);
+  const previousPhase = useRef(transition.phase);
+  useLayoutEffect(() => {
+    // Mobile menu visibility is restored in this commit, after dialog cleanup.
+    if (transition.phase === 'idle' && previousPhase.current !== 'idle') {
+      panelOpenerRef.current?.focus({ preventScroll: true });
+    }
+    previousPhase.current = transition.phase;
+  }, [transition.phase]);
 
   const feed = useFeederSocket();
   const { events, isConnected, totalAmount, gladiatorCount, originalCount } = feed;
@@ -569,10 +510,10 @@ export function App() {
     sceneEvents.emitBlackhole(false);
   }, []);
 
-  const rememberCatalogueOpener = useCallback((id: PanelId) => {
-    if (id !== 'games') return;
+  const rememberPanelOpener = useCallback((id: PanelId) => {
+    if (id === 'none' || (transitionStore.getSnapshot().phase !== 'idle' && panelOpenerRef.current !== null)) return;
     const focused = document.activeElement;
-    catalogueOpenerRef.current = focused instanceof HTMLElement ? focused : null;
+    panelOpenerRef.current = focused instanceof HTMLElement ? focused : null;
   }, []);
 
   useEffect(() => {
@@ -582,7 +523,7 @@ export function App() {
   // Play-game events from GameCard
   useEffect(() => {
     const handler = (e: CustomEvent<{ title: string; link: string }>) => {
-      if (activePanel !== 'games') return;
+      if (activePanel !== 'games' || transitionStore.getSnapshot().target !== 'games') return;
       cancelPendingPlay();
       if (isMobile) {
         setPlayingGame(e.detail);
@@ -604,13 +545,14 @@ export function App() {
   // Open-panel events from Hero buttons
   useEffect(() => {
     const handler = (e: CustomEvent<string>) => {
-      const id = e.detail as PanelId;
-      rememberCatalogueOpener(id);
-      setActivePanel(id);
+      if (!isPanelId(e.detail)) return;
+      cancelPendingPlay();
+      rememberPanelOpener(e.detail);
+      transitionStore.request(e.detail);
     };
     window.addEventListener('open-panel' as string, handler as EventListener);
     return () => window.removeEventListener('open-panel' as string, handler as EventListener);
-  }, [rememberCatalogueOpener]);
+  }, [cancelPendingPlay, rememberPanelOpener]);
 
   // Close panel / game with Escape
   useEffect(() => {
@@ -619,28 +561,26 @@ export function App() {
       e.preventDefault();
       cancelPendingPlay();
       if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
-      else if (activePanel !== 'none') { soundEngine.panelClose(); setActivePanel('none'); }
+      else if (transitionStore.getSnapshot().target !== 'none') { soundEngine.panelClose(); transitionStore.request('none'); }
       else if (drawerOpen) setDrawerOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playingGame, activePanel, drawerOpen, cancelPendingPlay]);
+  }, [playingGame, drawerOpen, cancelPendingPlay]);
 
   const handleActivate = useCallback((id: PanelId) => {
     cancelPendingPlay();
-    rememberCatalogueOpener(id);
-    setActivePanel(prev => {
-      const next = prev === id ? 'none' : id;
-      if (next === 'none') soundEngine.panelClose();
-      else soundEngine.panelOpen();
-      return next;
-    });
-  }, [cancelPendingPlay, rememberCatalogueOpener]);
+    rememberPanelOpener(id);
+    const next = transitionStore.getSnapshot().target === id ? 'none' : id;
+    if (next === 'none') soundEngine.panelClose();
+    else soundEngine.panelOpen();
+    transitionStore.request(next);
+  }, [cancelPendingPlay, rememberPanelOpener]);
 
   const handleClose = useCallback(() => {
     cancelPendingPlay();
     soundEngine.panelClose();
-    setActivePanel('none');
+    transitionStore.request('none');
   }, [cancelPendingPlay]);
 
   const closeGame = useCallback(() => {
@@ -648,14 +588,6 @@ export function App() {
     sceneEvents.emitBlackhole(false);
     setPlayingGame(null);
   }, [cancelPendingPlay]);
-
-  // Fly the 3D camera to the celestial body for the active panel. Desktop Games
-  // browses against the open cosmos (star sea) rather than a single planet, so all
-  // planets fade out for it.
-  useEffect(() => {
-    const onCoverflow = activePanel === 'games' && !isMobile;
-    sceneEvents.emitCameraTarget({ panelId: onCoverflow ? 'cosmos' : activePanel });
-  }, [activePanel, isMobile]);
 
   const activeSide: 'left' | 'right' = LEFT_PANELS.includes(activePanel) ? 'left' : 'right';
 
@@ -682,7 +614,8 @@ export function App() {
   return (
     <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
-    <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
+    <div data-transition={transition.phase} data-transition-target={transition.target}
+      style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
       <a href="#main" className="skip-to-content">Skip to content</a>
 
       {/* 3D scene — always behind everything */}
@@ -700,15 +633,16 @@ export function App() {
         <motion.div
           key="hero-full"
           initial={{ opacity: 0 }}
-          animate={activePanel === 'none'
-            ? { opacity: 1, scale: 1, visibility: 'visible' }
-            : { opacity: 0, scale: 0.96, transition: { duration: 0.2 }, transitionEnd: { visibility: 'hidden' } }}
-          // The coverflow manager captures the opener before making its ancestors inert.
-          inert={activePanel !== 'none' && !showCoverflow}
-          transition={{ duration: 0.4 }}
-          style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, visibility: activePanel === 'none' ? 'visible' : undefined }}
+          animate={transition.hubVisible
+            ? { opacity: 1, visibility: 'visible' }
+            : { opacity: 0, transitionEnd: { visibility: 'hidden' } }}
+          // The request captures the opener before the presented panel hides the hub.
+          inert={activePanel !== 'none'}
+          transition={{ duration: (transition.hubVisible ? timeline.hubMs : transition.mode === 'desktop' ? motionTokens.hubDimMs : timeline.frameMs) / 1000,
+            delay: transition.hubVisible ? 0 : timeline.feedbackMs / 1000, ease: motionTokens.ease }}
+          style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, visibility: transition.hubVisible ? 'visible' : undefined }}
         >
-          <Hero panelSide={activeSide} active={activePanel === 'none'} />
+          <Hero panelSide={activeSide} active={transition.hubVisible} target={transition.target} />
         </motion.div>
       </main>
 
@@ -720,60 +654,62 @@ export function App() {
 
       {/* Homepage live-wins ticker — horizontal crawl across the hero's bottom edge.
           Shares App's single feeder socket (no second connection). */}
-      {activePanel === 'none' && <LiveTicker events={events} isConnected={isConnected} />}
+      {transition.phase === 'idle' && <LiveTicker events={events} isConnected={isConnected} />}
 
       {/* Full-screen 3D coverflow — desktop Games */}
       <AnimatePresence>
         {showCoverflow && (
           <Suspense fallback={null}>
-            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} suspended={playingGame !== null} returnFocusRef={catalogueOpenerRef} />
+            <GameCoverflow games={allGames} loading={gameData === null} onClose={handleClose} suspended={playingGame !== null} returnFocusRef={panelOpenerRef} narrative={transition} />
           </Suspense>
         )}
       </AnimatePresence>
 
       {/* Sliding content panel (other sections + mobile Games) */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
-        <AnimatePresence mode="wait">
-          {activePanel !== 'none' && !showCoverflow && (
-            <ContentPanel key={activePanel} panelId={activePanel} side={activeSide} onClose={handleClose} isMobile={isMobile} onMenu={() => setDrawerOpen(true)}>
-              <ErrorBoundary>
-                <Suspense fallback={<PanelSpinner />}>
-                  {activePanel === 'games' && (
-                    <GameShowcase slotGames={gameData?.slotGames ?? []} miniGames={gameData?.miniGames ?? []} loading={gameData === null} />
-                  )}
-                  {activePanel === 'about' && <AboutSection />}
-                  {activePanel === 'team' && <TeamSection />}
-                  {activePanel === 'journey' && <JourneySection />}
-                  {activePanel === 'live' && <LiveActivityFeed {...feed} />}
-                  {activePanel === 'careers' && <CareersSection />}
-                  {activePanel === 'contact' && <ContactSection />}
-                </Suspense>
-              </ErrorBoundary>
-            </ContentPanel>
-          )}
-        </AnimatePresence>
+        {activePanel !== 'none' && !showCoverflow && (
+          <ContentPanel panelId={activePanel} side={activeSide} label={NAV_ITEMS.find(item => item.panelId === activePanel)?.label ?? activePanel}
+            index={NAV_ITEMS.findIndex(item => item.panelId === activePanel) + 1} count={NAV_ITEMS.length}
+            onClose={handleClose} isMobile={isMobile} onMenu={() => setDrawerOpen(true)} returnFocusRef={panelOpenerRef} transition={transition}>
+            <ErrorBoundary>
+              <Suspense fallback={<PanelSpinner />}>
+                {activePanel === 'games' && (
+                  <GameShowcase slotGames={gameData?.slotGames ?? []} miniGames={gameData?.miniGames ?? []} loading={gameData === null} />
+                )}
+                {activePanel === 'about' && <AboutSection />}
+                {activePanel === 'team' && <TeamSection />}
+                {activePanel === 'journey' && <JourneySection />}
+                {activePanel === 'live' && <LiveActivityFeed {...feed} />}
+                {activePanel === 'careers' && <CareersSection />}
+                {activePanel === 'contact' && <ContactSection />}
+              </Suspense>
+            </ErrorBoundary>
+          </ContentPanel>
+        )}
       </div>
 
       {/* Navigation */}
       {isMobile ? (
         <>
-          {activePanel === 'none' && clientArea === 'closed' && (
-            <MobileMenuButton onClick={() => { soundEngine.click(); setDrawerOpen(true); }} />
+          {clientArea === 'closed' && (
+            <MobileMenuButton visible={transition.phase === 'idle'} onClick={() => { rememberPanelOpener('about'); soundEngine.click(); setDrawerOpen(true); }} />
           )}
           <MobileDrawer
             isOpen={drawerOpen}
+            motionMode={transition.mode}
             onClose={() => setDrawerOpen(false)}
-            activePanel={activePanel}
+            activePanel={transition.target}
             onActivate={handleActivate}
-            onClientArea={() => { setActivePanel('none'); setClientArea('transitioning'); }}
+            onClientArea={() => { transitionStore.request('none'); setClientArea('transitioning'); }}
           />
         </>
       ) : (
         // Footer nav is redundant with the hero holo-nodes on home — show it only
         // while a panel is open, where it's the quick way to switch sections.
         <AnimatePresence>
-          {activePanel !== 'none' && (
-            <CommandBar key="cmdbar" activePanel={activePanel} onActivate={handleActivate} />
+          {transition.phase !== 'idle' && (
+            <CommandBar key="cmdbar" activePanel={transition.target} onActivate={handleActivate}
+              visible={!transition.hubVisible} durationMs={transition.hubVisible ? timeline.hubMs : timeline.frameMs} />
           )}
         </AnimatePresence>
       )}

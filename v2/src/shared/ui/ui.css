@@ -399,6 +399,11 @@
   animation: panel-rise 0.55s var(--ease-out-expo) both;
 }
 
+/* Narrative panels use the shared clock; don't add the legacy second reveal. */
+.narrative-panel .panel-content > * { animation: none; }
+/* The deadline also wins over a reveal mounted just before the final RAF. */
+[data-reveal-static="true"] { opacity: 1 !important; transform: none !important; }
+
 @keyframes panel-rise {
   from { opacity: 0; transform: translateY(12px); }
   to   { opacity: 1; transform: none; }

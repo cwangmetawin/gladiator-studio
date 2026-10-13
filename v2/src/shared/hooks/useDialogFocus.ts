@@ -3,6 +3,8 @@ import { nextDialogFocusIndex } from '../dialogFocusOrder';
 
 interface DialogOptions {
   readonly active?: boolean;
+  /** Side panels move focus without isolating the desktop command bar. */
+  readonly modal?: boolean;
   readonly onEscape?: () => void;
   readonly initialFocusRef?: RefObject<HTMLElement | null>;
   /** Capture an opener before a lazy dialog or its background transition starts. */
@@ -13,6 +15,7 @@ interface DialogOptions {
 
 interface DialogEntry {
   readonly dialog: HTMLElement;
+  readonly modal: boolean;
   readonly scope: HTMLElement;
   readonly returnTo: HTMLElement | null;
   readonly initialFocus: () => HTMLElement | null;
@@ -48,7 +51,7 @@ function createDialogManager(doc: Document) {
     for (const [node, wasInert] of inertNodes) node.inert = wasInert;
     inertNodes.clear();
     const entry = top();
-    if (!entry) return;
+    if (!entry?.modal) return;
     let branch: HTMLElement = entry.scope;
     for (let parent = branch.parentElement; parent; parent = branch.parentElement) {
       for (const sibling of parent.children) {
@@ -62,7 +65,7 @@ function createDialogManager(doc: Document) {
 
   function containFocus() {
     const entry = top();
-    if (entry && !entry.dialog.contains(doc.activeElement)) focusInitial(entry);
+    if (entry?.modal && !entry.dialog.contains(doc.activeElement)) focusInitial(entry);
   }
 
   function onKeyDown(e: KeyboardEvent) {
@@ -72,7 +75,7 @@ function createDialogManager(doc: Document) {
       // Even a non-dismissible age gate must consume Escape so App cannot handle it.
       e.preventDefault();
       entry.onEscape();
-    } else if (e.key === 'Tab') {
+    } else if (e.key === 'Tab' && entry.modal) {
       e.preventDefault();
       const controls = focusableElements(entry.dialog);
       const index = nextDialogFocusIndex(controls.findIndex((el) => el === doc.activeElement), controls.length, e.shiftKey);
@@ -120,11 +123,11 @@ function createDialogManager(doc: Document) {
 const managers = new WeakMap<Document, ReturnType<typeof createDialogManager>>();
 
 /** Attach the returned ref to a named dialog with tabIndex={-1}. */
-export function useDialogFocus<T extends HTMLElement>({ active = true, onEscape, initialFocusRef, returnFocusRef, isolationRef }: DialogOptions = {}) {
+export function useDialogFocus<T extends HTMLElement>({ active = true, modal = true, onEscape, initialFocusRef, returnFocusRef, isolationRef }: DialogOptions = {}) {
   const dialogRef = useRef<T>(null);
   const openerRef = useRef<HTMLElement | null>(null);
   const latest = useRef({ onEscape, initialFocusRef });
-  const registration = useRef<{ readonly dialog: HTMLElement; readonly scope: HTMLElement; readonly dispose: () => void } | null>(null);
+  const registration = useRef<{ readonly dialog: HTMLElement; readonly scope: HTMLElement; readonly modal: boolean; readonly dispose: () => void } | null>(null);
 
   useLayoutEffect(() => {
     latest.current = { onEscape, initialFocusRef };
@@ -132,7 +135,7 @@ export function useDialogFocus<T extends HTMLElement>({ active = true, onEscape,
     const scope = isolationRef?.current ?? dialog;
     const current = registration.current;
     // A responsive dialog can replace its DOM root without closing its component.
-    if (current && (!active || current.dialog !== dialog || current.scope !== scope)) {
+    if (current && (!active || current.dialog !== dialog || current.scope !== scope || current.modal !== modal)) {
       current.dispose();
       registration.current = null;
     }
@@ -149,11 +152,11 @@ export function useDialogFocus<T extends HTMLElement>({ active = true, onEscape,
     if (!manager) { manager = createDialogManager(doc); managers.set(doc, manager); }
     if (!registration.current) {
       const dispose = manager.attach({
-        dialog, scope, returnTo: openerRef.current,
+        dialog, scope, modal, returnTo: openerRef.current,
         initialFocus: () => latest.current.initialFocusRef?.current ?? null,
         onEscape: () => latest.current.onEscape?.(),
       });
-      registration.current = { dialog, scope, dispose };
+      registration.current = { dialog, scope, modal, dispose };
     }
     // Busy states and conditional content can remove the focused control.
     manager.ensureFocus(dialog);
