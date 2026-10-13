@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { nextDialogFocusIndex } from '../dialogFocusOrder';
+import { createInertLedger } from '../dialogInert';
 
 interface DialogOptions {
   readonly active?: boolean;
@@ -44,23 +45,32 @@ function focusInitial(entry: DialogEntry): void {
 // Recomputing from the top layer also supports portals and out-of-order unmounts.
 function createDialogManager(doc: Document) {
   let entries: readonly DialogEntry[] = [];
-  const inertNodes = new Map<HTMLElement, boolean>();
+  const inertNodes = createInertLedger<HTMLElement>();
   const top = () => entries.at(-1);
 
-  function updateInert() {
-    for (const [node, wasInert] of inertNodes) node.inert = wasInert;
-    inertNodes.clear();
-    const entry = top();
-    if (!entry?.modal) return;
-    let branch: HTMLElement = entry.scope;
-    for (let parent = branch.parentElement; parent; parent = branch.parentElement) {
-      for (const sibling of parent.children) {
-        if (sibling === branch || !(sibling instanceof HTMLElement)) continue;
-        inertNodes.set(sibling, sibling.inert);
-        sibling.inert = true;
-      }
-      branch = parent;
+  // Pending inert records are someone else's writes (React's inert prop): ours are dropped
+  // right after we make them. Without this, closing the catalogue restored the door layer's
+  // stale inert and left every constellation door dead.
+  function noteExternalWrites(records: readonly MutationRecord[]) {
+    for (const record of records) {
+      if (record.type === 'attributes' && record.target instanceof HTMLElement) inertNodes.noteExternal(record.target);
     }
+  }
+
+  function updateInert() {
+    noteExternalWrites(observer.takeRecords());
+    inertNodes.releaseAll();
+    const entry = top();
+    if (entry?.modal) {
+      let branch: HTMLElement = entry.scope;
+      for (let parent = branch.parentElement; parent; parent = branch.parentElement) {
+        for (const sibling of parent.children) {
+          if (sibling !== branch && sibling instanceof HTMLElement) inertNodes.hold(sibling);
+        }
+        branch = parent;
+      }
+    }
+    observer.takeRecords();
   }
 
   function containFocus() {
@@ -83,14 +93,14 @@ function createDialogManager(doc: Document) {
     }
   }
 
-  const observer = new MutationObserver(() => { updateInert(); containFocus(); });
+  const observer = new MutationObserver((records) => { noteExternalWrites(records); updateInert(); containFocus(); });
 
   return {
     attach(entry: DialogEntry) {
       if (entries.length === 0) {
         doc.addEventListener('keydown', onKeyDown, true);
         doc.addEventListener('focusin', containFocus, true);
-        observer.observe(doc.body, { childList: true, subtree: true });
+        observer.observe(doc.body, { childList: true, subtree: true, attributeFilter: ['inert'] });
       }
       entries = [...entries, entry];
       updateInert();

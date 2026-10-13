@@ -89,8 +89,10 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
     };
   }, [active, phone, games]);
 
+  // `hidden` alone takes the doors out of clicks and focus. No `inert` prop: modal dialogs
+  // set and restore sibling inert, and a second writer here left every door dead (PR #14).
   return (
-    <nav ref={rootRef} className="constellation-doors" aria-label="Recent win constellations" inert={!active} hidden={!active}>
+    <nav ref={rootRef} className="constellation-doors" aria-label="Recent win constellations" hidden={!active}>
       {SLOTS.map(slot => (
         <button key={slot} type="button" className="constellation" hidden data-game="" data-cursor="VIEW"
           onClick={event => onFocusGame(event.currentTarget.dataset.game ?? '')}>

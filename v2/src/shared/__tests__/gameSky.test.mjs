@@ -580,6 +580,10 @@ test('the shipped catalogue opens with the requested centre card; doors are real
   const doorsHtml = renderToStaticMarkup(React.createElement(ConstellationDoors, { active: true, phone: false, games, onFocusGame() {} }));
   assert.equal((doorsHtml.match(/<button type="button" class="constellation"/g) ?? []).length, DESKTOP_DOOR_CAP);
   assert.match(doorsHtml, /aria-label="Recent win constellations"/);
+  // Inactive doors rely on `hidden` only: a React inert prop fights the modal dialog manager.
+  const inactiveHtml = renderToStaticMarkup(React.createElement(ConstellationDoors, { active: false, phone: false, games, onFocusGame() {} }));
+  assert.match(inactiveHtml, /<nav[^>]*hidden=""/);
+  assert.doesNotMatch(inactiveHtml, /<nav[^>]*\binert\b/);
   assert.match(doorsHtml, /data-game=""/);
 });
 

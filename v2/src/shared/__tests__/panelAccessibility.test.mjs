@@ -45,8 +45,10 @@ const { SectionWrapper } = await import(sectionUrl);
 const { CountUp } = await import(moduleUrl(withContext(source('../ui/CountUp.tsx'))
   .replace("from '@/shared/motion/useMotionPreference'", `from '${preferenceUrl}'`)));
 const orderUrl = moduleUrl(source('../dialogFocusOrder.ts'));
+const inertUrl = moduleUrl(source('../dialogInert.ts'));
 const { createDialogManager } = await import(moduleUrl(source('../hooks/useDialogFocus.ts')
   .replace("from '../dialogFocusOrder'", `from '${orderUrl}'`)
+  .replace("from '../dialogInert'", `from '${inertUrl}'`)
   .replace('function createDialogManager(', 'export function createDialogManager(')));
 
 test('reduced-motion preference changes publish live snapshots and unsubscribe cleanly', () => {
@@ -119,10 +121,17 @@ function focusFixture() {
     removeEventListener: type => { listeners.delete(type); },
     emit: (type, event) => listeners.get(type)?.(event),
   };
+  // Like the browser's, the observer queues an inert attribute record for every write.
+  let observer = null;
   class Element {
     constructor(control = false) {
       this.children = []; this.parentElement = null; this.ownerDocument = doc;
       this.control = control; this.tabIndex = control ? 0 : -1; this.inert = false; this.isConnected = true;
+    }
+    get inert() { return this.inertValue; }
+    set inert(value) {
+      this.inertValue = value;
+      if (observer?.active) observer.pending.push({ type: 'attributes', target: this, attributeName: 'inert' });
     }
     append(child) { this.children.push(child); child.parentElement = this; return child; }
     contains(child) { return child === this || this.children.some(node => node.contains(child)); }
@@ -134,7 +143,18 @@ function focusFixture() {
     focus() { doc.activeElement = this; doc.emit('focusin', {}); }
   }
   globalThis.HTMLElement = Element;
-  globalThis.MutationObserver = class { observe() {} disconnect() {} };
+  globalThis.MutationObserver = class {
+    constructor(callback) { this.callback = callback; this.pending = []; this.active = false; observer = this; }
+    observe() { this.active = true; }
+    disconnect() { this.active = false; this.pending = []; }
+    takeRecords() { const records = this.pending; this.pending = []; return records; }
+  };
+  // Delivers the queued records with one child-list change, as a mounting component would.
+  const childListChange = () => {
+    if (!observer?.active) return;
+    observer.pending.push({ type: 'childList', target: doc.body });
+    observer.callback(observer.takeRecords());
+  };
   globalThis.getComputedStyle = () => ({ visibility: 'visible' });
   doc.body = new Element();
   const shell = doc.body.append(new Element());
@@ -153,7 +173,7 @@ function focusFixture() {
     doc.emit('keydown', event);
     return event;
   };
-  return { doc, opener, nav, dialog, first, last, restore, key };
+  return { doc, opener, nav, dialog, first, last, restore, key, childListChange };
 }
 
 test('desktop side panels focus their content, leave bottom navigation reachable, handle Escape and restore the opener', () => {
@@ -172,6 +192,24 @@ test('desktop side panels focus their content, leave bottom navigation reachable
     assert.equal(closes, 1);
     dispose();
     assert.equal(f.doc.activeElement, f.opener);
+  } finally { f.restore(); }
+});
+
+test('a sibling React re-enables while a modal dialog is open is interactive once it closes', () => {
+  // Production: the doors are inert while the catalogue opens, React re-enables them as it
+  // closes, a mounting ticker re-runs the isolation, and the close must not restore true.
+  const f = focusFixture();
+  try {
+    const manager = createDialogManager(f.doc);
+    f.nav.inert = true;
+    const dispose = manager.attach({ dialog: f.dialog, scope: f.dialog, modal: true, returnTo: f.opener,
+      initialFocus: () => f.first, onEscape: () => {} });
+    assert.equal(f.nav.inert, true);
+    f.nav.inert = false;
+    f.childListChange();
+    assert.equal(f.nav.inert, true, 'the open dialog still isolates its siblings');
+    dispose();
+    assert.equal(f.nav.inert, false, "React's latest value wins when the dialog closes");
   } finally { f.restore(); }
 });
 
