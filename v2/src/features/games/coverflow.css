@@ -287,7 +287,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cf-card, .cf-card__sheen { transition: none; }
+  .cf-card, .cf-card__sheen, .deck-card__sheen, .coverflow__deck { transition: none; }
 }
 
 /* ── Unified deck — same cards FLIP between carousel fan and tiled grid ───────── */

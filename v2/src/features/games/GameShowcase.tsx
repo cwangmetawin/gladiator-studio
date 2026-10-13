@@ -1,11 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading } from '@/shared/ui';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { GameCard, FeaturedCard } from './GameCard';
+import { catalogueDisplayOrder, focusCatalogueCard, resolvePhoneCatalogueFocus, type PhoneCatalogueTab } from './catalogueFocus';
 
-type FilterTab = 'slot' | 'mini' | 'new';
+type FilterTab = PhoneCatalogueTab;
 
 interface TabDefinition {
   readonly id: FilterTab;
@@ -128,11 +129,24 @@ interface GameShowcaseProps {
   readonly slotGames: readonly Game[];
   readonly miniGames: readonly Game[];
   readonly loading: boolean;
+  readonly focusGame?: string | null;
+  readonly reducedMotion?: boolean;
 }
 
-export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProps) {
-  const [activeTab, setActiveTab] = useState<FilterTab>('slot');
+export function GameShowcase({ slotGames, miniGames, loading, focusGame = null, reducedMotion = false }: GameShowcaseProps) {
+  const [activeTab, setActiveTab] = useState<FilterTab>(() => resolvePhoneCatalogueFocus(slotGames, miniGames, 'slot', focusGame)?.tab ?? 'slot');
+  const handledFocus = useRef<string | null>(null);
   const handlePlayGame = useCallback(() => {}, []);
+
+  useEffect(() => {
+    if (!focusGame) { handledFocus.current = null; return; }
+    if (loading || handledFocus.current === focusGame) return;
+    const destination = resolvePhoneCatalogueFocus(slotGames, miniGames, activeTab, focusGame);
+    if (!destination) return; // Retry once the published catalogue finishes loading.
+    if (destination.tab !== activeTab) { setActiveTab(destination.tab); return; }
+    // Run after the panel's initial focus / scroll reset and after the chosen tab commits.
+    if (focusCatalogueCard(document.getElementById('games'), destination.key, reducedMotion)) handledFocus.current = focusGame;
+  }, [slotGames, miniGames, activeTab, focusGame, loading, reducedMotion]);
 
   const hotGames = useMemo(() => getHotGames(slotGames, miniGames), [slotGames, miniGames]);
 
@@ -155,14 +169,9 @@ export function GameShowcase({ slotGames, miniGames, loading }: GameShowcaseProp
 
   // The newest title (by release date) becomes the cinematic spotlight; the rest
   // fill the grid below, newest first.
-  const featured = useMemo(
-    () => (currentGames.length ? currentGames.reduce((a, b) => (b.timeline > a.timeline ? b : a)) : undefined),
-    [currentGames],
-  );
-  const rest = useMemo(
-    () => currentGames.filter((g) => g.id !== featured?.id).slice().sort((a, b) => b.timeline.localeCompare(a.timeline)),
-    [currentGames, featured],
-  );
+  const orderedGames = useMemo(() => catalogueDisplayOrder(currentGames), [currentGames]);
+  const featured = orderedGames[0];
+  const rest = useMemo(() => orderedGames.slice(1), [orderedGames]);
 
   return (
     <SectionWrapper id="games">

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } from 'framer-motion';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { gameKey } from '@/features/starfield/gameIdentity';
 
 const TILT_SPRING = { stiffness: 160, damping: 18, mass: 0.5 } as const;
 
@@ -120,6 +121,7 @@ function GameCardComponent({ game, onPlayGame, index = 0 }: GameCardProps) {
       tabIndex={0}
       aria-label={`Play ${game.title}`}
       data-cursor="PLAY"
+      data-game-key={gameKey(game.title)}
       onMouseEnter={onEnter}
       onMouseMove={onMove}
       onMouseLeave={onLeave}
@@ -278,6 +280,7 @@ function FeaturedCardComponent({ game, onPlayGame, heroImage }: FeaturedCardProp
       tabIndex={0}
       aria-label={`Play ${game.title}`}
       data-cursor="PLAY"
+      data-game-key={gameKey(game.title)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       onFocus={() => setHovered(true)}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import { motion, useIsPresent } from 'framer-motion';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { motionTokens, transitionTimeline } from '@/shared/motion/tokens';
@@ -10,6 +10,8 @@ import { Reveal } from '@/shared/ui/Reveal';
 import { X, ChevronLeft, ChevronRight, Play, LayoutGrid, Layers } from 'lucide-react';
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
+import { skyStore } from '@/features/starfield/skyStore';
+import { catalogueFocusIndex } from './catalogueFocus';
 import './coverflow.css';
 
 function isSafeUrl(url: string): boolean {
@@ -117,7 +119,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   const dialogRef = useDialogFocus<HTMLDivElement>({ active: isPresent, onEscape: onClose, returnFocusRef });
   const timeline = transitionTimeline(narrative.mode, narrative.kind);
   const closing = narrative.phase === 'closing';
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(() => Math.max(0, catalogueFocusIndex(games, narrative.focusGame)));
   const [tab, setTab] = useState<TabId>('all');
   const [view, setView] = useState<'coverflow' | 'grid'>('coverflow');
   const [size, setSize] = useState({ w: 1000, h: 520 });
@@ -129,7 +131,13 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
     if (tab === 'new') return games.filter((g) => g.isHot);
     return games.filter((g) => g.category === tab);
   }, [games, tab]);
-  useEffect(() => { setActive(0); }, [tab]);
+  useLayoutEffect(() => {
+    const index = catalogueFocusIndex(games, narrative.focusGame);
+    if (index < 0) return;
+    setTab('all');
+    setView('coverflow');
+    setActive(index);
+  }, [games, narrative.focusGame]);
 
   const clamp = useCallback((i: number) => Math.max(0, Math.min(i, list.length - 1)), [list.length]);
   const go = useCallback((dir: number) => { soundEngine.click(); setActive((a) => clamp(a + dir)); }, [clamp]);
@@ -155,8 +163,8 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   // Grid geometry derived from the measured deck width — cells are placed by
   // maths, so they can never overlap regardless of the carousel ↔ grid morph.
   const geo: Geo = useMemo(() => {
-    const W = Math.max(320, size.w);
-    const cols = Math.max(2, Math.floor((W - 2 * PAD + GRID_GAP) / (GRID_MIN + GRID_GAP)));
+    const W = Math.max(1, size.w);
+    const cols = Math.max(1, Math.floor((W - 2 * PAD + GRID_GAP) / (GRID_MIN + GRID_GAP)));
     const cellW = (W - 2 * PAD - (cols - 1) * GRID_GAP) / cols;
     const cellH = cellW * (4 / 3);
     const rows = Math.max(1, Math.ceil(list.length / cols));
@@ -172,7 +180,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
     }
     const o = i - active;
     const abs = Math.abs(o);
-    const centreScale = Math.min(1.8, CENTRE_W / cellW);
+    const centreScale = Math.max(0.1, Math.min(1.8, Math.min(CENTRE_W, size.w - 2 * PAD) / cellW, (size.h - 12) / cellH));
     const scale = centreScale * Math.max(0.55, 1 - abs * 0.12);
     const cx = size.w / 2, cy = size.h * 0.46;
     return {
@@ -213,18 +221,23 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   // Pointer drag / swipe (carousel only) — translate the deck, snap on release
   const STEP = 150;
   const dragStartX = useRef(0);
+  const dragStartActive = useRef(0);
+  const pointerId = useRef<number | null>(null);
   const dragging = useRef(false);
   const dragged = useRef(false);
   const onPointerDown = useCallback((e: React.PointerEvent) => {
-    if (view !== 'coverflow') return;
+    if (view !== 'coverflow' || suspended || closing || e.button !== 0 || !e.isPrimary) return;
     dragging.current = true; dragged.current = false; dragStartX.current = e.clientX;
+    dragStartActive.current = active;
+    pointerId.current = e.pointerId;
+    skyStore.beginDrag(e.clientX, e.timeStamp);
     const el = deckRef.current;
     // NB: do NOT capture the pointer here — capturing retargets the synthesized
     // `click` to the deck, so a card tap would never reach the card's onClick.
     if (el) el.style.transition = 'none';
-  }, [view]);
+  }, [view, active, suspended, closing]);
   const onPointerMove = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
+    if (!dragging.current || e.pointerId !== pointerId.current) return;
     const dx = Math.max(-STEP * 3, Math.min(STEP * 3, e.clientX - dragStartX.current));
     // Capture only once a real drag starts, so taps stay taps and drags keep
     // tracking even if the pointer leaves the deck.
@@ -232,22 +245,48 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
       dragged.current = true;
       deckRef.current?.setPointerCapture?.(e.pointerId);
     }
+    // No RAF or React effect between pointer input and the scene's shared state.
+    skyStore.moveDrag(e.clientX, e.timeStamp);
+    const focused = list[clamp(dragStartActive.current - Math.round(dx / STEP))];
+    if (focused) skyStore.focusGame(focused.title);
     const el = deckRef.current;
     if (el) el.style.transform = `translateX(${dx}px)`;
-  }, []);
+  }, [clamp, list]);
   const onPointerUp = useCallback((e: React.PointerEvent) => {
-    if (!dragging.current) return;
+    if (!dragging.current || e.pointerId !== pointerId.current) return;
     dragging.current = false;
-    const dx = e.clientX - dragStartX.current;
+    pointerId.current = null;
+    skyStore.releaseDrag(e.timeStamp);
+    const dx = Math.max(-STEP * 3, Math.min(STEP * 3, e.clientX - dragStartX.current));
     const el = deckRef.current;
     if (el?.hasPointerCapture?.(e.pointerId)) el.releasePointerCapture(e.pointerId);
-    if (el) { el.style.transition = 'transform 0.35s var(--ease-out-expo)'; el.style.transform = 'translateX(0px)'; }
+    if (el) { el.style.transition = narrative.mode === 'reduced' ? 'none' : 'transform 0.35s var(--ease-out-expo)'; el.style.transform = 'translateX(0px)'; }
     const steps = Math.round(dx / STEP);
-    if (steps !== 0) { soundEngine.click(); setActive((a) => clamp(a - steps)); }
-  }, [clamp]);
+    if (steps !== 0) { soundEngine.click(); setActive(clamp(dragStartActive.current - steps)); }
+  }, [clamp, narrative.mode]);
+
+  const cancelDrag = useCallback(() => {
+    if (!dragging.current) return;
+    dragging.current = false;
+    dragged.current = true;
+    skyStore.releaseDrag(performance.now());
+    const el = deckRef.current;
+    if (pointerId.current !== null && el?.hasPointerCapture?.(pointerId.current)) el.releasePointerCapture(pointerId.current);
+    pointerId.current = null;
+    if (el) el.style.transform = 'translateX(0px)';
+    const game = list[clamp(active)];
+    if (game) skyStore.focusGame(game.title);
+  }, [active, clamp, list]);
+  useEffect(() => {
+    if (view !== 'coverflow' || suspended || closing || !isPresent) cancelDrag();
+    return cancelDrag;
+  }, [view, suspended, closing, isPresent, cancelDrag]);
 
   const grid = view === 'grid';
   const activeGame = list[active];
+  useLayoutEffect(() => {
+    if (activeGame) skyStore.focusGame(activeGame.title);
+  }, [activeGame]);
   const instantContent = narrative.mode !== 'desktop' || narrative.phase === 'open';
 
   return (
@@ -256,6 +295,8 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
     <motion.div
       ref={dialogRef}
       className="coverflow"
+      data-active-game={activeGame?.title ?? ''}
+      data-active-index={active}
       initial={narrative.phase === 'open' ? false : { opacity: 0 }}
       animate={{ opacity: closing ? 0 : 1 }}
       exit={{ opacity: 0 }}
@@ -275,7 +316,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         <div className="tablist coverflow__tabs" role="tablist" aria-label="Game category">
           {TABS.map((t) => (
             <button key={t.id} type="button" role="tab" className="tab" aria-selected={t.id === tab}
-              data-cursor="VIEW" onClick={() => { soundEngine.click(); setTab(t.id); }}>
+              data-cursor="VIEW" onClick={() => { soundEngine.click(); setTab(t.id); setActive(0); }}>
               {t.label}
             </button>
           ))}
@@ -304,7 +345,9 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerLeave={onPointerUp}
+        onPointerCancel={cancelDrag}
+        onLostPointerCapture={cancelDrag}
+        onPointerLeave={e => { if (!e.currentTarget.hasPointerCapture?.(e.pointerId)) onPointerUp(e); }}
         initial={instantContent ? false : { opacity: 0 }} animate={{ opacity: 1 }}
         transition={{ duration: instantContent ? 0 : timeline.revealMs / 1000,
           delay: instantContent ? 0 : Math.max(0, narrative.panelStartedAt + timeline.titleDelayMs - performance.now()) / 1000,

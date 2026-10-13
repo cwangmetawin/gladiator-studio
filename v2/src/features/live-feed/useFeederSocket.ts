@@ -116,13 +116,12 @@ export function useFeederSocket(): FeederState {
     // Filter out third-party games (like feeder's isTrackedGameProvider)
     if (event.provider === 'other') return;
 
-    // Fire effects onto the 3D earth — feeder logic:
-    // BIG+ ($1000+) → full beam, normal → small ring ripple
+    // Every tracked win contributes to its game's sky, including wins below $100.
     const beamLat = event.lat ?? (Math.random() - 0.5) * 120;
     const beamLng = event.lng ?? (Math.random() - 0.5) * 300;
+    sceneEvents.emitWin({ lat: beamLat, lng: beamLng, amount: event.amount, gameName: event.gameName });
     if (event.amount >= 100) {
       // $100+ — beam (gold→amber→red based on amount)
-      sceneEvents.emitWin({ lat: beamLat, lng: beamLng, amount: event.amount, gameName: event.gameName });
       if (event.amount >= 1000) { soundEngine.bigWin(); } else { soundEngine.alert(); }
     } else {
       // <$100 — small ring ripple only

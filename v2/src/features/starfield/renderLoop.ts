@@ -1,5 +1,10 @@
 import { frameDeltaSeconds } from '@/shared/utils/frameTime';
 
+/** Every phone panel and the game / Client Area overlays cover the sky. */
+export function isSceneCovered(playing: boolean, clientAreaOpen: boolean, phone: boolean, panel: string): boolean {
+  return playing || clientAreaOpen || (phone && panel !== 'none');
+}
+
 interface RenderState {
   readonly reducedMotion: boolean;
   readonly hidden: boolean;
