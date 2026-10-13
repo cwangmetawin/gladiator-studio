@@ -13,6 +13,8 @@ interface CommonProps {
   readonly variant?: Variant;
   readonly children: ReactNode;
   readonly className?: string;
+  /** Navigation with a timed semantic cue opts out of the generic click. */
+  readonly sound?: boolean;
 }
 
 type ButtonProps = CommonProps &
@@ -26,16 +28,16 @@ type LinkProps = CommonProps &
  * when `href` is supplied (navigation), otherwise a <button> (actions).
  */
 export function Button(props: ButtonProps | LinkProps) {
-  const { variant = 'secondary', className = '', children } = props;
+  const { variant = 'secondary', className = '', children, sound = true } = props;
   const cls = `${VARIANT_CLASS[variant]} ${className}`.trim();
 
   if ('href' in props && props.href !== undefined) {
-    const { variant: _v, className: _c, children: _ch, onClick, onMouseEnter, ...rest } = props;
+    const { variant: _v, className: _c, children: _ch, sound: _sound, onClick, onMouseEnter, ...rest } = props;
     return (
       <a
         {...rest}
         className={cls}
-        onClick={(e) => { soundEngine.click(); onClick?.(e); }}
+        onClick={(e) => { if (sound) soundEngine.click(); onClick?.(e); }}
         onMouseEnter={(e) => { soundEngine.hover(); onMouseEnter?.(e); }}
       >
         {children}
@@ -43,13 +45,13 @@ export function Button(props: ButtonProps | LinkProps) {
     );
   }
 
-  const { variant: _v, className: _c, children: _ch, href: _h, onClick, onMouseEnter, type, ...rest } = props as ButtonProps;
+  const { variant: _v, className: _c, children: _ch, sound: _sound, href: _h, onClick, onMouseEnter, type, ...rest } = props as ButtonProps;
   return (
     <button
       {...rest}
       type={type ?? 'button'}
       className={cls}
-      onClick={(e) => { soundEngine.click(); onClick?.(e); }}
+      onClick={(e) => { if (sound) soundEngine.click(); onClick?.(e); }}
       onMouseEnter={(e) => { soundEngine.hover(); onMouseEnter?.(e); }}
     >
       {children}

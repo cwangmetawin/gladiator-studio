@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
 import { skyModuleUrls } from './skyModuleUrls.mjs';
+import { sceneLoadingModuleUrls } from './sceneLoadingModuleUrls.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');
@@ -32,6 +33,7 @@ if (process.env.MUTATE_FRAME_TIME === '1') {
 const timeUrl = moduleUrl(timeSource);
 const motionUrls = motionModuleUrls(moduleUrl, source, timeUrl);
 const skyUrls = skyModuleUrls(moduleUrl, source);
+const loadingUrls = sceneLoadingModuleUrls(moduleUrl, source);
 const { approach, approachRate, frameDeltaSeconds, perSecond, secondsFromFrames, tweenProgress } = await import(timeUrl);
 const timeImports = (src) => src.replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`);
 const loopUrl = moduleUrl(timeImports(source('../../features/starfield/renderLoop.ts')));
@@ -213,6 +215,8 @@ test('the real star builder gives Babylon an updatable colour buffer and static 
     .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
     .replace("from './gameSkyRenderer'", `from '${skyUrls.renderer}'`)
     .replace("from './skyStore'", `from '${skyUrls.store}'`)
+    .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
+    .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`)
     .replace('function buildStarField(', 'export function buildStarField(');
   const { buildStarField } = await import(moduleUrl(starfieldSource));
   const engine = new NullEngine();

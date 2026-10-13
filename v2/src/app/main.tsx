@@ -1,7 +1,6 @@
 import { StrictMode, lazy, Suspense } from 'react';
 import { createRoot } from 'react-dom/client';
 import { SiteContentProvider } from '@/shared/content/SiteContentContext';
-import { preloadSceneTextures } from '@/shared/utils/preloadScene';
 
 // The public site and the admin are isolated apps with separate stylesheets.
 // Both are lazy so /admin never loads the site's cosmic CSS (which owns generic
@@ -13,9 +12,6 @@ const rootElement = document.getElementById('root');
 if (!rootElement) throw new Error('Root element not found');
 
 const isAdminRoute = window.location.pathname.replace(/\/+$/, '').endsWith('/admin');
-
-// Start fetching the cosmos during the age gate + warp intro (public site only).
-if (!isAdminRoute) preloadSceneTextures();
 
 createRoot(rootElement).render(
   <StrictMode>

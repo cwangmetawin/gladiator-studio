@@ -72,7 +72,6 @@ function CountStat({ end, decimals, suffix, label, accent, delay }: {
 }
 
 function openPanel(id: PanelId) {
-  soundEngine.click();
   window.dispatchEvent(new CustomEvent('open-panel', { detail: id }));
 }
 
@@ -205,8 +204,8 @@ export function Hero({ active = true, target = 'none' }: HeroProps) {
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, position: 'relative', zIndex: 5 }}>
           <IdentityHub compact />
           <div role="group" aria-label="Primary actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>
-            <Button variant="primary" aria-pressed={target === 'games'} onClick={() => openPanel('games')}>Explore Games</Button>
-            <Button variant="secondary" aria-pressed={target === 'contact'} onClick={() => openPanel('contact')}>Partner With Us</Button>
+            <Button sound={false} variant="primary" aria-pressed={target === 'games'} onClick={() => openPanel('games')}>Explore Games</Button>
+            <Button sound={false} variant="secondary" aria-pressed={target === 'contact'} onClick={() => openPanel('contact')}>Partner With Us</Button>
           </div>
           {/* The desktop constellation, folded into a compact holo console for phones. */}
           <nav aria-label="Sections" className="mobile-nodes">

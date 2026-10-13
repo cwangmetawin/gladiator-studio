@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
 import { skyModuleUrls } from './skyModuleUrls.mjs';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
+import { sceneLoadingModuleUrls } from './sceneLoadingModuleUrls.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');
@@ -37,6 +38,9 @@ const catalogueUrl = moduleUrl(source('../../api/gameData.ts')
 const liveCatalogueUrl = moduleUrl(source('../../features/live-feed/liveCatalogue.ts')
   .replace("from '@/api/gameData'", `from '${catalogueUrl}'`));
 const motionUrls = motionModuleUrls(moduleUrl, source, timeUrl);
+const loadingUrls = sceneLoadingModuleUrls(moduleUrl, source);
+const transitionSoundUrl = moduleUrl(source('../audio/transitionSound.ts')
+  .replace("from '@/shared/motion/tokens'", `from '${motionUrls.tokens}'`));
 const { createTransitionStore } = await import(motionUrls.store);
 const { transitionTimeline } = await import(motionUrls.tokens);
 const { isSceneCovered, createRenderLoop } = await import(moduleUrl(source('../../features/starfield/renderLoop.ts')
@@ -65,7 +69,9 @@ async function homepageCamera(B, scene, width) {
     .replace("from '@/features/journey/journeyMotion'", `from '${motionUrls.journey}'`)
     .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
     .replace("from './gameSkyRenderer'", `from '${urls.renderer}'`)
-    .replace("from './skyStore'", `from '${urls.store}'`);
+    .replace("from './skyStore'", `from '${urls.store}'`)
+    .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
+    .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`);
   const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
     export const probeWidth = ${width};
     export function probeHomeCamera(BABYLON, scene) { ${cameraBlock}\n return camera; }
@@ -470,7 +476,7 @@ const visualUrl = moduleUrl(`
   export function X() { return null; }
   export const ChevronLeft = X, ChevronRight = X, Play = X, LayoutGrid = X, Layers = X;
 `);
-const soundUrl = moduleUrl('export const soundEngine = { click() {}, transmission() {}, alert() {}, bigWin() {} };');
+const soundUrl = moduleUrl('export const soundEngine = { click() {}, transmission() {}, alert() {}, bigWin() {}, catalogueFocus() {} };');
 const contextUrl = moduleUrl(source('../motion/panelMotion.ts'));
 function coverflowSource() {
   return source('../../features/games/GameCoverflow.tsx').replace("import './coverflow.css';", '')
@@ -479,6 +485,7 @@ function coverflowSource() {
     .replace("from '@/shared/ui/Reveal'", `from '${visualUrl}'`)
     .replace("from 'lucide-react'", `from '${visualUrl}'`)
     .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
+    .replace("from '@/shared/audio/transitionSound'", `from '${transitionSoundUrl}'`)
     .replace("from '@/features/starfield/skyStore'", `from '${urls.store}'`)
     .replace("from './catalogueFocus'", `from '${urls.focus}'`);
 }

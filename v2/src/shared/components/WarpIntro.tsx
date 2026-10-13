@@ -1,4 +1,9 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
+import { sceneReadiness } from '@/features/starfield/sceneReadiness';
+import { frameDeltaSeconds, perSecond } from '@/shared/utils/frameTime';
+import { cappedDevicePixelRatio } from '@/shared/utils/renderResolution';
+import { advanceIntro, initialIntro, nextIntroDeadline, INTRO_MIN_MS, INTRO_FLASH_MS, INTRO_EXIT_MS,
+  INTRO_REDUCED_FADE_MS } from '@/shared/motion/introTiming';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,14 +21,7 @@ export interface WarpIntroProps {
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const STAR_COUNT = 400;
-const TOTAL_DURATION_MS = 3500;
-
-// Phase timing (ms)
-const PHASE_WARP_START = 0;
 const PHASE_WARP_FULL = 1000;
-const PHASE_FLASH_START = 2500;
-const PHASE_FLASH_PEAK = 3000;
-const PHASE_FADE_END = 3500;
 
 // ─── Utility helpers ───────────────────────────────────────────────────────────
 
@@ -80,10 +78,15 @@ function easeOut(t: number): number {
 
 export function WarpIntro({ onComplete }: WarpIntroProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const starsRef = useRef<WarpStar[]>(createStarField());
+  const starsRef = useRef<WarpStar[]>([]);
+  if (starsRef.current.length === 0) starsRef.current = createStarField();
   const rafRef = useRef<number>(0);
-  const startTimeRef = useRef<number>(0);
-  const completedRef = useRef(false);
+  const previousFrameRef = useRef(0);
+  const timingRef = useRef(initialIntro(0, false));
+  const onCompleteRef = useRef(onComplete);
+  onCompleteRef.current = onComplete;
+  const [exiting, setExiting] = useState(false);
+  const [reduced, setReduced] = useState(() => window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
   const animate = useCallback((timestamp: number) => {
     const canvas = canvasRef.current;
@@ -92,27 +95,28 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (startTimeRef.current === 0) {
-      startTimeRef.current = timestamp;
-    }
-
-    const elapsed = timestamp - startTimeRef.current;
-    const dpr = window.devicePixelRatio || 1;
+    const timing = timingRef.current;
+    if (timing.complete || timing.reduced) return;
+    const elapsed = timestamp - timing.startedAt;
+    const dt = frameDeltaSeconds(previousFrameRef.current ? timestamp - previousFrameRef.current : 1000 / 60);
+    previousFrameRef.current = timestamp;
+    const dpr = cappedDevicePixelRatio(window.devicePixelRatio || 1);
     const w = canvas.width / dpr;
     const h = canvas.height / dpr;
     const cx = w / 2;
     const cy = h / 2;
 
     // ── Phase progress ────────────────────────────────────────────────────────
-    // warpT: 0→1 during warp ramp-up (0–1000ms)
-    const warpT = clamp((elapsed - PHASE_WARP_START) / (PHASE_WARP_FULL - PHASE_WARP_START), 0, 1);
-    // flashT: 0→1 during flash build (2500–3000ms)
-    const flashT = clamp((elapsed - PHASE_FLASH_START) / (PHASE_FLASH_PEAK - PHASE_FLASH_START), 0, 1);
-    // fadeT: 0→1 during fade-out (3000–3500ms)
-    const fadeT = clamp((elapsed - PHASE_FLASH_PEAK) / (PHASE_FADE_END - PHASE_FLASH_PEAK), 0, 1);
+    const ramp = clamp(elapsed / PHASE_WARP_FULL, 0, 1);
+    // Long loads settle into a calm hold; no flash or opacity fade before readiness.
+    const hold = clamp((elapsed - INTRO_MIN_MS) / 250, 0, 1);
+    const warpT = timing.exitAt === null ? lerp(ramp, 0.4, hold) : 1;
+    const exitElapsed = timing.exitAt === null ? 0 : Math.max(0, timestamp - timing.exitAt);
+    const flashT = clamp(exitElapsed / INTRO_FLASH_MS, 0, 1);
+    const fadeT = clamp((exitElapsed - INTRO_FLASH_MS) / (INTRO_EXIT_MS - INTRO_FLASH_MS), 0, 1);
 
     // How fast stars zoom toward viewer (increases with warp phase)
-    const speed = lerp(0.003, 0.032, easeIn(warpT));
+    const speed = perSecond(lerp(0.003, 0.032, easeIn(warpT))) * dt;
 
     // ── Clear frame ───────────────────────────────────────────────────────────
     // Use a semi-transparent black fill to create motion-blur trail effect
@@ -211,15 +215,8 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
       ctx.fillRect(0, 0, w, h);
     }
 
-    // ── Completion ────────────────────────────────────────────────────────────
-    if (elapsed >= PHASE_FADE_END && !completedRef.current) {
-      completedRef.current = true;
-      onComplete();
-      return;
-    }
-
     rafRef.current = requestAnimationFrame(animate);
-  }, [onComplete]);
+  }, []);
 
   // ── Canvas resize handler ──────────────────────────────────────────────────
   useEffect(() => {
@@ -227,7 +224,7 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
     if (!canvas) return;
 
     const resizeCanvas = () => {
-      const dpr = window.devicePixelRatio || 1;
+      const dpr = cappedDevicePixelRatio(window.devicePixelRatio || 1);
       const w = window.innerWidth;
       const h = window.innerHeight;
       canvas.width = Math.round(w * dpr);
@@ -237,7 +234,7 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
 
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        ctx.scale(dpr, dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       }
     };
 
@@ -246,41 +243,65 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
     return () => window.removeEventListener('resize', resizeCanvas);
   }, []);
 
-  // ── Start animation loop ──────────────────────────────────────────────────
+  // ── Readiness and safety own completion; drawing owns only the visual loop. ──
   useEffect(() => {
-    // Respect reduced-motion: skip the warp entirely and enter the HUD.
-    if (typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      onComplete();
-      return;
-    }
-    rafRef.current = requestAnimationFrame(animate);
-    return () => {
-      if (rafRef.current) {
-        cancelAnimationFrame(rafRef.current);
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    timingRef.current = initialIntro(performance.now(), preference.matches);
+    previousFrameRef.current = 0;
+    setExiting(false);
+    let timer: number | undefined;
+    const sync = (now = performance.now()): void => {
+      const before = timingRef.current;
+      const ready = sceneReadiness.getSnapshot();
+      const next = advanceIntro(before, now, ready);
+      timingRef.current = next;
+      if (before.exitAt === null && next.exitAt !== null) setExiting(true);
+      window.clearTimeout(timer);
+      if (next.complete) {
+        if (!before.complete) {
+          cancelAnimationFrame(rafRef.current);
+          onCompleteRef.current();
+        }
+        return;
       }
+      const deadline = nextIntroDeadline(next, ready);
+      if (deadline !== null) timer = window.setTimeout(() => sync(Math.max(deadline, performance.now())), Math.max(0, deadline - performance.now()));
     };
-  }, [animate, onComplete]);
-
-  // ── Compute overlay opacity for CSS fade (logo + container) ───────────────
-  // We use a CSS animation on the wrapper via inline style driven by elapsed time.
-  // Since we cannot read elapsed inside JSX easily, we use a CSS keyframe approach
-  // defined inline via a <style> tag.
+    const onReady = (): void => sync();
+    const onPreference = (): void => {
+      timingRef.current = { ...timingRef.current, reduced: preference.matches };
+      setReduced(preference.matches);
+      cancelAnimationFrame(rafRef.current);
+      previousFrameRef.current = 0;
+      if (!preference.matches && !timingRef.current.complete) rafRef.current = requestAnimationFrame(animate);
+      sync();
+    };
+    const unsubscribe = sceneReadiness.subscribe(onReady);
+    preference.addEventListener('change', onPreference);
+    if (!preference.matches) rafRef.current = requestAnimationFrame(animate);
+    sync();
+    return () => {
+      window.clearTimeout(timer);
+      cancelAnimationFrame(rafRef.current);
+      preference.removeEventListener('change', onPreference);
+      unsubscribe();
+    };
+  }, [animate]);
 
   return (
     <>
       <style>{`
         @keyframes warp-container-fade {
-          0%   { opacity: 1; }
-          72%  { opacity: 1; }   /* 2520ms — hold fully visible */
-          86%  { opacity: 1; }   /* 3010ms — flash peak fully visible */
-          100% { opacity: 0; }   /* 3500ms — faded out */
+          0%, 36% { opacity: 1; }
+          100% { opacity: 0; }
         }
+
+        @keyframes warp-reduced-fade { from { opacity: 1; } to { opacity: 0; } }
 
         @keyframes warp-logo-appear {
           0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
-          70%  { opacity: 0; transform: translate(-50%, -50%) scale(0.85); }
-          80%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); filter: drop-shadow(0 0 40px rgba(79,195,247,0.9)) brightness(2); }
-          90%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0);  filter: drop-shadow(0 0 20px rgba(79,195,247,0.6)) brightness(1.5); }
+          36%  { opacity: 1; transform: translate(-50%, -50%) scale(1.05); filter: drop-shadow(0 0 40px rgba(79,195,247,0.9)) brightness(2); }
+          72%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0);  filter: drop-shadow(0 0 20px rgba(79,195,247,0.6)) brightness(1.5); }
           100% { opacity: 0; transform: translate(-50%, -50%) scale(0.95); filter: none; }
         }
       `}</style>
@@ -288,12 +309,14 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
       {/* Full-screen warp container */}
       <div
         aria-hidden="true"
+        data-warp-intro=""
+        data-intro-phase={exiting ? 'exiting' : 'holding'}
         style={{
           position: 'fixed',
           inset: 0,
           zIndex: 90000,
           background: '#000000',
-          animation: `warp-container-fade ${TOTAL_DURATION_MS}ms ease-out forwards`,
+          animation: exiting ? `${reduced ? 'warp-reduced-fade' : 'warp-container-fade'} ${reduced ? INTRO_REDUCED_FADE_MS : INTRO_EXIT_MS}ms ease-out forwards` : undefined,
           pointerEvents: 'none',
         }}
       >
@@ -303,7 +326,7 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
           style={{
             position: 'absolute',
             inset: 0,
-            display: 'block',
+            display: reduced ? 'none' : 'block',
           }}
         />
 
@@ -319,7 +342,10 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
             left: '50%',
             width: 'clamp(140px, 22vw, 260px)',
             height: 'auto',
-            animation: `warp-logo-appear ${TOTAL_DURATION_MS}ms ease-out forwards`,
+            opacity: reduced ? 1 : 0,
+            transform: 'translate(-50%, -50%)',
+            filter: reduced ? 'brightness(0) invert(1) drop-shadow(0 0 20px rgba(79,195,247,0.6))' : undefined,
+            animation: exiting && !reduced ? `warp-logo-appear ${INTRO_EXIT_MS}ms ease-out forwards` : undefined,
             pointerEvents: 'none',
             userSelect: 'none',
           }}
