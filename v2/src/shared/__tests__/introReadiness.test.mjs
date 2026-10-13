@@ -46,7 +46,8 @@ test('no WebGL / no frame uses the eight-second safety and still completes with 
   for (const reduced of [false, true]) {
     let intro = initialIntro(20, reduced);
     intro = advanceIntro(intro, 20 + INTRO_SAFETY_MS - 1, 'module'); assert.equal(intro.exitAt, null);
-    intro = advanceIntro(intro, 20 + INTRO_SAFETY_MS, 'module'); assert.equal(intro.exitAt, 8020);
+    intro = advanceIntro(intro, 20 + INTRO_SAFETY_MS, 'module'); assert.equal(intro.exitAt, 20 + INTRO_SAFETY_MS);
+    assert.ok(INTRO_SAFETY_MS <= 5000, 'a slow network must not hold the intro far beyond the old 3.5 s');
     const duration = reduced ? INTRO_REDUCED_FADE_MS : INTRO_EXIT_MS;
     assert.equal(advanceIntro(intro, 8020 + duration, 'module').complete, true);
   }

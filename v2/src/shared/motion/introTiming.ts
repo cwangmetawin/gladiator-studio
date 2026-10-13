@@ -1,7 +1,9 @@
 import type { SceneMilestone } from '@/features/starfield/sceneReadiness';
 
 export const INTRO_MIN_MS = 1200;
-export const INTRO_SAFETY_MS = 8000;
+// Cap the hold so a slow network never waits much longer than the old fixed 3.5 s
+// intro: the hub then shows over the CSS nebula and the 3D scene fades in when ready.
+export const INTRO_SAFETY_MS = 4500;
 export const INTRO_FLASH_MS = 180;
 export const INTRO_EXIT_MS = 500;
 export const INTRO_REDUCED_FADE_MS = 120;
