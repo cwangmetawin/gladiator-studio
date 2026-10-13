@@ -377,20 +377,28 @@
   color: var(--color-text-mute);
   background: transparent;
   border: 0;
-  border-left: 2px solid transparent;
   cursor: pointer;
   text-align: left;
   transition:
     color var(--dur-fast) var(--ease-out-expo),
-    background var(--dur-fast) var(--ease-out-expo),
-    border-color var(--dur-fast) var(--ease-out-expo);
+    background var(--dur-fast) var(--ease-out-expo);
 }
 
 .drawer-item:hover { color: var(--color-holo-300); background: var(--holo-tint); }
 .drawer-item[aria-pressed="true"] {
   color: var(--color-holo-50);
   background: var(--holo-tint-2);
-  border-left-color: var(--color-holo-500);
+}
+/* The current section is marked with the eyebrow's glowing dot, not a side stripe. */
+.drawer-item[aria-pressed="true"]::after {
+  content: "";
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--color-holo-500);
+  box-shadow: 0 0 8px var(--color-holo-500);
+  flex-shrink: 0;
 }
 
 /* ── Panel content reveal — subtle staggered fade-up ────────────────────────── */

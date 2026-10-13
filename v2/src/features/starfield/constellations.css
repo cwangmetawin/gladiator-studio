@@ -5,31 +5,75 @@
   overflow: hidden;
   pointer-events: none;
 }
+/* A star-chart annotation, not a card: no box, no side stripe. The game's colour lives only
+   in the marker star and the hairline that draws in on hover or focus. */
 .constellation {
   position: absolute;
   width: 160px;
   height: 44px;
-  padding: 5px 10px;
+  padding: 0 6px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  gap: 3px;
-  border: 1px solid var(--color-line);
-  border-left: 2px solid var(--constellation-accent, var(--color-holo-500));
-  border-radius: var(--radius-sm);
-  background: rgba(5, 8, 18, 0.72);
+  gap: 4px;
+  border: 0;
+  background: transparent;
   color: var(--color-ice-50);
   font-family: var(--font-mono);
-  text-align: left;
+  text-align: center;
+  text-shadow: 0 0 4px rgba(3, 5, 12, 0.95), 0 0 12px rgba(3, 5, 12, 0.8);
   cursor: pointer;
   pointer-events: auto;
 }
 .constellation[hidden], .constellation-doors[hidden] { display: none; }
-.constellation:hover { border-color: var(--constellation-accent, var(--color-holo-500)); }
-.constellation:focus-visible { outline: 2px solid var(--color-holo-300); outline-offset: 3px; }
-.constellation__name { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.constellation__count { font-size: 9px; color: var(--color-text-soft); }
+.constellation:focus-visible { outline: 1px solid var(--color-holo-300); outline-offset: 2px; border-radius: var(--radius-sm); }
+.constellation__name {
+  position: relative;
+  max-width: 100%;
+  padding-bottom: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.constellation__name::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--constellation-accent, var(--color-holo-500)), transparent);
+  transform: scaleX(0);
+  transition: transform var(--dur-fast) var(--ease-out-expo);
+}
+.constellation:hover .constellation__name::after,
+.constellation:focus-visible .constellation__name::after { transform: scaleX(1); }
+.constellation__count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 8.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-text-soft);
+}
+.constellation__count::before {
+  content: "";
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--constellation-accent, var(--color-holo-500));
+  box-shadow: 0 0 6px var(--constellation-accent, var(--color-holo-500));
+  flex-shrink: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .constellation__name::after { transition: none; }
+}
 @media (max-width: 767px) {
-  .constellation { width: 128px; padding-inline: 8px; }
+  .constellation { width: 128px; padding-inline: 4px; }
   .constellation__name { font-size: 10px; }
 }
