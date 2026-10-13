@@ -300,7 +300,7 @@ export function GameCoverflow({ games, loading, onClose, suspended, returnFocusR
   const instantContent = narrative.mode !== 'desktop' || narrative.phase === 'open';
 
   return (
-    <PanelMotionContext.Provider value={{ timeline, enteredAt: narrative.panelStartedAt,
+    <PanelMotionContext.Provider value={{ mode: narrative.mode, timeline, enteredAt: narrative.panelStartedAt,
       settled: narrative.phase === 'open', instantContent: narrative.mode !== 'desktop' }}>
     <motion.div
       ref={dialogRef}

@@ -34,6 +34,7 @@ export { Material } from '@babylonjs/core/Materials/material.js';
 export { StandardMaterial } from '@babylonjs/core/Materials/standardMaterial.js';
 export { ShaderMaterial } from '@babylonjs/core/Materials/shaderMaterial.js';
 export { Effect } from '@babylonjs/core/Materials/effect.js';
+export { PostProcess } from '@babylonjs/core/PostProcesses/postProcess.js';
 export { FresnelParameters } from '@babylonjs/core/Materials/fresnelParameters.js';
 export { Texture } from '@babylonjs/core/Materials/Textures/texture.js';
 export { DynamicTexture } from '@babylonjs/core/Materials/Textures/dynamicTexture.js';
@@ -44,3 +45,9 @@ export { ParticleSystem } from '@babylonjs/core/Particles/particleSystem.js';
 // These builders also register Mesh/VertexData's legacy factory methods. Avoid
 // meshBuilder.js, which would import every other procedural mesh builder too.
 export const MeshBuilder = { CreateSphere, CreateTorus, CreatePlane };
+
+// Keep optional GPU measurement behind the same entry and out of normal requests.
+export async function loadGpuInstrumentation() {
+  await import('@babylonjs/core/Engines/Extensions/engine.query.js');
+  return import('@babylonjs/core/Instrumentation/engineInstrumentation.js');
+}

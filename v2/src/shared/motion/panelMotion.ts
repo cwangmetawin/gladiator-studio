@@ -1,8 +1,9 @@
 import { createContext } from 'react';
-import type { TransitionTimeline } from './tokens';
+import type { MotionMode, TransitionTimeline } from './tokens';
 
 export type RevealStage = 'eyebrow' | 'title' | 'body';
 export interface PanelMotion {
+  readonly mode: MotionMode;
   readonly timeline: TransitionTimeline;
   readonly enteredAt: number;
   readonly settled: boolean;

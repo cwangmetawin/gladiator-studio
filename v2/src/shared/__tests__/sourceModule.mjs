@@ -9,6 +9,10 @@ export const moduleUrl = src => {
   const js = ts.transpileModule(src, { compilerOptions: {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX,
   } }).outputText.replace(/from ['"](react(?:\/jsx-runtime)?|framer-motion|lucide-react|@babylonjs\/core\/[^'"]+)['"]/g,
-    (_match, name) => `from '${pathToFileURL(require.resolve(name)).href}'`);
+    (_match, name) => `from '${pathToFileURL(require.resolve(name)).href}'`)
+    .replace(/import ['"](@babylonjs\/core\/[^'"]+)['"]/g,
+      (_match, name) => `import '${pathToFileURL(require.resolve(name)).href}'`)
+    .replace(/import\(['"](@babylonjs\/core\/[^'"]+)['"]\)/g,
+      (_match, name) => `import('${pathToFileURL(require.resolve(name)).href}')`);
   return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
