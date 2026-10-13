@@ -1,7 +1,8 @@
 import { gameAccent } from './gameIdentity';
 import { createTrailModel } from './trailModel';
 import { createConstellationStore } from './constellationStore';
-import type { DoorCandidate } from './doorSelection';
+import { createConstellationLayout } from './constellationLayout';
+import type { DoorCandidate, ScreenRect } from './doorSelection';
 
 export const SKY_TINT_MIX = 0.12;
 export const SKY_TINT_RATE = 8;
@@ -9,6 +10,7 @@ export const SKY_TINT_RATE = 8;
 export function createSkyStore(now: () => number = () => performance.now()) {
   const trail = createTrailModel();
   const constellations = createConstellationStore();
+  const layout = createConstellationLayout();
   const tint = { r: 0.6, g: 0.6, b: 0.66, targetR: 0.6, targetG: 0.6, targetB: 0.66 };
   const projections: DoorCandidate[] = constellations.groups.map(constellation => ({
     constellation, rect: { left: 0, top: 0, right: 0, bottom: 0 }, visible: false, gameTitle: '',
@@ -36,13 +38,17 @@ export function createSkyStore(now: () => number = () => performance.now()) {
   }
 
   return {
-    trail, constellations, tint, projections, advance,
+    trail, constellations, layout, tint, projections, advance,
     get gameName() { return gameName; }, get phone() { return phone; }, get reduced() { return reduced; },
     get ready() { return ready; },
     setReady(value: boolean): void { ready = value; frames.forEach(notify); },
+    setLayout(width: number, height: number, isPhone: boolean, obstacles: readonly ScreenRect[]): void {
+      if (layout.measure(width, height, isPhone, obstacles)) changes.forEach(notify);
+    },
     configure(isPhone: boolean, isReduced: boolean): void {
       if (phone === isPhone && reduced === isReduced) return;
       phone = isPhone; reduced = isReduced;
+      if (layout.width > 0 && layout.phone !== phone) layout.measure(layout.width, layout.height, phone, layout.obstacles);
       constellations.configure(phone, reduced, now());
       trail.sample(now(), phone, reduced);
       if (reduced) snapTint();

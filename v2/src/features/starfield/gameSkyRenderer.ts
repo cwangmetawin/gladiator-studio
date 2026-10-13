@@ -1,6 +1,7 @@
 import { skyStore, type createSkyStore } from './skyStore';
 import { MAX_CONSTELLATIONS, STARS_PER_CONSTELLATION } from './constellationStore';
 import { placeDoor } from './doorSelection';
+import { CONSTELLATION_RADIUS } from './gameIdentity';
 
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
 type SkyStore = ReturnType<typeof createSkyStore>;
@@ -93,21 +94,39 @@ export function createConstellationMeshes(B: BabylonModule, scene: InstanceType<
 
   const points = mesh('gameConstellationPoints', positions, colors, true);
   const lines = mesh('gameConstellationLines', linePositions, lineColors, false);
+  // Keep this interactive sky layer in the camera's visible hemisphere while the hub orbits.
+  points.parent = scene.activeCamera;
+  lines.parent = scene.activeCamera;
+  const anchors = Array.from({ length: MAX_CONSTELLATIONS }, () => new B.Vector3());
 
-  function upload(store: SkyStore): void {
+  function upload(store: SkyStore, viewport: InstanceType<BabylonModule['ArcRotateCamera']>['viewport']): void {
     colors.fill(0);
     lineColors.fill(0);
     const groups = store.constellations.groups;
+    const slots = store.layout.slots;
+    const projection = scene.activeCamera!.getProjectionMatrix().m;
+    const depth = CONSTELLATION_RADIUS;
+    const unitsPerPixelX = 2 * depth / (viewport.width * projection[0]!);
+    const unitsPerPixelY = 2 * depth / (viewport.height * projection[5]!);
     let line = 0;
     let point = 0;
     for (let i = 0; i < groups.length; i++) {
       const group = groups[i]!;
+      if (group.count === 0 || slots.length === 0) continue;
+      const slot = slots[group.hash % slots.length]!;
+      const anchor = anchors[i]!;
+      // The hash picks a fixed free patch; undo projection in CSS pixels, independent of DPR.
+      anchor.set(((slot.left + slot.right) / 2 - viewport.x - viewport.width / 2) * unitsPerPixelX,
+        (viewport.height / 2 - ((slot.top + slot.bottom) / 2 - viewport.y)) * unitsPerPixelY, depth);
       let previous = -1;
       for (let j = 0; j < group.stars.length; j++) {
         const star = group.stars[j]!;
         if (!star.active) continue;
         const vertex = point++;
-        positions[vertex * 3] = star.x; positions[vertex * 3 + 1] = star.y; positions[vertex * 3 + 2] = star.z;
+        // Preserve each game's deterministic star pattern, fitting its spread inside the free patch.
+        positions[vertex * 3] = anchor.x + (star.x - group.position.x) * unitsPerPixelX * 2;
+        positions[vertex * 3 + 1] = anchor.y + (star.y - group.position.y) * unitsPerPixelY * 2;
+        positions[vertex * 3 + 2] = depth;
         colors[vertex * 4] = group.accent.r; colors[vertex * 4 + 1] = group.accent.g;
         colors[vertex * 4 + 2] = group.accent.b; colors[vertex * 4 + 3] = star.alpha;
         if (previous >= 0) {
@@ -139,7 +158,7 @@ export function createConstellationMeshes(B: BabylonModule, scene: InstanceType<
     lines.updateVerticesData('position', linePositions);
     lines.updateVerticesData('color', lineColors);
   }
-  return { points, lines, upload };
+  return { points, lines, anchors, upload };
 }
 
 export function installGameSky(
@@ -155,18 +174,25 @@ export function installGameSky(
   stars.material = material;
   previous?.dispose();
   const constellations = createConstellationMeshes(B, scene);
-  const world = B.Matrix.Identity();
-  const position = new B.Vector3();
   const projected = new B.Vector3();
   const viewport = scene.activeCamera!.viewport.toGlobal(window.innerWidth, window.innerHeight);
+  const noObstacles: readonly [] = [];
   let streamOffset = 0;
   let previousStrength = 0;
   let lastUpload = -Infinity;
   let uploadedRevision = -1;
+  let uploadedLayout = -1;
+  let uploadedProjectionX = 0;
+  let uploadedProjectionY = 0;
 
   const resize = (): void => {
     viewport.width = window.innerWidth; viewport.height = window.innerHeight;
+    // DOM normally measures first; this fallback keeps standalone scenes responsive, outside the frame path.
+    if (store.layout.width !== viewport.width || store.layout.height !== viewport.height) {
+      store.layout.measure(viewport.width, viewport.height, store.phone, noObstacles);
+    }
   };
+  if (store.layout.width === 0) store.layout.measure(viewport.width, viewport.height, store.phone, noObstacles);
   window.addEventListener('resize', resize);
 
   scene.onBeforeRenderObservable.add(() => {
@@ -182,10 +208,14 @@ export function installGameSky(
     material.setFloat('streamOffset', streamOffset);
     material.setFloat('starVisibility', stars.visibility);
     nebula.color.r = store.tint.r; nebula.color.g = store.tint.g; nebula.color.b = store.tint.b;
-    if (uploadedRevision !== store.constellations.revision
+    const projection = scene.activeCamera!.getProjectionMatrix().m;
+    if (uploadedRevision !== store.constellations.revision || uploadedLayout !== store.layout.revision
+      || uploadedProjectionX !== projection[0] || uploadedProjectionY !== projection[5]
       || (store.constellations.count > 0 && !store.reduced && now - lastUpload >= 1000 / 30)) {
-      constellations.upload(store);
+      constellations.upload(store, viewport);
       uploadedRevision = store.constellations.revision;
+      uploadedLayout = store.layout.revision;
+      uploadedProjectionX = projection[0]!; uploadedProjectionY = projection[5]!;
       lastUpload = now;
     }
   });
@@ -193,16 +223,13 @@ export function installGameSky(
   scene.onAfterRenderObservable.add(() => {
     const candidates = store.projections;
     const transform = scene.getTransformMatrix();
-    const m = transform.m;
+    const world = constellations.points.getWorldMatrix();
     for (let i = 0; i < candidates.length; i++) {
       const candidate = candidates[i]!;
       const group = candidate.constellation;
       candidate.visible = false;
-      if (group.count === 0) continue;
-      position.set(group.position.x, group.position.y, group.position.z);
-      const w = position.x * m[3]! + position.y * m[7]! + position.z * m[11]! + m[15]!;
-      if (w <= 0) continue;
-      B.Vector3.ProjectToRef(position, world, transform, viewport, projected);
+      if (group.count === 0 || store.layout.slots.length === 0) continue;
+      B.Vector3.ProjectToRef(constellations.anchors[i]!, world, transform, viewport, projected);
       candidate.visible = projected.z >= 0 && projected.z <= 1
         && placeDoor(candidate.rect, projected.x, projected.y, viewport.width, viewport.height, store.phone);
     }

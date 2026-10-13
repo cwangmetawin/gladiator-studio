@@ -19,8 +19,9 @@ export function skyModuleUrls(moduleUrl, source, { mutateGroup = false } = {}) {
   } : undefined);
   const trail = compile('../../features/starfield/trailModel.ts', ['./trailModel']);
   const doors = compile('../../features/starfield/doorSelection.ts', ['./doorSelection']);
+  const layout = compile('../../features/starfield/constellationLayout.ts', ['./constellationLayout']);
   const store = compile('../../features/starfield/skyStore.ts', ['./skyStore', '@/features/starfield/skyStore']);
   const renderer = compile('../../features/starfield/gameSkyRenderer.ts', ['./gameSkyRenderer']);
   const focus = compile('../../features/games/catalogueFocus.ts', ['./catalogueFocus']);
-  return { identity, constellations, trail, doors, store, renderer, focus };
+  return { identity, constellations, trail, doors, layout, store, renderer, focus };
 }

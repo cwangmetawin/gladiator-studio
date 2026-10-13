@@ -5,7 +5,10 @@ export const PHONE_DOOR_CAP = 3;
 export const DOOR_WIDTH = 160;
 export const PHONE_DOOR_WIDTH = 128;
 export const DOOR_HEIGHT = 44;
-const CLEARANCE = 8;
+export const DOOR_CLEARANCE = 8;
+export const DOOR_TOP = 80;
+export const DOOR_BOTTOM = 112;
+export const PHONE_DOOR_BOTTOM = 48;
 
 export interface ScreenRect { left: number; top: number; right: number; bottom: number; }
 export interface DoorCandidate {
@@ -15,7 +18,7 @@ export interface DoorCandidate {
   gameTitle: string;
 }
 
-export function overlaps(a: ScreenRect, b: ScreenRect, clearance = CLEARANCE): boolean {
+export function overlaps(a: ScreenRect, b: ScreenRect, clearance = DOOR_CLEARANCE): boolean {
   return a.left < b.right + clearance && a.right > b.left - clearance
     && a.top < b.bottom + clearance && a.bottom > b.top - clearance;
 }
@@ -27,8 +30,8 @@ export function placeDoor(rect: ScreenRect, x: number, y: number, width: number,
   rect.top = Math.round(y - DOOR_HEIGHT / 2);
   rect.bottom = rect.top + DOOR_HEIGHT;
   // Reserve shell bars / ticker / safe areas; never clamp a door off its star.
-  return rect.left >= CLEARANCE && rect.right <= width - CLEARANCE
-    && rect.top >= 80 && rect.bottom <= height - 112;
+  return rect.left >= DOOR_CLEARANCE && rect.right <= width - DOOR_CLEARANCE
+    && rect.top >= DOOR_TOP && rect.bottom <= height - (phone ? PHONE_DOOR_BOTTOM : DOOR_BOTTOM);
 }
 
 /** Brightest eligible doors first, skipping collisions; the caller owns the output pool. */

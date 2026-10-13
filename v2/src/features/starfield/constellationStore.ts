@@ -15,6 +15,7 @@ export interface ConstellationStar extends SkyPosition {
 
 export interface Constellation {
   key: string;
+  hash: number;
   gameName: string;
   readonly position: SkyPosition;
   accent: ReturnType<typeof gameAccent>;
@@ -40,7 +41,7 @@ export function starOpacity(born: number, now: number, reduced = false): number 
 /** All groups and star slots are allocated once, including slots for future games. */
 export function createConstellationStore() {
   const groups: Constellation[] = Array.from({ length: MAX_CONSTELLATIONS }, () => ({
-    key: '', gameName: '', position: { x: 0, y: 0, z: 0 }, accent: gameAccent(''),
+    key: '', hash: 0, gameName: '', position: { x: 0, y: 0, z: 0 }, accent: gameAccent(''),
     stars: Array.from({ length: STARS_PER_CONSTELLATION }, () => ({
       x: 0, y: 0, z: 0, born: 0, brightness: 0, alpha: 0, active: false,
     })),
@@ -89,6 +90,7 @@ export function createConstellationStore() {
     if (!group) {
       group = reusable;
       group.key = key;
+      group.hash = gameHash(key);
       group.gameName = gameName.trim();
       gameSkyPosition(key, group.position);
       group.accent = gameAccent(key);

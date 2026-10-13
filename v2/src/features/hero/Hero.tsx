@@ -201,7 +201,7 @@ export function Hero({ active = true, target = 'none' }: HeroProps) {
       <section id="home" aria-label="Gladiator Studio"
         style={{ position: 'relative', height: '100%', width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '64px 20px 96px' }}>
         <div className="hero-aura" aria-hidden="true" />
-        <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EXPO }}
+        <motion.div data-sky-obstacle initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: EXPO }}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, position: 'relative', zIndex: 5 }}>
           <IdentityHub compact />
           <div role="group" aria-label="Primary actions" style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 4 }}>

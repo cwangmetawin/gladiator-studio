@@ -14,7 +14,7 @@ interface ConstellationDoorsProps {
 
 const SLOTS = Array.from({ length: DESKTOP_DOOR_CAP }, (_, i) => i);
 const COUNTS = Array.from({ length: STARS_PER_CONSTELLATION + 1 }, (_, i) => `${i} recent ${i === 1 ? 'win' : 'wins'}`);
-const OBSTACLES = '.holo-node, .mobile-node, .hero-logo-wrap, [aria-label="Primary actions"], .hub-layer';
+const OBSTACLES = '.holo-node, .mobile-node, .hero-logo-wrap, [aria-label="Primary actions"], .hub-layer, [data-sky-obstacle], .shell-bar, .ticker, [aria-label="Open menu"]';
 
 /** The scene publishes after projection; these six persistent buttons never need a RAF. */
 export function ConstellationDoors({ active, phone, games, onFocusGame }: ConstellationDoorsProps) {
@@ -36,11 +36,14 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
       const elements = document.querySelectorAll<HTMLElement>(OBSTACLES);
       elements.forEach(element => {
         const rect = element.getBoundingClientRect();
+        observer.observe(element);
+        if (rect.right <= rect.left || rect.bottom <= rect.top) return;
         // Include the hub's bounded parallax, bob and magnetic hover without layout reads per frame.
         const padding = phone ? 12 : 40;
         obstacles.push({ left: rect.left - padding, top: rect.top - padding,
           right: rect.right + padding, bottom: rect.bottom + padding });
       });
+      skyStore.setLayout(window.innerWidth, window.innerHeight, phone, obstacles);
     };
 
     const paint = (): void => {
@@ -70,16 +73,18 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
       }
     };
     const refresh = (): void => { measure(); paint(); };
-    refresh();
-    const timer = window.setTimeout(refresh, 1500); // Re-measure the settled hub entrance.
     const observer = new ResizeObserver(refresh);
+    // The ticker mounts after the first socket event; observe shell children, not its animated chips.
+    const mutations = new MutationObserver(refresh);
+    if (root.parentElement) mutations.observe(root.parentElement, { childList: true });
     const home = document.getElementById('home');
     if (home) observer.observe(home);
-    document.querySelectorAll(OBSTACLES).forEach(element => observer.observe(element));
+    refresh();
+    const timer = window.setTimeout(refresh, 1500); // Re-measure the settled hub entrance.
     window.addEventListener('resize', refresh);
     const unsubscribe = skyStore.onFrame(paint);
     return () => {
-      unsubscribe(); observer.disconnect(); window.clearTimeout(timer);
+      unsubscribe(); observer.disconnect(); mutations.disconnect(); window.clearTimeout(timer);
       window.removeEventListener('resize', refresh);
     };
   }, [active, phone, games]);

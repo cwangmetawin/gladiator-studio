@@ -44,6 +44,155 @@ const { isSceneCovered, createRenderLoop } = await import(moduleUrl(source('../.
 const within = (actual, expected, tolerance = 1e-9) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} vs ${expected}`);
 const groupFor = (store, name) => store.groups.find(group => group.gameName === name);
 
+// Execute the homepage's actual camera block and constants, without its canvas textures.
+async function homepageCamera(B, scene, width) {
+  const original = source('../../features/starfield/StarfieldBackground.tsx');
+  const start = original.indexOf('  const camera = new BABYLON.ArcRotateCamera(');
+  const end = original.indexOf('  // ── Lighting', start);
+  assert.ok(start >= 0 && end > start, 'homepage camera block must be present');
+  const cameraBlock = original.slice(start, end);
+  const eventUrl = moduleUrl(source('../utils/sceneEvents.ts'));
+  const loopUrl = moduleUrl(source('../../features/starfield/renderLoop.ts')
+    .replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`));
+  const twinkleUrl = moduleUrl(source('../../features/starfield/starTwinkle.ts')
+    .replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`));
+  const wired = original
+    .replace("from '@/shared/utils/sceneEvents'", `from '${eventUrl}'`)
+    .replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`)
+    .replace("from './renderLoop'", `from '${loopUrl}'`)
+    .replace("from './starTwinkle'", `from '${twinkleUrl}'`)
+    .replace("from '@/shared/motion/transitionStore'", `from '${motionUrls.store}'`)
+    .replace("from '@/features/journey/journeyMotion'", `from '${motionUrls.journey}'`)
+    .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
+    .replace("from './gameSkyRenderer'", `from '${urls.renderer}'`)
+    .replace("from './skyStore'", `from '${urls.store}'`);
+  const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
+    export const probeWidth = ${width};
+    export function probeHomeCamera(BABYLON, scene) { ${cameraBlock}\n return camera; }
+  `));
+  return probeHomeCamera(B, scene);
+}
+
+function homepageObstacles(width, height, phone, hubY, bottomInset = 0) {
+  const raw = phone ? [
+    { left: 13, top: 128, right: width - 13, bottom: 468 }, // Compact identity, stats and actions.
+    { left: 40, top: 175, right: width - 40, bottom: 315 }, // Logo.
+    { left: 28, top: 330, right: width - 28, bottom: 382 }, // Stats.
+    { left: 24, top: 398, right: width - 24, bottom: 466 }, // Primary actions; section nodes hide below 700px.
+    { left: width - 70, top: height - 108 - bottomInset, right: width - 16, bottom: height - 54 - bottomInset }, // Floating menu.
+  ] : [
+    { left: width / 2 - 230, top: height * hubY - 180, right: width / 2 + 230, bottom: height * hubY + 180 },
+    { left: width / 2 - 230, top: height * hubY - 150, right: width / 2 + 230, bottom: height * hubY + 115 },
+    { left: width / 2 - 180, top: height * hubY + 128, right: width / 2 + 180, bottom: height * hubY + 180 },
+    ...[[27, 25], [73, 23], [13, 49], [87, 47], [26, 72], [74, 70], [50, 81]].map(([x, y]) => ({
+      left: width * x / 100 - 45, top: height * y / 100 - 40,
+      right: width * x / 100 + 45, bottom: height * y / 100 + 40,
+    })),
+  ];
+  const padding = phone ? 12 : 40;
+  return [
+    ...raw.map(rect => ({ left: rect.left - padding, top: rect.top - padding,
+      right: rect.right + padding, bottom: rect.bottom + padding })),
+    { left: 0, top: 0, right: width, bottom: 64 },
+    { left: 0, top: height - 38 - bottomInset, right: width, bottom: height }, // Live ticker and home-indicator inset.
+  ];
+}
+
+for (const [width, height, phone, minimum] of [[1440, 900, false, 3], [320, 640, true, 1]]) {
+  test(`real homepage camera chooses usable constellation doors at ${width}×${height}`, async t => {
+    const B = await import(moduleUrl(source('../babylon/babylonCore.ts')));
+    const { NullEngine } = await import(pathToFileURL(require.resolve('@babylonjs/core/Engines/nullEngine.js')).href);
+    const { lookupGame } = await import(liveCatalogueUrl);
+    const { GLADIATOR_SLOTS, METAWIN_ORIGINALS } = await import(catalogueUrl);
+    const catalogue = new Map([...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS].map(game => [game.title.toLowerCase(), game.title]));
+    const previousWindow = globalThis.window;
+    globalThis.window = { innerWidth: width, innerHeight: height, devicePixelRatio: phone ? 3 : 1,
+      addEventListener() {}, removeEventListener() {} };
+    // Homepage phone hardware scaling reduces the drawing buffer, never the DOM viewport.
+    const scale = phone ? 1.5 : 1;
+    const engine = new NullEngine({ renderWidth: Math.floor(width / scale), renderHeight: Math.floor(height / scale) });
+    if (phone) engine.setHardwareScalingLevel(1.5);
+    const scene = new B.Scene(engine);
+    try {
+      const camera = await homepageCamera(B, scene, width);
+      const homeAlpha = camera.alpha;
+      const { initialTransition } = await import(motionUrls.transition);
+      const { createCameraNarrative } = await import(motionUrls.camera);
+      const idle = { ...initialTransition(), mode: phone ? 'phone' : 'desktop' };
+      const narrative = createCameraNarrative({ read: () => ({ alpha: camera.alpha }),
+        write: pose => { camera.alpha = pose.alpha; }, target: () => ({ alpha: homeAlpha }),
+        journey: () => ({ progress: 0, count: 0 }), isPhone: () => phone });
+      const stars = new B.Mesh('existingStars', scene);
+      stars.setVerticesData('position', new Float32Array([0, 0, 160]));
+      stars.setVerticesData('color', new Float32Array([1, 1, 1, 1]), true);
+      stars.setIndices([0]);
+      const nebula = new B.Layer('nebula', null, scene, true);
+      const sky = createSkyStore();
+      sky.configure(phone, false);
+      let published = 0;
+      sky.onFrame(() => { published++; });
+      installGameSky(B, scene, stars, nebula, () => 0, sky);
+      const socketNames = ['Dice Zero', 'Pump', 'Packs', 'Keno', 'Limbo Zero', 'Plinko', 'Candy Cash', 'Legend of Tartarus'];
+      for (let i = 0; i < socketNames.length; i++) {
+        const canonical = lookupGame(socketNames[i])?.title;
+        assert.ok(canonical && catalogue.has(canonical.toLowerCase()), `${socketNames[i]} must match through the real alias path`);
+        sky.addWin(canonical, 100 + i * 100);
+      }
+      scene.render(); await scene.whenReadyAsync(); scene.render();
+      assert.equal(sky.constellations.count, 8);
+      assert.equal(sky.ready, true);
+      assert.ok(published > 0, 'idle hub publishes projected positions');
+      for (const candidate of sky.projections) candidate.gameTitle = catalogue.get(candidate.constellation.key) ?? '';
+      for (const [hubY, bottomInset] of phone ? [[0.3, 0], [0.3, 34]] : [[0.3, 0], [0.44, 0]]) {
+        const obstacles = homepageObstacles(width, height, phone, hubY, bottomInset);
+        sky.setLayout(width, height, phone, obstacles);
+        const points = scene.getMeshByName('gameConstellationPoints');
+        const occupied = sky.projections.filter(candidate => candidate.constellation.count > 0);
+        let initialRects;
+        camera.alpha = homeAlpha;
+        for (const cameraSeconds of [0, 90]) {
+          // Fresh live stars at the real idle camera's 90-second pose, without sleeping or expiring the fixture.
+          narrative.update(idle, cameraSeconds * 1000, cameraSeconds);
+          for (const reduced of [false, true]) {
+            sky.configure(phone, reduced);
+            scene.render();
+            const chosen = [];
+            selectDoors(sky.projections, obstacles, phone, chosen);
+            if (!reduced) t.diagnostic(`${width}×${height}, hub=${hubY}, inset=${bottomInset}, camera=${cameraSeconds}s: ${chosen.length} usable doors`);
+            assert.ok(chosen.length >= minimum, `expected at least ${minimum} usable doors, got ${chosen.length}`);
+            assert.equal(occupied.filter(candidate => candidate.visible).length, 8, 'all eight anchors stay in the visible sky');
+            const rects = occupied.map(candidate => ({ ...candidate.rect }));
+            if (!initialRects) initialRects = rects;
+            else assert.deepEqual(rects, initialRects, 'camera orbit and reduced motion keep the same patches');
+            for (let i = 0; i < chosen.length; i++) {
+              const rect = chosen[i].rect;
+              assert.ok(rect.left >= 0 && rect.right <= width && rect.top >= 0 && rect.bottom <= height);
+              for (const obstacle of obstacles) assert.equal(overlaps(rect, obstacle), false);
+              for (let j = 0; j < i; j++) assert.equal(overlaps(rect, chosen[j].rect), false);
+            }
+            const vertices = points.getVerticesData('position');
+            for (let i = 0; i < occupied.length; i++) {
+              const pixel = B.Vector3.Project(B.Vector3.FromArray(vertices, i * 3), points.getWorldMatrix(),
+                scene.getTransformMatrix(), camera.viewport.toGlobal(width, height));
+              const rect = occupied[i].rect;
+              assert.ok(Math.abs(pixel.x - (rect.left + rect.right) / 2) <= 18.1);
+              assert.ok(Math.abs(pixel.y - (rect.top + rect.bottom) / 2) <= 18.1);
+              assert.ok(pixel.z >= 0 && pixel.z <= 1, 'rendered star and projected door share the front-facing camera space');
+            }
+          }
+        }
+      }
+      sky.setLayout(width, height, phone, [{ left: 0, top: 0, right: width, bottom: height }]);
+      scene.render();
+      assert.equal(sky.projections.some(candidate => candidate.visible), false, 'a fully blocked viewport never invents an unsafe fallback');
+      assert.equal(scene.getMeshByName('gameConstellationPoints').isEnabled(), false);
+    } finally {
+      scene.dispose(); engine.dispose();
+      if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
+    }
+  });
+}
+
 test('hash → palette is stable, canonical and confined to the five brand accents', () => {
   assert.equal(gameHash('  To THE Top  '), gameHash('to the top'));
   assert.equal(gameHash('hello'), 1335831723); // Known FNV-1a fixture.
@@ -539,13 +688,19 @@ test('the app-root binding exposes trail/tint/constellation attributes synchrono
     sceneEvents.emitWin({ gameName: 'Navigator', amount: 200, lat: 0, lng: 0 });
     assert.equal(root.current.dataset.constellations, '1');
     assert.equal(groupFor(skyStore.constellations, 'Navigator').count, 2, 'real socket aliases share the catalogue constellation');
+    for (const [socketName, title] of [['Dice Zero', 'Dice'], ['Pump', 'Pump'], ['Packs', 'Packs'], ['Keno', 'Keno'],
+      ['Limbo Zero', 'Limbo'], ['Plinko', 'Plinko'], ['Candy Cash', 'Candy Cash'], ['Legend of Tartarus', 'Legend of Tartarus']]) {
+      sceneEvents.emitWin({ gameName: socketName, amount: 100, lat: 0, lng: 0 });
+      assert.equal(groupFor(skyStore.constellations, title)?.count, 1, `${socketName} resolves through the mounted socket binding`);
+    }
+    assert.equal(root.current.dataset.constellations, '9');
     assert.equal(typeof maintained, 'function');
     skyStore.releaseDrag(100); skyStore.advance(1000, 1 / 60); skyStore.publishFrame();
     assert.equal(root.current.dataset.trail, '0.00');
     for (const cleanup of cleanups) cleanup();
     cleanups.length = 0;
     sceneEvents.emitWin({ gameName: 'To The Top', amount: 100, lat: 0, lng: 0 });
-    assert.equal(root.current.dataset.constellations, '1', 'unmounted root binding stays unsubscribed');
+    assert.equal(root.current.dataset.constellations, '9', 'unmounted root binding stays unsubscribed');
   } finally {
     for (const cleanup of cleanups) cleanup();
     if (previousWindow === undefined) delete globalThis.window; else globalThis.window = previousWindow;
@@ -565,9 +720,10 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     .replace("from './skyStore'", `from '${urls.store}'`)
     .replace("from './doorSelection'", `from '${urls.doors}'`)
     .replace("from './constellationStore'", `from '${urls.constellations}'`)));
-  const saved = Object.fromEntries(['window', 'document', 'ResizeObserver'].map(name => [name, globalThis[name]]));
+  const saved = Object.fromEntries(['window', 'document', 'ResizeObserver', 'MutationObserver'].map(name => [name, globalThis[name]]));
   let reads = 0;
   let requested;
+  let onShellMutation;
   const obstacle = { getBoundingClientRect() { reads++; return { left: 1180, right: 1190, top: 100, bottom: 140 }; } };
   const buttons = Array.from({ length: 6 }, () => {
     const title = { textContent: '' }, count = { textContent: '' };
@@ -576,8 +732,10 @@ test('projected DOM doors receive accessible names, activate the correct title, 
       setAttribute(name, value) { this.attributes[name] = value; } };
   });
   globalThis.window = { innerWidth: 1280, innerHeight: 720, setTimeout: () => 1, clearTimeout() {}, addEventListener() {}, removeEventListener() {} };
-  globalThis.document = { querySelectorAll: () => [obstacle], getElementById: () => null };
+  const elements = [obstacle];
+  globalThis.document = { querySelectorAll: () => elements, getElementById: () => null };
   globalThis.ResizeObserver = class { observe() {} disconnect() {} };
+  globalThis.MutationObserver = class { constructor(callback) { onShellMutation = callback; } observe() {} disconnect() {} };
   const catalogue = Array.from({ length: 7 }, (_, i) => ({ title: `Door Game ${i}` }));
   let cleanup;
   try {
@@ -589,7 +747,7 @@ test('projected DOM doors receive accessible names, activate the correct title, 
       if (index >= 0) Object.assign(projection.rect, { left: index * 175 + 10, right: index * 175 + 170, top: 100, bottom: 144 });
     }
     skyStore.setReady(true);
-    root.current = { querySelectorAll: () => buttons };
+    root.current = { querySelectorAll: () => buttons, parentElement: {} };
     const tree = ConstellationDoors({ active: true, phone: false, games: catalogue, onFocusGame: title => { requested = title; } });
     cleanup = layouts[0]();
     assert.deepEqual(buttons.filter(button => !button.hidden).map(button => button.dataset.game),
@@ -598,6 +756,12 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     assert.equal(buttons[0].style.left, '885px');
     tree.props.children[0].props.onClick({ currentTarget: buttons[0] });
     assert.equal(requested, 'Door Game 5');
+    const revision = skyStore.layout.revision;
+    const tickerRect = { left: 0, top: 590, right: 1280, bottom: 720 };
+    elements.push({ getBoundingClientRect() { reads++; return tickerRect; } });
+    onShellMutation();
+    assert.ok(skyStore.layout.revision > revision, 'a ticker mounted after the first win invalidates the sky patches');
+    for (const slot of skyStore.layout.slots) assert.equal(overlaps(slot, tickerRect), false);
     const measured = reads;
     for (let i = 0; i < 10; i++) skyStore.publishFrame();
     assert.equal(reads, measured, 'projection updates never force layout');
