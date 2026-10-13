@@ -686,7 +686,7 @@ export function App() {
       <a href="#main" className="skip-to-content">Skip to content</a>
 
       {/* 3D scene — always behind everything */}
-      <StarfieldCanvas />
+      <StarfieldCanvas suspended={playingGame !== null || clientArea !== 'closed' || (isMobile && activePanel !== 'none')} />
 
       {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
       <div className="fx-holo" aria-hidden="true" />
