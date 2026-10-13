@@ -10,6 +10,7 @@ import { installGameSky } from './gameSkyRenderer';
 import { skyStore } from './skyStore';
 import { sceneReadiness } from './sceneReadiness';
 import { loadSceneModule } from '@/shared/utils/preloadScene';
+import { installSceneEffects } from './sceneEffects';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -785,6 +786,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       // Keep the last frame when preferences, hidden tabs or full-screen
       // overlays stop the continuous render loop. The engine stays mounted.
       const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+      const effects = installSceneEffects(BABYLON, scene, engine, canvas.closest<HTMLElement>('[data-trail]'), () => dt, () => motionQuery.matches);
       const getState = () => ({
         reducedMotion: motionQuery.matches,
         hidden: document.hidden,
@@ -795,6 +797,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         getDeltaTime: () => engine.getDeltaTime(),
         render: (deltaSeconds) => {
           dt = deltaSeconds;
+          effects.setRunning(shouldRunRenderLoop(getState()));
           scene.render();
           if (sceneReady && !frameReady) {
             frameReady = true;
@@ -803,7 +806,7 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
           }
         },
         start: (render) => engine.runRenderLoop(render),
-        stop: () => engine.stopRenderLoop(),
+        stop: () => { effects.setRunning(false); engine.stopRenderLoop(); },
       });
       const { startLoop, renderStatic } = loop;
       canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;

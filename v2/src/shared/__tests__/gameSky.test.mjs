@@ -7,6 +7,7 @@ import { pathToFileURL } from 'node:url';
 import { skyModuleUrls } from './skyModuleUrls.mjs';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
 import { sceneLoadingModuleUrls } from './sceneLoadingModuleUrls.mjs';
+import { sceneEffectsModuleUrls } from './sceneEffectsModuleUrls.mjs';
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');
@@ -39,6 +40,7 @@ const liveCatalogueUrl = moduleUrl(source('../../features/live-feed/liveCatalogu
   .replace("from '@/api/gameData'", `from '${catalogueUrl}'`));
 const motionUrls = motionModuleUrls(moduleUrl, source, timeUrl);
 const loadingUrls = sceneLoadingModuleUrls(moduleUrl, source);
+const effectsUrls = sceneEffectsModuleUrls(moduleUrl, source, timeUrl, motionUrls, urls);
 const transitionSoundUrl = moduleUrl(source('../audio/transitionSound.ts')
   .replace("from '@/shared/motion/tokens'", `from '${motionUrls.tokens}'`));
 const { createTransitionStore } = await import(motionUrls.store);
@@ -71,6 +73,7 @@ async function homepageCamera(B, scene, width) {
     .replace("from './gameSkyRenderer'", `from '${urls.renderer}'`)
     .replace("from './skyStore'", `from '${urls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
+    .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`);
   const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
     export const probeWidth = ${width};

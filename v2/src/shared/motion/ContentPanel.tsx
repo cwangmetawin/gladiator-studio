@@ -7,6 +7,7 @@ import { Reveal } from '@/shared/ui/Reveal';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { motionTokens, transitionTimeline } from './tokens';
 import { PanelMotionContext } from './panelMotion';
+import { panelTitleTiming } from './titleMotion';
 import type { PanelId, TransitionState } from './transition';
 
 interface ContentPanelProps {
@@ -58,9 +59,10 @@ export function ContentPanel({ panelId, side, label, index, count, onClose, chil
 
   const panelMotion = useMemo(() => {
     const timeline = transitionTimeline(transition.mode, transition.kind);
-    const contentEnd = transition.panelStartedAt + timeline.bodyDelayMs + timeline.revealMs;
+    const title = panelTitleTiming(transition.mode, timeline);
+    const contentEnd = transition.panelStartedAt + Math.max(timeline.bodyDelayMs + timeline.revealMs, title.delayMs + title.durationMs);
     return {
-      timeline, enteredAt: transition.panelStartedAt,
+      mode: transition.mode, timeline, enteredAt: transition.panelStartedAt,
       settled: transition.phase === 'open' || performance.now() >= contentEnd,
       instantContent: transition.mode !== 'desktop',
     };

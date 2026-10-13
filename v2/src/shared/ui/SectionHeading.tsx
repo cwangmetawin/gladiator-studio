@@ -1,6 +1,7 @@
 import { useContext, type ReactNode } from 'react';
 import { PanelMotionContext } from '@/shared/motion/panelMotion';
 import { Reveal } from './Reveal';
+import { PanelTitle } from './PanelTitle';
 import { Eyebrow } from './Eyebrow';
 import { DecodeText } from './DecodeText';
 
@@ -26,7 +27,7 @@ export function SectionHeading({
     return (
       <div className={`flex flex-col gap-3 ${className}`.trim()}>
         {eyebrow && <Reveal stage="eyebrow" y={0}><Eyebrow dot>{eyebrow}</Eyebrow></Reveal>}
-        <Reveal stage="title" y={8}><Tag className="section-heading">{title}</Tag></Reveal>
+        <PanelTitle><Tag className="section-heading">{title}</Tag></PanelTitle>
         {lede && <Reveal stage="body" y={8}><p className="section-lede">{lede}</p></Reveal>}
       </div>
     );

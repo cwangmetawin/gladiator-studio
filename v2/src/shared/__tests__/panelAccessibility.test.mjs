@@ -28,8 +28,14 @@ const revealUrl = moduleUrl(withContext(source('../ui/Reveal.tsx')).replace("fro
   .replace("from '@/shared/motion/useMotionPreference'", `from '${preferenceUrl}'`));
 const eyebrowUrl = moduleUrl(source('../ui/Eyebrow.tsx'));
 const decodeUrl = moduleUrl(source('../ui/DecodeText.tsx'));
+const titleMotionUrl = moduleUrl(source('../motion/titleMotion.ts').replace("from './tokens'", `from '${tokensUrl}'`));
+const panelTitleUrl = moduleUrl(withContext(source('../ui/PanelTitle.tsx'))
+  .replace("from '@/shared/motion/titleMotion'", `from '${titleMotionUrl}'`)
+  .replace("from '@/shared/motion/tokens'", `from '${tokensUrl}'`)
+  .replace("from '@/shared/motion/useMotionPreference'", `from '${preferenceUrl}'`));
 const headingUrl = moduleUrl(withContext(source('../ui/SectionHeading.tsx'))
   .replace("from './Reveal'", `from '${revealUrl}'`).replace("from './Eyebrow'", `from '${eyebrowUrl}'`)
+  .replace("from './PanelTitle'", `from '${panelTitleUrl}'`)
   .replace("from './DecodeText'", `from '${decodeUrl}'`));
 const sectionUrl = moduleUrl(withContext(source('../components/SectionWrapper.tsx'))
   .replace("from '@/shared/ui/Reveal'", `from '${revealUrl}'`).replace("from '@/shared/ui/SectionHeading'", `from '${headingUrl}'`));
@@ -70,7 +76,7 @@ test('reduced-motion preference changes publish live snapshots and unsubscribe c
 for (const mode of ['desktop', 'phone', 'reduced']) {
   test(`${mode} panel content is fully visible without viewport observation or delayed decrypt glyphs`, () => {
     const html = renderToStaticMarkup(React.createElement(PanelMotionContext.Provider, { value: {
-      timeline: transitionTimeline(mode, 'open'), enteredAt: performance.now() + 10000,
+      mode, timeline: transitionTimeline(mode, 'open'), enteredAt: performance.now() + (mode === 'reduced' ? -10000 : 10000),
       settled: mode !== 'reduced', instantContent: mode !== 'desktop',
     } }, React.createElement(SectionWrapper, { id: 'example' },
       React.createElement(SectionHeading, { as: 'h1', eyebrow: 'Example', title: 'Readable title', lede: 'Readable lede' }),
@@ -81,6 +87,26 @@ for (const mode of ['desktop', 'phone', 'reduced']) {
     assert.doesNotMatch(html, /opacity:0(?:;|")/);
     assert.doesNotMatch(html, /inert="/);
     assert.doesNotMatch(html, /decode-glyph/);
+  });
+}
+
+for (const mode of ['desktop', 'phone', 'reduced']) {
+  test(`${mode} title reveal renders one intact heading and uses no layout animation`, () => {
+    const html = renderToStaticMarkup(React.createElement(PanelMotionContext.Provider, { value: {
+      mode, timeline: transitionTimeline(mode, 'open'), enteredAt: performance.now() + 10000,
+      settled: false, instantContent: mode !== 'desktop',
+    } }, React.createElement(SectionHeading, { title: 'One readable title' })));
+    assert.equal(html.split('One readable title').length - 1, 1);
+    assert.equal(html.match(/<h2\b/g)?.length, 1);
+    assert.ok(html.includes('data-title-reveal='));
+    if (mode === 'reduced') {
+      assert.match(html, /style="opacity:0"/);
+      assert.doesNotMatch(html, /transform:|clip-path:|mask:/);
+    } else {
+      assert.match(html, /clip-path:inset\(-12% -6% 112% -6%\)/);
+      assert.match(html, /transform:translateY\(8px\)/);
+    }
+    assert.doesNotMatch(html, /style="[^"\n]*(?:letter-spacing|font-size|width|height|padding|margin):/);
   });
 }
 

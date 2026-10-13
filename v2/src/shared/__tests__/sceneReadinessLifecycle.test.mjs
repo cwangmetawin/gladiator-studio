@@ -19,6 +19,7 @@ const hooks = moduleUrl(`
   export const useState = initial => { const i = stateIndex++; values.push(initial); return [initial, next => { values[i] = next; }]; };
 `);
 const loader = moduleUrl('export const loadSceneModule = () => globalThis.__m4aLoad();');
+const effects = moduleUrl('export const installSceneEffects = () => ({ setRunning() {} });');
 
 function wiredScene(readiness) {
   return source('../../features/starfield/StarfieldBackground.tsx')
@@ -33,6 +34,7 @@ function wiredScene(readiness) {
     .replace("from './gameSkyRenderer'", `from '${sky.renderer}'`)
     .replace("from './skyStore'", `from '${sky.store}'`)
     .replace("from './sceneReadiness'", `from '${readiness}'`)
+    .replace("from './sceneEffects'", `from '${effects}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
     // M1 separately executes the real builders with NullEngine. Isolate only the
     // effect's lifecycle here so textures and WebGL cannot hide readiness bugs.
@@ -58,7 +60,7 @@ for (const reduced of [false, true]) {
     }
     globalThis.window = { innerWidth: 1000, addEventListener() {}, removeEventListener() {}, matchMedia: () => preference };
     globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
-    globalThis.__m4aCanvas = { dataset: {} };
+    globalThis.__m4aCanvas = { dataset: {}, closest: () => null };
     globalThis.__m4aLoad = () => Promise.resolve({ Engine });
     globalThis.__m4aScene = { render: () => frames++, executeWhenReady: callback => { ready = callback; }, dispose() {} };
     const probe = await import(hooks);
