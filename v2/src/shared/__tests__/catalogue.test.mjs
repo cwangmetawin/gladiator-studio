@@ -203,10 +203,14 @@ test('catalogue tabs omit loading counts and show the published category totals 
     export function FeaturedCard() { return null; }
   `);
   const soundUrl = moduleUrl('export const soundEngine = { click() {} };');
+  const identityUrl = moduleUrl(source('../../features/starfield/gameIdentity.ts'));
+  const focusUrl = moduleUrl(source('../../features/games/catalogueFocus.ts')
+    .replace("from '@/features/starfield/gameIdentity'", `from '${identityUrl}'`));
   const showcaseUrl = moduleUrl(source('../../features/games/GameShowcase.tsx')
     .replace("from '@/shared/components/SectionWrapper'", `from '${uiUrl}'`)
     .replace("from '@/shared/ui'", `from '${uiUrl}'`)
     .replace("from './GameCard'", `from '${uiUrl}'`)
+    .replace("from './catalogueFocus'", `from '${focusUrl}'`)
     .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`));
   const { GameShowcase } = await import(showcaseUrl);
   const render = (props) => renderToStaticMarkup(React.createElement(GameShowcase, props));

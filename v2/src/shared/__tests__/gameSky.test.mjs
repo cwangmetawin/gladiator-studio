@@ -27,7 +27,7 @@ const { createTrailModel, velocityStrength, TRAIL_DECAY_MS, PHONE_TRAIL_DECAY_MS
 const { createSkyStore, skyStore, SKY_TINT_MIX } = await import(urls.store);
 const { selectDoors, placeDoor, overlaps, DESKTOP_DOOR_CAP, PHONE_DOOR_CAP } = await import(urls.doors);
 const { createConstellationMeshes, installGameSky } = await import(urls.renderer);
-const { catalogueFocusIndex } = await import(urls.focus);
+const { catalogueFocusIndex, catalogueDisplayOrder, resolvePhoneCatalogueFocus, focusCatalogueCard } = await import(urls.focus);
 const timeUrl = moduleUrl(source('../utils/frameTime.ts'));
 const rtpUrl = moduleUrl(source('../utils/gameRtp.ts'));
 const catalogueUrl = moduleUrl(source('../../api/gameData.ts')
@@ -268,6 +268,54 @@ test('focus-game uses the ordinary transition and resolves the right active inde
   assert.equal(catalogueFocusIndex(games, 'unknown'), -1);
 });
 
+test('phone focus resolves the displayed index and keeps or changes the tab that holds the game', () => {
+  const slots = [
+    { ...games[0], title: 'Old Slot', slug: 'old-slot', timeline: '2023-01-01' },
+    { ...games[1], title: 'New Slot', slug: 'new-slot', timeline: '2026-01-01', isHot: true },
+    { ...games[2], title: 'Middle Slot', slug: 'middle-slot', timeline: '2025-01-01' },
+  ];
+  const originals = [
+    { ...games[0], id: 100, title: 'Old Original', slug: 'old-original', category: 'mini', timeline: '2024-01-01' },
+    { ...games[1], id: 101, title: 'New Original', slug: 'new-original', category: 'mini', timeline: '2026-06-01', isHot: true },
+  ];
+  assert.deepEqual(catalogueDisplayOrder(slots).map(game => game.title), ['New Slot', 'Middle Slot', 'Old Slot']);
+  assert.deepEqual(resolvePhoneCatalogueFocus(slots, originals, 'mini', '  MIDDLE SLOT '),
+    { tab: 'slot', index: 1, key: 'middle slot' });
+  assert.deepEqual(resolvePhoneCatalogueFocus(slots, originals, 'slot', 'new-original'),
+    { tab: 'mini', index: 0, key: 'new original' });
+  assert.deepEqual(resolvePhoneCatalogueFocus(slots, originals, 'new', 'New Slot'),
+    { tab: 'new', index: 1, key: 'new slot' });
+  assert.deepEqual(resolvePhoneCatalogueFocus(slots, originals, 'new', 'Old Original'),
+    { tab: 'mini', index: 1, key: 'old original' });
+  assert.equal(resolvePhoneCatalogueFocus([], [], 'slot', 'New Original'), null, 'wait for loading data');
+  assert.equal(resolvePhoneCatalogueFocus(slots, originals, 'slot', 'Missing'), null);
+  assert.equal(resolvePhoneCatalogueFocus(slots, originals, 'slot', null), null);
+  const tied = [slots[1], { ...slots[2], timeline: slots[1].timeline }];
+  assert.deepEqual(catalogueDisplayOrder(tied), tied, 'same-date titles retain main’s spotlight / stable ordering');
+});
+
+test('phone card focus matches stable keys and scrolls instantly for reduced motion, smoothly otherwise', () => {
+  const actions = [];
+  const card = { dataset: { gameKey: "captain's prize" },
+    scrollIntoView: options => actions.push(['scroll', options]), focus: options => actions.push(['focus', options]) };
+  const root = { querySelectorAll(selector) {
+    assert.equal(selector, '[data-game-key]', 'title punctuation never enters a selector');
+    return [{ dataset: { gameKey: 'other game' } }, card];
+  } };
+  for (const reduced of [false, true]) {
+    actions.length = 0;
+    assert.equal(focusCatalogueCard(root, "captain's prize", reduced), true);
+    assert.deepEqual(actions, [
+      ['scroll', { behavior: reduced ? 'instant' : 'smooth', block: 'center', inline: 'nearest' }],
+      ['focus', { preventScroll: true }],
+    ]);
+  }
+  actions.length = 0;
+  assert.equal(focusCatalogueCard(root, 'missing', false), false);
+  assert.equal(focusCatalogueCard(null, 'missing', false), false);
+  assert.deepEqual(actions, []);
+});
+
 const visualUrl = moduleUrl(`
   export function Reveal({ children }) { return children; }
   export function X() { return null; }
@@ -285,6 +333,72 @@ function coverflowSource() {
     .replace("from '@/features/starfield/skyStore'", `from '${urls.store}'`)
     .replace("from './catalogueFocus'", `from '${urls.focus}'`);
 }
+
+test('the shipped phone showcase waits for data, switches tabs before focusing, then permits manual tab changes', async () => {
+  const hooksUrl = moduleUrl(`
+    export const values = [], refs = [], effects = [];
+    let stateIndex = 0, refIndex = 0;
+    export function beginRender() { stateIndex = refIndex = 0; effects.length = 0; }
+    export function useState(initial) { const i = stateIndex++;
+      if (i >= values.length) values.push(typeof initial === 'function' ? initial() : initial);
+      return [values[i], next => { values[i] = typeof next === 'function' ? next(values[i]) : next; }]; }
+    export function useRef(current) { const i = refIndex++; if (i >= refs.length) refs.push({ current }); return refs[i]; }
+    export const useEffect = fn => effects.push(fn), useMemo = fn => fn(), useCallback = fn => fn;
+  `);
+  const uiUrl = moduleUrl(`
+    export function SectionWrapper({ children }) { return children; }
+    export const SectionHeading = () => null, GameCard = () => null, FeaturedCard = () => null;
+  `);
+  const { GameShowcase } = await import(moduleUrl(source('../../features/games/GameShowcase.tsx')
+    .replace("from 'react'", `from '${hooksUrl}'`)
+    .replace("from '@/shared/components/SectionWrapper'", `from '${uiUrl}'`)
+    .replace("from '@/shared/ui'", `from '${uiUrl}'`)
+    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
+    .replace("from './GameCard'", `from '${uiUrl}'`)
+    .replace("from './catalogueFocus'", `from '${urls.focus}'`)));
+  const { beginRender, values, effects } = await import(hooksUrl);
+  const previousDocument = globalThis.document;
+  const actions = [];
+  const original = { ...games[1], id: 100, category: 'mini', title: 'Original Focus', slug: 'original-focus' };
+  const card = { dataset: { gameKey: 'original focus' }, scrollIntoView: options => actions.push(['scroll', options]),
+    focus: options => actions.push(['focus', options]) };
+  globalThis.document = { getElementById(id) {
+    assert.equal(id, 'games'); actions.push(['query']); return { querySelectorAll: () => [card] };
+  } };
+  const render = props => { beginRender(); GameShowcase(props); for (const effect of effects) effect(); };
+  try {
+    render({ slotGames: [], miniGames: [], loading: true, focusGame: 'original-focus' });
+    assert.equal(values[0], 'slot');
+    assert.deepEqual(actions, []);
+    const loaded = { slotGames: games, miniGames: [original], loading: false, focusGame: 'original-focus', reducedMotion: true };
+    render(loaded);
+    assert.equal(values[0], 'mini');
+    assert.deepEqual(actions, [], 'tab commit precedes lookup / scrolling');
+    render(loaded);
+    assert.equal(actions[1][1].behavior, 'instant');
+    assert.deepEqual(actions[2], ['focus', { preventScroll: true }]);
+    actions.length = 0;
+    values[0] = 'new'; render(loaded);
+    assert.equal(values[0], 'new', 'a completed focus request does not force the user back');
+    assert.deepEqual(actions, []);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument;
+  }
+});
+
+test('both shipped phone card types expose the stable focus key and remain keyboard focusable', async () => {
+  const cardUrl = moduleUrl(source('../../features/games/GameCard.tsx')
+    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
+    .replace("from '@/features/starfield/gameIdentity'", `from '${urls.identity}'`));
+  const { GameCard, FeaturedCard } = await import(cardUrl);
+  const React = require('react');
+  const { renderToStaticMarkup } = require('react-dom/server');
+  for (const component of [GameCard, FeaturedCard]) {
+    const html = renderToStaticMarkup(React.createElement(component, { game: games[2], onPlayGame() {} }));
+    assert.match(html, /role="button" tabindex="0"/);
+    assert.match(html, /data-game-key="to the top"/);
+  }
+});
 
 test('the shipped catalogue opens with the requested centre card; doors are real named buttons', async () => {
   const dialogUrl = moduleUrl(`import { useRef } from 'react'; export function useDialogFocus() { return useRef(null); }`);
@@ -371,20 +485,23 @@ test('the shipped feeder emits a constellation win for both small and large trac
   dispose();
 });
 
-test('the transparent catalogue keeps rendering while opaque overlays and other phone panels retain M1 suspension', () => {
+test('desktop Games keeps rendering while every phone panel and opaque overlay retain M1 suspension', () => {
+  assert.equal(isSceneCovered(false, false, false, 'games'), false);
   for (const phone of [false, true]) {
-    assert.equal(isSceneCovered(false, false, phone, 'games'), false);
+    assert.equal(isSceneCovered(false, false, phone, 'none'), false);
     assert.equal(isSceneCovered(true, false, phone, 'games'), true);
     assert.equal(isSceneCovered(false, true, phone, 'none'), true);
   }
-  assert.equal(isSceneCovered(false, false, true, 'about'), true);
+  for (const panel of ['games', 'about', 'team', 'journey', 'live', 'careers', 'contact']) {
+    assert.equal(isSceneCovered(false, false, true, panel), true);
+  }
   let covered = false;
   let render;
   let frames = 0;
   const loop = createRenderLoop({ getState: () => ({ reducedMotion: false, hidden: false, suspended: covered }),
     getDeltaTime: () => 1000 / 60, render: () => { frames++; }, start: fn => { render = fn; }, stop() {} });
   loop.startLoop(); render();
-  covered = true; loop.startLoop();
+  covered = isSceneCovered(false, false, true, 'games'); loop.startLoop();
   const frozen = frames;
   for (let i = 0; i < 10; i++) render();
   assert.equal(frames, frozen, 'no queued frame renders behind an opaque overlay');

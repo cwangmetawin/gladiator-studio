@@ -32,6 +32,7 @@ import { isPanelId, type PanelId } from '@/shared/motion/transition';
 import { motionTokens, transitionTimeline, type MotionMode } from '@/shared/motion/tokens';
 
 const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
+const GameShowcase = lazy(() => import('@/features/games/GameShowcase').then(m => ({ default: m.GameShowcase })));
 const GameCoverflow = lazy(() => import('@/features/games/GameCoverflow').then(m => ({ default: m.GameCoverflow })));
 const AboutSection = lazy(() => import('@/features/about/AboutSection').then(m => ({ default: m.AboutSection })));
 const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => ({ default: m.TeamSection })));
@@ -611,8 +612,8 @@ export function App() {
 
   const activeSide: 'left' | 'right' = LEFT_PANELS.includes(activePanel) ? 'left' : 'right';
 
-  // Both layouts keep the sky visible behind the translucent catalogue.
-  const showCoverflow = activePanel === 'games';
+  // Desktop Games opens the carousel; phones retain the featured card and grid.
+  const showCoverflow = activePanel === 'games' && !isMobile;
   const allGames = useMemo(() => {
     const all = [...(gameData?.slotGames ?? []), ...(gameData?.miniGames ?? [])];
     return all.slice().sort((a, b) => b.timeline.localeCompare(a.timeline));
@@ -680,7 +681,7 @@ export function App() {
           Shares App's single feeder socket (no second connection). */}
       {transition.phase === 'idle' && <LiveTicker events={events} isConnected={isConnected} />}
 
-      {/* Translucent catalogue — desktop and phone Games */}
+      {/* Translucent catalogue — desktop Games */}
       <AnimatePresence>
         {showCoverflow && (
           <Suspense fallback={null}>
@@ -689,7 +690,7 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* Sliding content panel (other sections) */}
+      {/* Sliding content panel (other sections + mobile Games) */}
       <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 40 }}>
         {activePanel !== 'none' && !showCoverflow && (
           <ContentPanel panelId={activePanel} side={activeSide} label={NAV_ITEMS.find(item => item.panelId === activePanel)?.label ?? activePanel}
@@ -697,6 +698,10 @@ export function App() {
             onClose={handleClose} isMobile={isMobile} onMenu={() => setDrawerOpen(true)} returnFocusRef={panelOpenerRef} transition={transition}>
             <ErrorBoundary>
               <Suspense fallback={<PanelSpinner />}>
+                {activePanel === 'games' && (
+                  <GameShowcase slotGames={gameData?.slotGames ?? []} miniGames={gameData?.miniGames ?? []} loading={gameData === null}
+                    focusGame={transition.focusGame} reducedMotion={transition.mode === 'reduced'} />
+                )}
                 {activePanel === 'about' && <AboutSection />}
                 {activePanel === 'team' && <TeamSection />}
                 {activePanel === 'journey' && <JourneySection />}
