@@ -19,7 +19,7 @@
     {
       "tag": "Integration",
       "title": "One integration, full catalogue",
-      "body": "A single API connection gives operators access to all 8 Gladiator slots and 26 MetaWin Originals. JSON-based integration docs, a sandbox environment, and a dedicated technical account manager with every partner onboarding."
+      "body": "A single API connection gives operators access to all {{slots}} Gladiator slots and {{originals}} MetaWin Originals. JSON-based integration docs, a sandbox environment, and a dedicated technical account manager with every partner onboarding."
     }
   ]
 }

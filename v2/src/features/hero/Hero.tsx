@@ -9,6 +9,7 @@ import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import { BigWinFlash } from './BigWinFlash';
 import './hero.css';
 
@@ -23,7 +24,7 @@ const NODES: readonly {
   label: string; panelId: PanelId; icon: React.ComponentType<{ size?: number }>;
   x: number; y: number; meta: string;
 }[] = [
-  { label: 'Games',   panelId: 'games',   icon: Gamepad2,  x: 27, y: 25, meta: '34 titles' },
+  { label: 'Games',   panelId: 'games',   icon: Gamepad2,  x: 27, y: 25, meta: '{{games}} titles' },
   { label: 'About',   panelId: 'about',   icon: Info,      x: 73, y: 23, meta: 'The studio' },
   { label: 'Team',    panelId: 'team',    icon: Users,     x: 13, y: 49, meta: 'The crew' },
   { label: 'Journey', panelId: 'journey', icon: MapIcon,   x: 87, y: 47, meta: 'Timeline' },
@@ -136,6 +137,8 @@ export interface HeroProps {
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 export function Hero({ active = true }: HeroProps) {
+  const s = useStudioStats();
+  const nodes = NODES.map((n) => ({ ...n, meta: withCatalogueCounts(n.meta, s) }));
   const isMobile = useIsMobile();
   const [hovered, setHovered] = useState<PanelId | null>(null);
   const [ripple, setRipple] = useState<{ key: number; panel: PanelId } | null>(null);
@@ -204,10 +207,11 @@ export function Hero({ active = true }: HeroProps) {
           </div>
           {/* The desktop constellation, folded into a compact holo console for phones. */}
           <nav aria-label="Sections" className="mobile-nodes">
-            {NODES.map((n, i) => {
+            {nodes.map((n, i) => {
               const Icon = n.icon;
               return (
                 <button key={n.panelId} type="button" className="mobile-node" style={{ animationDelay: `${0.35 + i * 0.05}s` }}
+                  aria-label={n.panelId === 'games' ? `Open ${n.label} (${n.meta})` : undefined}
                   onClick={() => openPanel(n.panelId)}>
                   <span className="mobile-node__ring" aria-hidden="true"><Icon size={17} /></span>
                   <span className="mobile-node__label">{n.label}</span>
@@ -232,11 +236,11 @@ export function Hero({ active = true }: HeroProps) {
 
       {/* Connector lines — faint static base + a pulse of energy flowing hub → node */}
       <svg className="holo-lines" aria-hidden="true">
-        {NODES.map((n, i) => (
+        {nodes.map((n, i) => (
           <line key={n.panelId} x1={`${HUB_X}%`} y1={`${HUB_Y}%`} x2={`${n.x}%`} y2={`${n.y}%`}
             className={`holo-line${hovered === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${0.3 + i * 0.07}s` }} />
         ))}
-        {NODES.map((n, i) => (
+        {nodes.map((n, i) => (
           <line key={`flow-${n.panelId}`} x1={`${HUB_X}%`} y1={`${HUB_Y}%`} x2={`${n.x}%`} y2={`${n.y}%`}
             className={`holo-line-flow${hovered === n.panelId ? ' is-active' : ''}`} style={{ animationDelay: `${i * 0.45}s` }} />
         ))}
@@ -244,10 +248,10 @@ export function Hero({ active = true }: HeroProps) {
 
       {/* Section nodes — parallax (near) layer */}
       <nav aria-label="Sections" className="holo-nodes-layer">
-        {NODES.map((n, i) => {
+        {nodes.map((n, i) => {
           const Icon = n.icon;
           return (
-            <button key={n.panelId} type="button" className="holo-node" aria-label={`Open ${n.label}`} data-cursor="OPEN"
+            <button key={n.panelId} type="button" className="holo-node" aria-label={`Open ${n.label}${n.panelId === 'games' ? ` (${n.meta})` : ''}`} data-cursor="OPEN"
               style={{ left: `${n.x}%`, top: `${n.y}%`, animationDelay: `${0.5 + i * 0.08}s`,
                 ['--dur' as string]: `${6 + (i % 4) * 0.9}s`, ['--delay' as string]: `${((i * 0.7) % 3).toFixed(2)}s` } as CSSProperties}
               onMouseEnter={() => { setHovered(n.panelId); soundEngine.hover(); }}

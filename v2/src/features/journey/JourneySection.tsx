@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { SectionWrapper } from '@/shared/components/SectionWrapper';
 import { SectionHeading, Reveal } from '@/shared/ui';
 import { useSection } from '@/shared/content/SiteContentContext';
+import { useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import journeyDefault from '@/api/journeyDefault.json';
 
 interface JourneyContent {
@@ -89,6 +91,7 @@ function MilestoneRow({ m, index, isLast }: { readonly m: Mission; readonly inde
 }
 
 export function JourneySection() {
+  const s = useStudioStats();
   const journey = useSection('journey', journeyDefault as JourneyContent);
   const milestones: Mission[] = (journey.milestones ?? [])
     .filter((m) => m && m.title)
@@ -104,7 +107,7 @@ export function JourneySection() {
         as="h1"
         eyebrow="Journey"
         title="Timeline"
-        lede="From founding to 34 live titles across 7 markets."
+        lede={withCatalogueCounts('From founding to {{games}} live titles across 7 markets.', s)}
       />
 
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>

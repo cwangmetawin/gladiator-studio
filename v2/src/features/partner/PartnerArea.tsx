@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, type ComponentProps } from 'react';
 import { motion } from 'framer-motion';
 import { ChevronRight, ArrowUpRight, Check, ShieldCheck } from 'lucide-react';
 import { useSection } from '@/shared/content/SiteContentContext';
-import { useStudioStats } from '@/shared/content/StudioStats';
+import { useCatalogueGames, useStudioStats } from '@/shared/content/StudioStats';
+import { withCatalogueCounts } from '@/shared/utils/catalogueText';
+import { GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
+import { mapFeaturedRtp, type FeaturedTitle } from './featuredCatalogue';
 import { lines, safeHref } from '@/shared/utils/text';
 import { Button, Reveal, CountUp } from '@/shared/ui';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -23,7 +26,7 @@ interface PartnerContent {
   readonly valueProps: readonly ValueProp[];
   readonly steps: readonly Step[];
   readonly specs: string | readonly string[];
-  readonly catalogue: readonly { readonly title: string; readonly genre: string; readonly rtp: string }[];
+  readonly catalogue: readonly FeaturedTitle[];
   readonly complianceTitle: string;
   readonly complianceBody: string;
   readonly compliancePoints: string | readonly string[];
@@ -41,6 +44,7 @@ interface PartnerAreaProps {
 }
 
 const EMBLEM_FILTER = 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,247,0.5)) drop-shadow(0 0 56px rgba(79,195,247,0.22))';
+const CURATED_GAMES = [...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS];
 
 /** Client Area — the homepage command console rotated into low orbit. Reuses the
  *  site's own shell (telemetry bar, ticker, scanlines), components (Button, Reveal,
@@ -49,13 +53,14 @@ const EMBLEM_FILTER = 'brightness(0) invert(1) drop-shadow(0 0 24px rgba(79,195,
 export function PartnerArea({ onClose, events, isConnected, totalEvents, totalAmount }: PartnerAreaProps) {
   const c = useSection('partner', partnerDefault as PartnerContent);
   const s = useStudioStats();
+  const games = useCatalogueGames();
   const isMobile = useIsMobile();
   const rootRef = useRef<HTMLDivElement>(null);
 
   const valueProps = (c.valueProps ?? []).filter((v) => v && (v.title || v.body || v.tag));
   const steps = (c.steps ?? []).filter((st) => st && (st.step || st.body));
   const specs = lines(c.specs);
-  const catalogue = (c.catalogue ?? []).filter((g) => g && g.title);
+  const catalogue = mapFeaturedRtp((c.catalogue ?? []).filter((g) => g && g.title), games, CURATED_GAMES);
   const compliancePoints = lines(c.compliancePoints);
   const faqs = (c.faqs ?? []).filter((f) => f && (f.q || f.a));
   const email = String(c.contactEmail || '').trim();
@@ -170,7 +175,7 @@ export function PartnerArea({ onClose, events, isConnected, totalEvents, totalAm
                   <div className="card card--hover partner__card">
                     {v.tag && <span className="card__label">{v.tag}</span>}
                     {v.title && <h3 className="card__title">{v.title}</h3>}
-                    {v.body && <p className="body-text">{v.body}</p>}
+                    {v.body && <p className="body-text">{withCatalogueCounts(v.body, s)}</p>}
                     <span className="partner__corner" aria-hidden="true" />
                   </div>
                 </Reveal>

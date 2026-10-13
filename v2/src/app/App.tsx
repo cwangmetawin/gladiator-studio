@@ -666,11 +666,9 @@ export function App() {
     return all.slice().sort((a, b) => b.timeline.localeCompare(a.timeline));
   }, [gameData]);
 
-  // Auto-derived studio counts (fallback to the curated roster while loading).
-  const counts = useMemo(() => {
-    const slots = gameData?.slotGames.length ?? GLADIATOR_SLOTS.length;
-    const originals = gameData?.miniGames.length ?? METAWIN_ORIGINALS.length;
-    return { games: slots + originals, slots, originals };
+  // Share the published catalogue (curated roster while loading), including RTPs.
+  const catalogue = useMemo(() => gameData ?? {
+    slotGames: GLADIATOR_SLOTS, miniGames: METAWIN_ORIGINALS,
   }, [gameData]);
 
   if (!verified) {
@@ -682,7 +680,7 @@ export function App() {
   }
 
   return (
-    <CatalogueStatsProvider counts={counts}>
+    <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
     <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
       <a href="#main" className="skip-to-content">Skip to content</a>
