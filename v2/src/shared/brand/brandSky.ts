@@ -8,13 +8,12 @@ import type { CSSProperties } from 'react';
  */
 export const BRAND_SKY: CSSProperties = {
   backgroundColor: '#050609',
+  // nebula-steel.webp is nebula.webp with the colour blend (#1C2C43) and the 38 % void overlay
+  // baked in, so the first frame paints one image and a gradient instead of a full-screen blend.
   backgroundImage: [
     'radial-gradient(ellipse 72% 64% at 50% 36%, rgba(5, 6, 9, 0) 0%, rgba(5, 6, 9, 0.5) 58%, rgba(5, 6, 9, 0.94) 100%)',
-    'linear-gradient(rgba(5, 6, 9, 0.38), rgba(5, 6, 9, 0.38))',
-    'linear-gradient(#1c2c43, #1c2c43)',
-    'url(/nebula.webp)',
+    'url(/nebula-steel.webp)',
   ].join(', '),
   backgroundSize: 'cover',
   backgroundPosition: 'center',
-  backgroundBlendMode: 'normal, normal, color, normal',
 };

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, type CSSProperties, type SVGProps } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type SVGProps } from 'react';
 import { EMBLEM_HEIGHT, EMBLEM_HELMET, EMBLEM_WIDTH, EMBLEM_WINGS } from '@/shared/brand/emblemPaths';
 import { ARC_BOX_HEIGHT, ARC_EDGE_Y, ARC_FEATHERS, ARC_FIRST_MS, SPARK, arcGeometry, nextArc, type ArcGeometry } from '@/shared/brand/emblemArcs';
 import { emblemAnchor } from '@/shared/brand/emblemAnchor';
@@ -58,6 +58,19 @@ function LitLayer() {
       <Pieces fill="url(#gate-lit-fill)" stroke="#b6e8ff" strokeWidth={1} vectorEffect="non-scaling-stroke" />
     </svg>
   );
+}
+
+/**
+ * The glow mounts one frame after the emblem: a blur is the most expensive thing to rasterise on
+ * the gate, and the first frame (the title, the page's LCP) should not wait for it.
+ */
+function useAfterFirstFrame(): boolean {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => { setReady(true); });
+    return () => { cancelAnimationFrame(frame); };
+  }, []);
+  return ready;
 }
 
 /** A static blur, rasterised once with its layer; animating the layer's opacity never re-runs it. */
@@ -123,6 +136,7 @@ function Arc({ arc, nodeRef }: { readonly arc: ArcGeometry; readonly nodeRef: (n
 export function GateEmblem({ mode, reducedMotion }: GateEmblemProps) {
   const boxRef = useRef<HTMLDivElement>(null);
   const arcNodes = useRef<(HTMLDivElement | null)[]>([]);
+  const glowReady = useAfterFirstFrame();
 
   // M1 hand-off: where the 2D emblem is on screen, kept current through resizes, and null once
   // the gate has gone (the 3D emblem then owns the screen position).
@@ -165,7 +179,7 @@ export function GateEmblem({ mode, reducedMotion }: GateEmblemProps) {
     <div ref={boxRef} className="gate__emblem" data-emblem-anchor="" data-mode={mode} aria-hidden="true">
       <div className="gate__halo" />
       <SteelLayer />
-      <GlowLayer />
+      {glowReady && <GlowLayer />}
       <LitLayer />
       <CurrentHalf side="left" />
       <CurrentHalf side="right" />
