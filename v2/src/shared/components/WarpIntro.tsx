@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 import { frameDeltaSeconds, perSecond } from '@/shared/utils/frameTime';
 import { cappedDevicePixelRatio } from '@/shared/utils/renderResolution';
+import { BRAND_SKY } from '@/shared/brand/brandSky';
 import { advanceIntro, initialIntro, nextIntroDeadline, INTRO_MIN_MS, INTRO_FLASH_MS, INTRO_EXIT_MS,
   INTRO_REDUCED_FADE_MS } from '@/shared/motion/introTiming';
 
@@ -119,11 +120,14 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
     const speed = perSecond(lerp(0.003, 0.032, easeIn(warpT))) * dt;
 
     // ── Clear frame ───────────────────────────────────────────────────────────
-    // Use a semi-transparent black fill to create motion-blur trail effect
-    // More opaque early on (crisp points), more transparent at full warp (long streaks)
+    // Fade the last frame towards transparent, so the stars leave motion-blur trails over the
+    // brand sky behind the canvas (the age gate dissolves into it; a black fill made every
+    // warp frame near-black). Faster fade early (crisp points), slower at full warp (streaks).
     const trailOpacity = lerp(0.85, 0.15, easeIn(warpT));
+    ctx.globalCompositeOperation = 'destination-out';
     ctx.fillStyle = `rgba(0, 0, 0, ${trailOpacity})`;
     ctx.fillRect(0, 0, w, h);
+    ctx.globalCompositeOperation = 'source-over';
 
     // ── Update and draw stars ─────────────────────────────────────────────────
     const stars = starsRef.current;
@@ -315,7 +319,7 @@ export function WarpIntro({ onComplete }: WarpIntroProps) {
           position: 'fixed',
           inset: 0,
           zIndex: 90000,
-          background: '#000000',
+          ...BRAND_SKY,
           animation: exiting ? `${reduced ? 'warp-reduced-fade' : 'warp-container-fade'} ${reduced ? INTRO_REDUCED_FADE_MS : INTRO_EXIT_MS}ms ease-out forwards` : undefined,
           pointerEvents: 'none',
         }}

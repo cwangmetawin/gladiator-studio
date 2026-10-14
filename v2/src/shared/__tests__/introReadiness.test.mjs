@@ -85,11 +85,13 @@ test('the shipped intro completes without a Canvas context or RAF and unsubscrib
   `);
   const timeUrl = moduleUrl(source('../utils/frameTime.ts'));
   const resolutionUrl = moduleUrl(source('../utils/renderResolution.ts'));
+  const skyUrl = moduleUrl(source('../brand/brandSky.ts'));
   const { WarpIntro } = await import(moduleUrl(source('../components/WarpIntro.tsx')
     .replace("from 'react'", `from '${hooksUrl}'`)
     .replace("from '@/features/starfield/sceneReadiness'", `from '${urls.readiness}'`)
     .replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`)
     .replace("from '@/shared/utils/renderResolution'", `from '${resolutionUrl}'`)
+    .replace("from '@/shared/brand/brandSky'", `from '${skyUrl}'`)
     .replace("from '@/shared/motion/introTiming'", `from '${urls.intro}'`)));
   const { effects } = await import(hooksUrl);
   const cleanups = [];
