@@ -167,7 +167,10 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   const pointer = new B.Vector3();
 
   scene.executeWhenReady(() => { ready = true; performance.mark('arena:ready'); ctx.onReady(); });
-  // Hidden materials (the arcs) would compile on first use and hitch: compile them now, in the background.
+  // Hidden materials (the arcs) would compile on first use and hitch: compile them now, in the background. This runs
+  // after the render loop has started (StarfieldBackground starts its loop before it installs the arena). The prototype
+  // measured the pitfall: awaiting forceCompilationAsync before the loop started put readiness back by about 0.85 s;
+  // compiling in the background once the loop runs costs about 22 ms.
   void Promise.all(arcs.parts.map(part => part.mesh.material?.forceCompilationAsync(part.mesh).catch(() => null) ?? null)).then(() => { lateReady = true; });
 
   /** Seconds since the opening began: from the home's release, or from the first frame if that was later (no gate to wait under). -1: not begun. */

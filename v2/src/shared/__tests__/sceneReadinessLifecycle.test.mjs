@@ -238,7 +238,7 @@ test('the shipped preloader waits past public first paint, shares the Babylon pr
   const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
   const requests = [], tasks = [];
   let frame;
-  globalThis.window = { setTimeout: callback => tasks.push(callback) };
+  globalThis.window = { setTimeout: callback => tasks.push(callback), clearTimeout() {}, addEventListener() {}, removeEventListener() {} };
   globalThis.requestAnimationFrame = callback => { frame = callback; return 1; };
   globalThis.Image = class { set src(src) { requests.push({ src, mode: this.crossOrigin }); } };
   const readiness = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + '\n// preload lifecycle');
@@ -266,4 +266,91 @@ test('the shipped preloader waits past public first paint, shares the Babylon pr
       if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
     }
   }
+});
+
+/** A fresh preloader over fake timers, listeners and first-screen modules, for the tests of when the first screen is warmed. */
+async function warmupRig(tag) {
+  const keys = ['window', 'Image', 'requestAnimationFrame', '__warmed'];
+  const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
+  const timers = [], listeners = new Map();
+  let frame;
+  globalThis.__warmed = [];
+  globalThis.window = {
+    setTimeout: (callback, ms) => { timers.push({ callback, ms, live: true }); return timers.length; },
+    clearTimeout: id => { if (timers[id - 1]) timers[id - 1].live = false; },
+    addEventListener: (type, listener) => { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(listener); },
+    removeEventListener: (type, listener) => { listeners.get(type)?.delete(listener); },
+  };
+  globalThis.requestAnimationFrame = callback => { frame = callback; return 1; };
+  globalThis.Image = class { set src(_) {} };
+  const readiness = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + `\n// warm-up ${tag}`);
+  const wired = moduleUrl(source('../utils/preloadScene.ts')
+    .replace("from '@/features/starfield/sceneReadiness'", `from '${readiness}'`)
+    .replaceAll("import('@/shared/babylon/babylonCore')", `import('${moduleUrl('export const chunk = "Babylon";')}')`)
+    .replace("import('@/features/starfield/StarfieldBackground')", `import('${moduleUrl('export default function Scene() {}')}')`)
+    .replace("import('@/features/arena/arenaAssets')", `import('${moduleUrl('export const preloadArena = () => { globalThis.__warmed.push("arena"); };')}')`)
+    .replace("import('@/features/arena/home')", `import('${moduleUrl(`globalThis.__warmed.push("home"); export const home = 1; // ${tag}`)}')`)
+    + `\n// warm-up ${tag}`);
+  const module = await import(wired);
+  return {
+    module, timers, listeners, warmed: () => globalThis.__warmed,
+    paintAndRunTask: () => { frame(); timers[0].callback(); },
+    restore: () => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } },
+  };
+}
+
+const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'focusin'];
+
+test('the first screen\'s files are not warmed while the gate paints: a sign of the visitor comes first, then they are (once)', async () => {
+  const rig = await warmupRig('sign');
+  try {
+    rig.module.scheduleScenePreload();
+    rig.paintAndRunTask();
+    await flush();
+    assert.deepEqual(rig.warmed(), [], 'nothing of the first screen yet: in a Lighthouse run it would be on the gate\'s critical path');
+    for (const type of SIGNS) assert.equal(rig.listeners.get(type)?.size, 1, `listening for ${type}`);
+    const timer = rig.timers[1];
+    assert.equal(timer.ms, rig.module.HOME_WARMUP_DELAY_MS, 'and a timer for a visitor who only reads');
+    [...rig.listeners.get('pointermove')][0]();
+    await flush();
+    assert.deepEqual([...rig.warmed()].sort(), ['arena', 'home']);
+    for (const type of SIGNS) assert.equal(rig.listeners.get(type)?.size, 0, `${type} is no longer listened for`);
+    assert.equal(timer.live, false, 'the timer is cancelled');
+    rig.module.preloadScene(); await flush();
+    assert.equal(rig.warmed().length, 2, 'asking again warms nothing twice');
+  } finally { rig.restore(); }
+});
+
+test('a visitor who only reads the gate gets the first screen warmed after the delay', async () => {
+  const rig = await warmupRig('timer');
+  try {
+    rig.module.scheduleScenePreload();
+    rig.paintAndRunTask();
+    rig.timers[1].callback();
+    await flush();
+    assert.deepEqual([...rig.warmed()].sort(), ['arena', 'home']);
+    assert.ok(rig.module.HOME_WARMUP_DELAY_MS >= 2000, 'late enough to start after a Lighthouse run\'s observed LCP');
+  } finally { rig.restore(); }
+});
+
+test('answering the gate warms the first screen at once, and leaving the page undoes the waiting', async () => {
+  const rig = await warmupRig('answer');
+  try {
+    const undo = rig.module.scheduleScenePreload();
+    rig.paintAndRunTask();
+    rig.module.preloadScene(); await flush();
+    assert.deepEqual([...rig.warmed()].sort(), ['arena', 'home'], 'the click is the last sign there is');
+  } finally { rig.restore(); }
+  const rig2 = await warmupRig('undo');
+  try {
+    const undo = rig2.module.scheduleScenePreload();
+    rig2.paintAndRunTask();
+    undo();
+    for (const type of SIGNS) assert.equal(rig2.listeners.get(type)?.size, 0, `${type} is not listened for after the undo`);
+    assert.equal(rig2.timers[1].live, false);
+    const early = rig2.module.scheduleScenePreload();
+    early(); // undone before the frame: the task that follows the frame must do nothing
+    rig2.paintAndRunTask(); await flush();
+    assert.deepEqual(rig2.warmed(), []);
+  } finally { rig2.restore(); }
 });
