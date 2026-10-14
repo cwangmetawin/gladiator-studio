@@ -5,6 +5,18 @@
    the glow is a static blur inside its own layer, so no frame re-runs a filter.
    ═══════════════════════════════════════════════════════════════════════════ */
 
+/* The title's face, served from public/fonts and preloaded in index.html: the title is the gate's
+   LCP element, and from Google Fonts it waited for a cross-origin stylesheet, then swapped late.
+   Saira 800, latin subset, SIL Open Font License (public/fonts/OFL.txt). */
+@font-face {
+  font-family: 'Saira Title';
+  src: url('/fonts/saira-800-latin.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 /* Arial Bold scaled to Saira 800's width, so the title barely moves when the web font swaps in. */
 @font-face {
   font-family: 'Saira Gate Fallback';
@@ -149,7 +161,7 @@
 
 .gate__title {
   margin: 0;
-  font-family: 'Saira', 'Saira Gate Fallback', system-ui, sans-serif;
+  font-family: 'Saira Title', 'Saira', 'Saira Gate Fallback', system-ui, sans-serif;
   font-weight: 800;
   font-size: min(8.5vw, 16vh);
   line-height: 0.92;
