@@ -1,5 +1,6 @@
 import { SKY_TINT, SKY_VIGNETTE, skyVoid } from '@/shared/brand/brandSky';
 import { approach } from '@/shared/utils/frameTime';
+import { LOOK } from './arenaLook';
 import type { BabylonModule, Scene } from './arenaTypes';
 
 // The sky the first screen sits on. At home the starfield's colourful nebula is turned steel blue and pressed
@@ -101,7 +102,7 @@ export function installSteelSky(B: BabylonModule, starScene: Scene, arenaScene: 
   const follow = starScene.onBeforeRenderObservable.add(() => {
     if (!steel || !nebula) return;
     // The colourful layer's tint (and the drift its texture carries) is the steel layer's too.
-    steel.layer.color.set(nebula.color.r, nebula.color.g, nebula.color.b, grade);
+    steel.layer.color.set(nebula.color.r * LOOK.skyGain, nebula.color.g * LOOK.skyGain, nebula.color.b * LOOK.skyGain, grade);
     const from = nebula.texture as InstanceType<BabylonModule['Texture']> | null;
     if (from) {
       steel.texture.uScale = from.uScale; steel.texture.vScale = from.vScale;

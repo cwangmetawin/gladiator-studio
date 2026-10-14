@@ -27,7 +27,7 @@ const RIBBON_FRAGMENT = `
 precision highp float;
 varying vec2 vUv; varying float vFacing; varying float vDelay;
 uniform vec3 uColor; uniform float uHalo; uniform float uCurrent; uniform float uProgress;
-uniform float uV0; uniform float uTime; uniform float uFacingGain; uniform float uFade;
+uniform float uV0; uniform float uTime; uniform float uFacingGain; uniform float uFade; uniform float uWhite;
 void main(){
   float v = vUv.y;
   float halo = (v < uV0 ? 1.0 : exp(-(v - uV0) / (1.0 - uV0) * 3.2));
@@ -42,6 +42,8 @@ void main(){
   float current = (head * 7.0 + lit * 1.4) * core * step(-0.15, local);
   float k = (halo * uHalo + current * uCurrent) * uFade;
   vec3 col = mix(uColor, vec3(1.0), clamp(head * core * 0.8 * uCurrent, 0.0, 1.0));
+  // The brightest part of the glow runs to white (ice) rather than to a saturated cyan; uWhite is 0 for the current.
+  col = mix(col, vec3(1.0), clamp((k - 0.2) * uWhite, 0.0, 0.75));
   gl_FragColor = vec4(col * k, 1.0);
 }`;
 
@@ -84,7 +86,7 @@ function additive(B: BabylonModule, scene: Scene, name: string, vertex: string, 
 /** v0 is where the ribbon's halo profile starts: the inner share of its width (halo) or 0.5 (current). */
 export function createRibbonMaterial(B: BabylonModule, scene: Scene, name: string, v0: number): ShaderMaterial {
   const material = additive(B, scene, name, RIBBON_VERTEX, RIBBON_FRAGMENT, ['position', 'normal', 'uv', 'uv2'],
-    ['uPointer', 'uColor', 'uHalo', 'uCurrent', 'uProgress', 'uV0', 'uTime', 'uFacingGain', 'uFade']);
+    ['uPointer', 'uColor', 'uHalo', 'uCurrent', 'uProgress', 'uV0', 'uTime', 'uFacingGain', 'uFade', 'uWhite']);
   material.setColor3('uColor', new B.Color3(...HOLO));
   material.setFloat('uV0', v0);
   material.setFloat('uHalo', 0);
@@ -93,6 +95,7 @@ export function createRibbonMaterial(B: BabylonModule, scene: Scene, name: strin
   material.setFloat('uFacingGain', 2.4);
   material.setFloat('uTime', 0);
   material.setFloat('uFade', 1);
+  material.setFloat('uWhite', 0);
   material.setVector3('uPointer', B.Vector3.Zero());
   return material;
 }

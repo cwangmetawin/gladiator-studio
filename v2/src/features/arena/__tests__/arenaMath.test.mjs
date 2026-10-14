@@ -81,6 +81,17 @@ test('an emblem wider than the viewport is clipped to it, so a phone can show a 
   assert.equal(box.x, 0); assert.equal(box.width, 390, 'clipped to the viewport on both sides');
 });
 
+test('the emblem rectangle takes a fraction of the slot\'s width, but never stands taller than the slot allows (a short window, a landscape phone)', () => {
+  const emblem = { width: 9.35, height: 2.362 };
+  const roomy = framing.emblemRect({ x: 60, y: 56, width: 1319, height: 600 }, emblem, 0.92);
+  near(roomy.width, 1319 * 0.92, 1e-9, 'a roomy slot: the fraction of its width');
+  near(roomy.x + roomy.width / 2, 60 + 1319 / 2, 1e-9, 'centred across the slot'); near(roomy.y + roomy.height / 2, 56 + 300, 1e-9, 'centred down the slot');
+  const landscape = framing.emblemRect({ x: 35, y: 56, width: 774, height: 168 }, emblem, 0.92);
+  near(landscape.height, 168 * framing.SLOT_HEIGHT_FILL, 1e-9, 'a short slot: the height rules');
+  assert.ok(landscape.width < 774 * 0.92 && landscape.y > 56 && landscape.y + landscape.height < 56 + 168, 'it stays inside the slot, clear of the bar above and the headline below');
+  near(landscape.height / landscape.width, emblem.height / emblem.width, 1e-12, 'the proportions never change');
+});
+
 test('blending two framings is exact at the ends and monotone between', () => {
   const a = { distance: 10, offsetX: 0, offsetY: 1 }, b = { distance: 14, offsetX: 2, offsetY: -1 };
   assert.deepEqual(framing.blendFraming(a, b, 0), a); assert.deepEqual(framing.blendFraming(a, b, 1), b);

@@ -10,7 +10,7 @@
   --bar: 56px;
   --ticker: calc(38px + env(safe-area-inset-bottom, 0px));
   /* How much of the slot's width the emblem takes; the scene reads this same value. */
-  --emblem-fraction: 0.86;
+  --emblem-fraction: 0.92;
   /* The headline's advance width in em (Saira 800 capitals: 10.87 em of letters, spaces and tracking, plus the lines' padding,
      measured from the font file), so one line spans the content width at any viewport. */
   --title-em: 11;
@@ -35,6 +35,7 @@
   top: 50%;
   width: calc(100% * var(--emblem-fraction));
   height: auto;
+  max-height: 94%; /* as the 3D emblem (SLOT_HEIGHT_FILL): never taller than the slot */
   transform: translate(-50%, -50%);
   filter: drop-shadow(0 0 18px rgba(79, 195, 247, 0.55));
   transition: opacity 0.5s ease;

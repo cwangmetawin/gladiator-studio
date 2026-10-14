@@ -1,3 +1,4 @@
+import { LOOK } from './arenaLook';
 import type { ArenaModule, BabylonModule, PBRMaterial, Scene } from './arenaTypes';
 
 // The emblem's brushed, chiselled steel: PBR metal, lit by the baked studio environment, the baked
@@ -17,12 +18,10 @@ export interface SteelTextures {
   readonly rough: InstanceType<BabylonModule['Texture']>;
 }
 
-const STEEL_ALBEDO: readonly [number, number, number] = [0.62, 0.66, 0.72];
-
 function base(A: ArenaModule, B: BabylonModule, scene: Scene, name: string): PBRMaterial {
   const material = new A.PBRMaterial(name, scene);
   material.metallic = 1;
-  material.albedoColor = new B.Color3(...STEEL_ALBEDO);
+  material.albedoColor = new B.Color3(...LOOK.albedo);
   material.transparencyMode = A.PBRMaterial.PBRMATERIAL_ALPHABLEND;
   material.forceDepthWrite = true;
   material.alpha = 1;

@@ -5,7 +5,8 @@ const prefersReducedMotion = (): boolean =>
 
 /** Counts from 0 to `end` after `delay` ms (instantly with reduced motion). Only the stat that uses it re-renders. */
 export function useCountUp(end: number, delay: number, duration = 1500): number {
-  const [value, setValue] = useState(0);
+  // With reduced motion the very first paint already shows the final number (no frame of 0).
+  const [value, setValue] = useState(() => (prefersReducedMotion() ? end : 0));
   useEffect(() => {
     if (prefersReducedMotion()) { setValue(end); return; }
     let raf = 0;

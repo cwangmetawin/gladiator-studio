@@ -30,6 +30,8 @@ const CAMERA_BETA = IS_MOBILE ? Math.PI / 2 : Math.PI / 2.5; // mobile: straight
 const CAMERA_RADIUS = IS_MOBILE ? 36 : 30;
 const CAMERA_FAST_RATE = approachRate(0.06);
 const CAMERA_OFFSET_RATE = approachRate(0.04);
+/** The planets and the sun glow leave this much faster than they come (see showBodies). */
+const BODY_OUT_RATE = CAMERA_FAST_RATE * 3;
 const PANEL_LIGHT_DURATION = secondsFromFrames(30);
 
 // ─── Starfield builder ────────────────────────────────────────────────────────
@@ -609,12 +611,14 @@ function buildScene(
   // own group (with its ring), so only the focal one comes in; the distant bodies and the sun glow come in together.
   const navGroups = navPlanets.map(p => ({ planet: p, meshes: p.ring ? [p.mesh, p.ring] : [p.mesh] }));
   const distantBodies = [planets.mars, planets.gasGiant, planets.gasRing, planets.iceMoon];
+  // They come in at the camera's pace and go out three times as fast, so nothing lingers once the emblem is back.
+  const fadeGroup = (meshes: readonly InstanceType<BabylonModule['Mesh']>[], shown: boolean, dt: number, instant: boolean): void => {
+    fadeBodies(meshes, shown ? 1 : 0, shown ? CAMERA_FAST_RATE : BODY_OUT_RATE, dt, instant);
+  };
   const showBodies = (dt: number, instant: boolean): void => {
-    for (const { planet, meshes } of navGroups) {
-      fadeBodies(meshes, cameraHasPanel && planet.panelId === focalPanelId ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
-    }
-    fadeBodies(distantBodies, cameraHasPanel ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
-    fadeBodies([sunGlow], cameraHasPanel ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
+    for (const { planet, meshes } of navGroups) fadeGroup(meshes, cameraHasPanel && planet.panelId === focalPanelId, dt, instant);
+    fadeGroup(distantBodies, cameraHasPanel, dt, instant);
+    fadeGroup([sunGlow], cameraHasPanel, dt, instant);
   };
   showBodies(0, true); // the very first frame is already the home picture
 

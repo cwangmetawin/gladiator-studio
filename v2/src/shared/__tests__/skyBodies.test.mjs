@@ -55,9 +55,10 @@ test('the starfield scene starts at home with its planets and its sun glow alrea
   // call, the first frame is instant, and the only thing that brings a body in is a panel's camera flight.
   const source = readFileSync(new URL('../../features/starfield/StarfieldBackground.tsx', import.meta.url), 'utf8');
   assert.match(source, /showBodies\(0, true\);\s*\/\/ the very first frame is already the home picture/);
-  assert.match(source, /cameraHasPanel && planet\.panelId === focalPanelId \? 1 : 0/);
-  assert.match(source, /fadeBodies\(distantBodies, cameraHasPanel \? 1 : 0/);
-  assert.match(source, /fadeBodies\(\[sunGlow\], cameraHasPanel \? 1 : 0/);
+  assert.match(source, /fadeGroup\(meshes, cameraHasPanel && planet\.panelId === focalPanelId, dt, instant\)/);
+  assert.match(source, /fadeGroup\(distantBodies, cameraHasPanel, dt, instant\)/);
+  assert.match(source, /fadeGroup\(\[sunGlow\], cameraHasPanel, dt, instant\)/);
+  assert.match(source, /shown \? CAMERA_FAST_RATE : BODY_OUT_RATE/, 'they leave faster than they come');
   assert.match(source, /distantBodies = \[planets\.mars, planets\.gasGiant, planets\.gasRing, planets\.iceMoon\]/);
   assert.doesNotMatch(source, /!cameraHasPanel \|\| p\.panelId === focalPanelId/, 'the old rule that showed every planet at home is gone');
 });

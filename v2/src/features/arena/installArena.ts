@@ -13,6 +13,7 @@ import { REST_POSE, emblemRotation, followPose, pointerPose, shouldSway, swayPos
 import { createAuraMaterial, createRibbonMaterial, HOLO } from './ribbonShaders';
 import { installSteelSky, stepGrade } from './steelSky';
 import { createSteelMaterials } from './steelMaterial';
+import { LOOK } from './arenaLook';
 import type { ArenaModule, BabylonModule, Engine, Scene } from './arenaTypes';
 
 // The 3D emblem: a second Scene on the starfield's engine and canvas (one WebGL context). It is drawn
@@ -79,12 +80,12 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   const processing = scene.imageProcessingConfiguration;
   processing.toneMappingEnabled = true;
   processing.toneMappingType = A.ImageProcessingConfiguration.TONEMAPPING_ACES;
-  processing.contrast = 1.32;
-  processing.exposure = 1;
+  processing.contrast = LOOK.contrast;
+  processing.exposure = LOOK.exposure;
 
   const environment = new A.CubeTexture(ARENA_FILES.env, scene);
   scene.environmentTexture = environment;
-  scene.environmentIntensity = 1;
+  scene.environmentIntensity = LOOK.environment;
 
   // The sky goes first so the vignette layer is the first thing this scene draws.
   const sky = installSteelSky(B, ctx.starScene, scene);
@@ -97,6 +98,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   };
   const steel = createSteelMaterials(A, B, scene, { normal: texture(asset.maps.normal.file), rough: texture(asset.maps.rough.file) });
   const haloMaterial = createRibbonMaterial(B, scene, 'emblemHaloMaterial', 0.02 / (0.02 + 0.11));
+  haloMaterial.setFloat('uWhite', LOOK.haloWhite);
   const currentMaterial = createRibbonMaterial(B, scene, 'emblemCurrentMaterial', 0.5);
   const nodes = createEmblemNodes(B, scene, asset, { cap: steel.cap, side: steel.side, halo: haloMaterial, current: currentMaterial });
 
@@ -109,9 +111,9 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   aura.isPickable = false;
 
   const key = new B.DirectionalLight('emblemKey', new B.Vector3(0.45, -0.55, 0.7), scene);
-  key.diffuse = new B.Color3(1, 0.96, 0.92); key.specular = key.diffuse; key.intensity = 1.6;
+  key.diffuse = new B.Color3(1, 0.96, 0.92); key.specular = key.diffuse; key.intensity = LOOK.key;
   const rim = new B.PointLight('emblemRim', new B.Vector3(-3, 2, -1.6), scene);
-  rim.diffuse = new B.Color3(...HOLO); rim.specular = rim.diffuse; rim.intensity = 22;
+  rim.diffuse = new B.Color3(...HOLO); rim.specular = rim.diffuse; rim.intensity = LOOK.rim;
   const arcLight = new B.PointLight('emblemArcLight', new B.Vector3(0, 0, -0.4), scene);
   arcLight.diffuse = new B.Color3(0.65, 0.86, 1); arcLight.specular = arcLight.diffuse; arcLight.intensity = 0;
   arcLight.parent = nodes.pivot;
@@ -216,21 +218,21 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
 
     // light and glow
     const a = reduced ? REDUCED_ARRIVAL : arrival(seconds);
-    processing.exposure = a.exposure;
+    processing.exposure = a.exposure * LOOK.exposure;
     rim.position.set(framing.offsetX + pose.x * 5.2, framing.offsetY - pose.y * 2, -1.5);
-    rim.intensity = (22 + 10 * a.flash) * visibility;
-    key.intensity = 1.6 * visibility;
-    scene.environmentIntensity = visibility;
+    rim.intensity = (LOOK.rim + LOOK.rimFlash * a.flash) * visibility;
+    key.intensity = LOOK.key * visibility;
+    scene.environmentIntensity = LOOK.environment * visibility;
     environment.rotationY = pose.x * 0.22;
     steel.all.forEach(material => { material.alpha = visibility; });
     pointer.set(pose.x * 5, -pose.y * 1.6, 0);
-    const halo = (a.halo + (arcs.isActive() ? 0.25 : 0)) * visibility;
+    const halo = (a.halo * LOOK.halo + (arcs.isActive() ? 0.25 : 0)) * visibility;
     for (const material of [haloMaterial, currentMaterial]) { material.setVector3('uPointer', pointer); material.setFloat('uTime', clock); material.setFloat('uFade', visibility); }
     haloMaterial.setFloat('uHalo', halo);
     currentMaterial.setFloat('uProgress', a.progress);
     currentMaterial.setFloat('uCurrent', a.currentOn ? 1 : 0);
     nodes.current.isVisible = a.currentOn && visibility > 0;
-    auraMaterial.setFloat('uStrength', (0.22 + 0.35 * a.flash + (arcs.isActive() ? 0.1 : 0)) * visibility);
+    auraMaterial.setFloat('uStrength', (LOOK.aura + LOOK.auraFlash * a.flash + (arcs.isActive() ? LOOK.auraArc : 0)) * visibility);
 
     // arcs: one at a time, 2.6-4.2 s apart, once the opening is under way (never in a static frame)
     if (!reduced && seconds >= 0 && lateReady && visibility > 0.5) {

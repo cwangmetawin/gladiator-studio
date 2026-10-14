@@ -44,9 +44,13 @@ export function blendFraming(a: Framing, b: Framing, t: number): Framing {
   };
 }
 
-/** The rectangle a wide emblem is placed in: `fraction` of the slot's width, centred in the slot. */
+/** The emblem never stands taller than this share of its slot: a short window or a landscape phone must not push it under the bar or the headline. */
+export const SLOT_HEIGHT_FILL = 0.94;
+
+/** The rectangle a wide emblem is placed in: `fraction` of the slot's width (or less, if that would be taller than the slot), centred in the slot. */
 export function emblemRect(slot: Rect, emblem: { readonly width: number; readonly height: number }, fraction: number): Rect {
-  const width = slot.width * fraction, height = width * (emblem.height / emblem.width);
+  const aspect = emblem.height / emblem.width;
+  const width = Math.min(slot.width * fraction, (slot.height * SLOT_HEIGHT_FILL) / aspect), height = width * aspect;
   return { x: slot.x + (slot.width - width) / 2, y: slot.y + (slot.height - height) / 2, width, height };
 }
 

@@ -98,6 +98,17 @@
   .topbar__sub { display: none; }
 }
 
+/* The narrowest phones (320 px): the brand, the sound toggle and the Menu button together need 341 px at the size above,
+   so they tighten rather than push the Menu button off the screen. */
+@media (max-width: 349px) {
+  .topbar { gap: 8px; }
+  .topbar__brand { gap: 8px; }
+  .topbar__mark { width: 36px; }
+  .topbar__name { font-size: 12px; letter-spacing: 0.18em; }
+  .topbar__end { gap: 8px; }
+  .topbar__menu { padding: 0 10px; gap: 8px; letter-spacing: 0.16em; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .topbar { animation: none; }
   .topbar__item::after { transition: none; }
