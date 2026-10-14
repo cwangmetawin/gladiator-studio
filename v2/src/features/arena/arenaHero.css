@@ -144,10 +144,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Phones: the headline breaks into two lines, the emblem is wider than the screen, the numbers go in three columns ── */
+/* ── Phones: the headline breaks into two lines, the emblem spans the content column, the numbers go in three columns ── */
 @media (max-width: 767px) and (orientation: portrait) {
   /* two lines; the wider one is 'THE ARENA', 5.61 em */
-  .arena-hero { --emblem-fraction: 1.14; --title-em: 5.75; }
+  /* 1.0, not wider: at 1.14 both wing tips left a 390 px screen and the sway made it lopsided. */
+  .arena-hero { --emblem-fraction: 1; --title-em: 5.75; }
   .arena-hero__title { line-height: 0.9; }
   .arena-hero__line { display: block; width: fit-content; margin: 0 auto; }
   .arena-hero__line + .arena-hero__line { margin-left: auto; }
