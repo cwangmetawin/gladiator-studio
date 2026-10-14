@@ -176,7 +176,7 @@ test('the home reveal releases once, notifies subscribers once, and can start ov
 
 test('the emblem slot store ignores an identical measurement and notifies on a real change', () => {
   const store = slotStore.createEmblemSlot();
-  const state = (x) => ({ slot: { x, y: 60, width: 1000, height: 300 }, stage: { x: 0, y: 60, width: 1440, height: 560 }, viewport: { width: 1440, height: 900 } });
+  const state = (x) => ({ slot: { x, y: 60, width: 1000, height: 300 }, fraction: 0.86, stage: { x: 0, y: 60, width: 1440, height: 560 }, viewport: { width: 1440, height: 900 } });
   let notified = 0;
   store.subscribe(() => { notified += 1; });
   store.publish(state(100)); store.publish(state(100)); assert.equal(notified, 1);

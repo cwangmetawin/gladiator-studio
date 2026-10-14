@@ -14,7 +14,7 @@ interface ConstellationDoorsProps {
 
 const SLOTS = Array.from({ length: DESKTOP_DOOR_CAP }, (_, i) => i);
 const COUNTS = Array.from({ length: STARS_PER_CONSTELLATION + 1 }, (_, i) => `${i} recent ${i === 1 ? 'win' : 'wins'}`);
-const OBSTACLES = '.holo-node, .mobile-node, .hero-logo-wrap, [aria-label="Primary actions"], .hub-layer, [data-sky-obstacle], .shell-bar, .ticker, [aria-label="Open menu"]';
+const OBSTACLES = '[data-sky-obstacle], .topbar, .shell-bar, .ticker';
 
 /** The scene publishes after projection; these six persistent buttons never need a RAF. */
 export function ConstellationDoors({ active, phone, games, onFocusGame }: ConstellationDoorsProps) {

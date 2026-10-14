@@ -20,6 +20,8 @@ const hooks = moduleUrl(`
 `);
 const loader = moduleUrl('export const loadSceneModule = () => globalThis.__m4aLoad();');
 const effects = moduleUrl('export const installSceneEffects = () => ({ setRunning() {} });');
+const quality = moduleUrl(source('../../features/arena/arenaQuality.ts'));
+const arenaModule = moduleUrl('export const installArena = (...args) => globalThis.__m4aInstallArena(...args);');
 
 function wiredScene(readiness) {
   return source('../../features/starfield/StarfieldBackground.tsx')
@@ -35,34 +37,47 @@ function wiredScene(readiness) {
     .replace("from './skyStore'", `from '${sky.store}'`)
     .replace("from './sceneReadiness'", `from '${readiness}'`)
     .replace("from './sceneEffects'", `from '${effects}'`)
+    .replace("from '@/features/arena/arenaQuality'", `from '${quality}'`)
+    .replace("import('@/features/arena/installArena')", `import('${arenaModule}')`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
     // M1 separately executes the real builders with NullEngine. Isolate only the
     // effect's lifecycle here so textures and WebGL cannot hide readiness bugs.
     .replace('const scene = buildScene(BABYLON, engine, () => dt);', 'const scene = globalThis.__m4aScene;');
 }
 
+const flush = () => new Promise(resolve => setTimeout(resolve, 0));
+
 for (const reduced of [false, true]) {
-  test(`the shipped scene publishes frame only after executeWhenReady and a rendered complete frame (reduced=${reduced})`, async () => {
-    const keys = ['window', 'document', '__m4aCanvas', '__m4aLoad', '__m4aScene'];
+  test(`the shipped scene publishes frame only after executeWhenReady and a rendered complete frame, and home only when the 3D emblem has drawn (reduced=${reduced})`, async () => {
+    const keys = ['window', 'document', '__m4aCanvas', '__m4aLoad', '__m4aScene', '__m4aInstallArena'];
     const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
     const preference = { matches: reduced, addEventListener() {}, removeEventListener() {} };
     const readinessUrl = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + `\n// reduced=${reduced}`);
     const { sceneReadiness: readiness } = await import(readinessUrl);
     const observed = [];
     readiness.subscribe(() => observed.push(readiness.getSnapshot()));
-    let frames = 0, ready, render, stopped = 0, disposed = 0;
+    let frames = 0, ready, render, stopped = 0, disposed = 0, scalingLevel = null, engineOptions = null;
     class Engine {
+      constructor(_canvas, antialias, options) { engineOptions = { antialias, ...options }; }
       getDeltaTime() { return 1000 / 60; }
       runRenderLoop(callback) { render = callback; }
       stopRenderLoop() { stopped++; }
+      setHardwareScalingLevel(level) { scalingLevel = level; }
       dispose() { disposed++; }
       resize() {}
     }
-    globalThis.window = { innerWidth: 1000, addEventListener() {}, removeEventListener() {}, matchMedia: () => preference };
+    const arenaFrames = [], contexts = [];
+    let arenaDisposed = 0;
+    const root = { dataset: {} };
+    globalThis.window = { innerWidth: 1000, devicePixelRatio: 2, addEventListener() {}, removeEventListener() {}, matchMedia: () => preference };
     globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
-    globalThis.__m4aCanvas = { dataset: {}, closest: () => null };
+    globalThis.__m4aCanvas = { dataset: {}, closest: () => root };
     globalThis.__m4aLoad = () => Promise.resolve({ Engine });
     globalThis.__m4aScene = { render: () => frames++, executeWhenReady: callback => { ready = callback; }, dispose() {} };
+    globalThis.__m4aInstallArena = async (_B, _engine, context) => {
+      contexts.push(context);
+      return { render: dt => arenaFrames.push(dt), dispose: () => { arenaDisposed++; } };
+    };
     const probe = await import(hooks);
     probe.begin();
     let cleanup;
@@ -70,21 +85,38 @@ for (const reduced of [false, true]) {
       const { default: StarfieldBackground } = await import(moduleUrl(wiredScene(readinessUrl)));
       StarfieldBackground({ suspended: false });
       probe.effects[0](); cleanup = probe.effects[1]();
-      await Promise.resolve(); await Promise.resolve();
+      await flush();
       assert.deepEqual(observed, ['module']);
       assert.equal(frames, 1, 'the initial incomplete static render does not count as ready');
       assert.equal(probe.values[0], false);
+      assert.deepEqual(engineOptions.antialias, true, 'a desktop context has MSAA');
+      assert.equal(scalingLevel, 1 / 1.5, 'the canvas is rendered at 1.5x the CSS size on a 2x screen');
+      assert.equal(contexts.length, 1, 'the 3D emblem is built once, from the same engine');
+      assert.equal(contexts[0].reducedMotion(), reduced);
+      assert.equal(contexts[0].root, root);
+      assert.deepEqual(arenaFrames, [], 'the emblem never draws over an incomplete starfield');
       render?.(); assert.equal(readiness.getSnapshot(), 'module');
+      assert.deepEqual(arenaFrames, []);
       const before = frames;
       ready();
       assert.deepEqual(observed, ['module', 'scene', 'frame']);
       assert.equal(frames, before + 1);
       assert.equal(probe.values[0], true);
-      render?.(); assert.equal(observed.length, 3, 'later renders do not republish frame');
+      assert.deepEqual(arenaFrames, [0], 'the complete static frame draws the emblem over the starfield');
+      render?.();
+      assert.equal(observed.length, 3, 'later renders do not republish frame');
+      assert.equal(arenaFrames.length, reduced ? 1 : 2, 'the emblem draws once per starfield frame (a reduced-motion loop draws none)');
+      assert.notEqual(readiness.getSnapshot(), 'home', 'home waits for the emblem\'s own first frame');
+      contexts[0].onFirstFrame();
+      assert.deepEqual(observed, ['module', 'scene', 'frame', 'home']);
+      const staticFrames = frames;
+      contexts[0].onReady();
+      assert.equal(frames, reduced ? staticFrames + 1 : staticFrames, 'a loop that is not running draws the emblem when it is ready; a running one needs nothing');
       cleanup(); cleanup = null;
       const frozen = frames;
       ready(); render?.(); assert.equal(frames, frozen, 'disposed callbacks remain silent');
       assert.equal(disposed, 1); assert.ok(stopped >= 2);
+      assert.equal(arenaDisposed, 1, 'the emblem scene goes before the engine');
     } finally {
       cleanup?.();
       for (const [key, value] of Object.entries(previous)) {
@@ -93,6 +125,39 @@ for (const reduced of [false, true]) {
     }
   });
 }
+
+test('a 3D emblem that cannot be built releases the age gate anyway and leaves the flat emblem in place', async () => {
+  const keys = ['window', 'document', '__m4aCanvas', '__m4aLoad', '__m4aScene', '__m4aInstallArena'];
+  const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
+  const readinessUrl = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + '\n// arena failure');
+  const { sceneReadiness: readiness } = await import(readinessUrl);
+  const root = { dataset: {} };
+  class Engine { getDeltaTime() { return 16; } runRenderLoop() {} stopRenderLoop() {} setHardwareScalingLevel() {} dispose() {} resize() {} }
+  const warn = console.warn; console.warn = () => {};
+  globalThis.window = { innerWidth: 1000, addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) };
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  globalThis.__m4aCanvas = { dataset: {}, closest: () => root };
+  globalThis.__m4aLoad = () => Promise.resolve({ Engine });
+  globalThis.__m4aScene = { render() {}, executeWhenReady() {}, dispose() {} };
+  globalThis.__m4aInstallArena = () => Promise.reject(new Error('emblem.bin: HTTP 404'));
+  const probe = await import(hooks);
+  probe.begin();
+  let cleanup;
+  try {
+    const { default: StarfieldBackground } = await import(moduleUrl(wiredScene(readinessUrl)));
+    StarfieldBackground({ suspended: false });
+    probe.effects[0](); cleanup = probe.effects[1]();
+    await flush();
+    assert.equal(readiness.getSnapshot(), 'home');
+    assert.equal(root.dataset.arena, 'unavailable');
+  } finally {
+    console.warn = warn;
+    cleanup?.();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+    }
+  }
+});
 
 test('the shipped preloader waits past public first paint, shares the Babylon promise and primes textures once', async () => {
   const keys = ['window', 'Image', 'requestAnimationFrame'];

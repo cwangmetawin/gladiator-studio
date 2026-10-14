@@ -1,4 +1,6 @@
 import { Suspense, lazy, Component, type ReactNode, type ErrorInfo } from 'react';
+import { BRAND_SKY } from '@/shared/brand/brandSky';
+import { sceneReadiness } from './sceneReadiness';
 
 // Lazy-load the heavy Babylon.js canvas so it never blocks the initial paint
 const StarfieldBackground = lazy(() => import('./StarfieldBackground'));
@@ -28,6 +30,8 @@ class WebGLErrorBoundary extends Component<
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
     console.warn('[StarfieldCanvas] WebGL error — degrading gracefully:', error, info);
+    // No 3D scene is coming: the age gate need not wait for one, and the first screen shows its flat emblem.
+    sceneReadiness.mark('home');
   }
 
   render(): ReactNode {
@@ -39,10 +43,10 @@ class WebGLErrorBoundary extends Component<
 
 // ─── Static stand-in while the Babylon.js bundle loads ───────────────────────
 // The Babylon bundle is several MB, so on a real network the 3D scene starts seconds
-// after the HUD appears. This is the same nebula image Babylon draws as its backdrop
-// (already preloaded during the age gate — see preloadScene.ts), dimmed and cropped
-// to match its Layer (color ≈ 0.6, 0.92 inset ⇒ ~1.09× zoom). The canvas fades in on
-// top of it once the scene is ready, so the cosmos is there from the first frame.
+// after the HUD appears. This is the steel-blue sky the age gate paints (BRAND_SKY: the same
+// nebula image, already preloaded during the gate, turned steel blue and vignetted), which is also
+// the sky the 3D scene paints at home, so nothing changes colour when the canvas fades in on top.
+// Where there is no WebGL at all, it is the sky.
 
 function NebulaBackdrop() {
   return (
@@ -52,12 +56,7 @@ function NebulaBackdrop() {
         inset: 0,
         zIndex: 0,
         pointerEvents: 'none',
-        backgroundColor: '#050508',
-        backgroundImage: 'url(/nebula.webp)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        transform: 'scale(1.09)',
-        filter: 'brightness(0.6)',
+        ...BRAND_SKY,
       }}
       aria-hidden="true"
     />

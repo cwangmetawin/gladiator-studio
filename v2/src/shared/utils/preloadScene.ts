@@ -1,9 +1,10 @@
 import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 
 // Warm the HTTP cache with the homepage scene's first-visible textures while the
-// visitor is still on the age gate / warp intro, so the cosmos is ready the moment
-// the HUD appears instead of developing in seconds later. Babylon requests the same
-// same-origin URLs afterwards and is served from cache.
+// visitor is still on the age gate, so the cosmos is ready the moment the first screen
+// appears instead of developing in seconds later. Babylon requests the same
+// same-origin URLs afterwards and is served from cache. The 3D emblem's files
+// (arenaAssets.preloadArena) and the first screen's own chunk are warmed the same way.
 
 const FIRST_VISIBLE = [
   '/nebula.webp',
@@ -47,6 +48,8 @@ export function preloadScene(): void {
   preloadSceneTextures();
   void loadSceneModule().catch(() => {});
   void import('@/features/starfield/StarfieldBackground').catch(() => {});
+  void import('@/features/arena/arenaAssets').then(module => { module.preloadArena(); }).catch(() => {});
+  void import('@/features/arena/home').catch(() => {});
 }
 
 /** A frame plus a task lets the age gate paint before speculative downloads. */

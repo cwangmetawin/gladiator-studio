@@ -5,7 +5,9 @@ import type { Rect } from './framing';
 // (everything but the bar, the headline and the details), the denominator of the stage share.
 
 export interface SlotState {
+  /** The slot's rectangle, and how much of its width the emblem takes (a phone's emblem is wider than the slot, its wing tips run off both edges). */
   readonly slot: Rect;
+  readonly fraction: number;
   readonly stage: Rect;
   readonly viewport: { readonly width: number; readonly height: number };
 }
@@ -19,7 +21,7 @@ export function createEmblemSlot() {
     subscribe(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener); }; },
     publish(next: SlotState | null): void {
       if (next === state) return;
-      if (next && state && same(next.slot, state.slot) && same(next.stage, state.stage)
+      if (next && state && same(next.slot, state.slot) && same(next.stage, state.stage) && next.fraction === state.fraction
         && next.viewport.width === state.viewport.width && next.viewport.height === state.viewport.height) return;
       state = next;
       listeners.forEach(listener => listener());

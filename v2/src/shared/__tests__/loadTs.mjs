@@ -1,7 +1,9 @@
 // Loads a TypeScript module from src/ together with the src/ modules it imports (relative paths and the
 // '@/' alias), without a bundler: each file is transpiled with the repo's own TypeScript and imported as
 // a data: URL whose specifiers point at the dependencies' data: URLs. Bare packages (react, babylon) are
-// left to Node, or replaced through `stubs` ({ 'package-name': 'file:///...' }). No import cycles.
+// left to Node (react and its jsx runtime, babylon: resolved to file URLs here), or replaced through `stubs`
+// ({ 'package-name': 'file:///...' }; a stub also stands in for a relative file such as a stylesheet).
+// No import cycles.
 // sourceModule.mjs does the same for one file at a time; this one follows the graph.
 import { existsSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -32,7 +34,9 @@ export function createLoader(stubs = {}) {
     const linked = js.replace(/(from\s+|import\s*\(\s*|import\s+)(['"])([^'"]+)\2/g, (match, lead, quote, specifier) => {
       if (stubs[specifier]) return `${lead}${quote}${stubs[specifier]}${quote}`;
       if (!specifier.startsWith('.') && !specifier.startsWith('@/')) {
-        if (specifier.startsWith('@babylonjs/')) return `${lead}${quote}${pathToFileURL(require.resolve(specifier)).href}${quote}`;
+        if (specifier.startsWith('@babylonjs/') || /^react(?:\/jsx-runtime)?$/.test(specifier)) {
+          return `${lead}${quote}${pathToFileURL(require.resolve(specifier)).href}${quote}`;
+        }
         return match;
       }
       return `${lead}${quote}${urlOf(resolveSource(specifier, file))}${quote}`;

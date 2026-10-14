@@ -1,8 +1,13 @@
-export type SceneMilestone = 'module' | 'scene' | 'frame';
+/**
+ * module: Babylon is loaded. scene: the starfield scene is built. frame: it has drawn a complete frame.
+ * home: the first screen can take over from the age gate: the 3D emblem has drawn its first frame, or no
+ * 3D emblem is coming (no WebGL, or the arena failed to load) and the flat one stands in.
+ */
+export type SceneMilestone = 'module' | 'scene' | 'frame' | 'home';
 
-const ORDER: readonly SceneMilestone[] = ['module', 'scene', 'frame'];
+const ORDER: readonly SceneMilestone[] = ['module', 'scene', 'frame', 'home'];
 
-/** One small external store, shared by preloading, the scene and the intro. */
+/** One small external store, shared by preloading, the scene and the age gate's hand-off. */
 export function createSceneReadiness() {
   let snapshot: SceneMilestone | null = null;
   const listeners = new Set<() => void>();

@@ -11,6 +11,8 @@ import { skyStore } from './skyStore';
 import { sceneReadiness } from './sceneReadiness';
 import { loadSceneModule } from '@/shared/utils/preloadScene';
 import { installSceneEffects } from './sceneEffects';
+import { arenaQuality } from '@/features/arena/arenaQuality';
+import type { Arena } from '@/features/arena/installArena';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -768,19 +770,23 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       if (disposed) return;
       sceneReadiness.mark('module');
 
-      const engine = new BABYLON.Engine(canvas, true, {
-        antialias: true,
+      // The 3D emblem shares this engine, so its quality tier sets the canvas's: a phone renders without MSAA at
+      // up to 1.5x the CSS size, a desktop with MSAA at up to 1.5x (see arenaQuality).
+      const quality = arenaQuality(IS_MOBILE, window.devicePixelRatio || 1);
+      const engine = new BABYLON.Engine(canvas, quality.antialias, {
+        antialias: quality.antialias,
         powerPreference: 'high-performance',
         // Keep the last frame painted so the reduced-motion / hidden-tab static
         // frame survives page compositing instead of clearing to black.
         preserveDrawingBuffer: true,
       });
       cleanupRef.current = () => engine.dispose();
-      if (IS_MOBILE) engine.setHardwareScalingLevel(1.5);
+      engine.setHardwareScalingLevel(quality.hardwareScaling);
 
       let dt = 0;
       let sceneReady = false;
       let frameReady = false;
+      let arena: Arena | null = null;
       const scene = buildScene(BABYLON, engine, () => dt);
 
       // Keep the last frame when preferences, hidden tabs or full-screen
@@ -804,6 +810,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
             setRevealed(true);
             sceneReadiness.mark('frame');
           }
+          // The 3D emblem draws over the finished starfield frame, and only over a complete one.
+          if (sceneReady) arena?.render(deltaSeconds);
         },
         start: (render) => engine.runRenderLoop(render),
         stop: () => { effects.setRunning(false); engine.stopRenderLoop(); },
@@ -829,6 +837,25 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       }
       window.addEventListener('resize', handleResize);
 
+      // The 3D emblem: a second scene on this engine, built from files warmed while the age gate was up. If it
+      // cannot be built the flat emblem in the page stays and the first screen is released all the same.
+      const hubRoot = canvas.closest<HTMLElement>('[data-trail]');
+      import('@/features/arena/installArena').then(({ installArena }) => installArena(BABYLON, engine, {
+        canvas, starScene: scene, root: hubRoot, phone: IS_MOBILE,
+        reducedMotion: () => motionQuery.matches,
+        hubVisible: () => transitionStore.getSnapshot().hubVisible,
+        onReady: () => { if (!shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic(); },
+        onFirstFrame: () => sceneReadiness.mark('home'),
+      })).then((instance) => {
+        if (disposed) { instance.dispose(); return; }
+        arena = instance;
+      }).catch((error: unknown) => {
+        if (disposed) return;
+        console.warn('[StarfieldBackground] the 3D emblem is unavailable:', error);
+        if (hubRoot) hubRoot.dataset.arena = 'unavailable';
+        sceneReadiness.mark('home');
+      });
+
       // Only a render after executeWhenReady may release the normal-motion intro.
       scene.executeWhenReady(() => {
         if (disposed) return;
@@ -846,6 +873,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         unsubscribeStaticTransition();
         unsubscribeStaticSky();
         loop.dispose();
+        arena?.dispose();
+        arena = null;
         scene.dispose();
         engine.dispose();
       };

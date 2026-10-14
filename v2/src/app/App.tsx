@@ -1,12 +1,8 @@
 import { Suspense, lazy, useEffect, useLayoutEffect, useId, useMemo, useState, useCallback, useRef, useSyncExternalStore } from 'react';
 import { AnimatePresence, motion, MotionConfig, useIsPresent } from 'framer-motion';
 import '@/styles/index.css';
-import {
-  X, ExternalLink, Menu, Maximize2,
-  Gamepad2, Info, Users, Map, Radio, Briefcase, Mail,
-} from 'lucide-react';
+import { X, ExternalLink, Maximize2 } from 'lucide-react';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
-import { Hero } from '@/features/hero/Hero';
 import { fetchGameData, GLADIATOR_SLOTS, METAWIN_ORIGINALS } from '@/api/gameData';
 import { CatalogueStatsProvider } from '@/shared/content/StudioStats';
 import type { GameData } from '@/shared/types/game';
@@ -19,12 +15,12 @@ import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { WarpTransition } from '@/features/partner/WarpTransition';
 import { AgeGateLayer } from '@/shared/components/AgeGate';
 import { useAgeGate } from '@/shared/components/ageGateState';
-import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { preloadScene, scheduleScenePreload } from '@/shared/utils/preloadScene';
 import { sceneReadiness } from '@/features/starfield/sceneReadiness';
+import { homeReveal } from '@/shared/brand/homeReveal';
+import { NAV_ITEMS } from '@/features/arena/navItems';
 import { bindTransitionSounds, createWarpSounds } from '@/shared/audio/transitionSound';
-import { SoundToggle } from '@/shared/ui/SoundToggle';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
@@ -45,133 +41,17 @@ const JourneySection = lazy(() => import('@/features/journey/JourneySection').th
 const CareersSection = lazy(() => import('@/features/careers/CareersSection').then(m => ({ default: m.CareersSection })));
 const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
 const PartnerArea = lazy(() => import('@/features/partner/PartnerArea').then(m => ({ default: m.PartnerArea })));
+// The first screen (3D emblem's page, headline, top bar) loads after the age gate answers, so none of it is in the gate's bundle.
+const ArenaHero = lazy(() => import('@/features/arena/home').then(m => ({ default: m.ArenaHero })));
+const TopBar = lazy(() => import('@/features/arena/home').then(m => ({ default: m.TopBar })));
 
 // ─── Layout constants ───────────────────────────────────────────────────────
 const BAR_H = 56;
 const HOLO = 'var(--color-holo-500)';
 const HOLO_DIM = 'var(--color-line)';
 
-const NAV_ITEMS: readonly { label: string; panelId: PanelId; icon: React.ComponentType<{ size?: number }> }[] = [
-  { label: 'Games', panelId: 'games', icon: Gamepad2 },
-  { label: 'About', panelId: 'about', icon: Info },
-  { label: 'Team', panelId: 'team', icon: Users },
-  { label: 'Journey', panelId: 'journey', icon: Map },
-  { label: 'Live Feed', panelId: 'live', icon: Radio },
-  { label: 'Careers', panelId: 'careers', icon: Briefcase },
-  { label: 'Contact', panelId: 'contact', icon: Mail },
-] as const;
-
 // Panels that slide in from the left; everything else slides from the right.
 const LEFT_PANELS: readonly PanelId[] = ['games', 'about', 'team', 'journey'];
-
-// ─── useValueFlash — brief glow when a live telemetry value changes ───────────
-
-function useValueFlash(value: number): boolean {
-  const prevRef = useRef<number>(value);
-  const [flashing, setFlashing] = useState(false);
-
-  useEffect(() => {
-    if (prevRef.current !== value) {
-      prevRef.current = value;
-      setFlashing(true);
-      const timer = setTimeout(() => setFlashing(false), 600);
-      return () => clearTimeout(timer);
-    }
-  }, [value]);
-
-  return flashing;
-}
-
-// ─── Top status bar ─────────────────────────────────────────────────────────
-
-interface StatusBarProps {
-  readonly isConnected: boolean;
-  readonly totalEvents: number;
-  readonly totalAmount: number;
-  readonly isMobile: boolean;
-  readonly onClientArea: () => void;
-}
-
-function StatusBar({ isConnected, totalEvents, totalAmount, isMobile, onClientArea }: StatusBarProps) {
-  const wagered = totalAmount >= 1000
-    ? `$${(totalAmount / 1000).toFixed(1)}K`
-    : `$${totalAmount.toFixed(0)}`;
-
-  const eventsFlashing = useValueFlash(totalEvents);
-  const amountFlashing = useValueFlash(totalAmount);
-
-  return (
-    <header
-      role="banner"
-      aria-label="Studio status"
-      className="shell-bar"
-      style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 50,
-        minHeight: BAR_H,
-        borderBottom: `1px solid ${HOLO_DIM}`,
-        display: 'flex', alignItems: 'center',
-        paddingTop: 'env(safe-area-inset-top, 0px)',
-        paddingInline: 'clamp(14px, 3vw, 26px)',
-        gap: isMobile ? 12 : 22,
-      }}
-    >
-      <span className="sys-label" aria-label="Gladiator Studio">
-        <span className="sys-label__diamond" aria-hidden="true" />
-        Gladiator<span aria-hidden="true" style={{ color: 'var(--color-text-dim)' }}>·</span>Studio
-      </span>
-
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: isMobile ? 12 : 22 }}>
-        <span className="readout" aria-label={isConnected ? 'Live feed connected' : 'Live feed offline'}>
-          <span
-            aria-hidden="true"
-            className={isConnected ? 'animate-live-pulse' : undefined}
-            style={{
-              width: 7, height: 7, borderRadius: '50%',
-              background: isConnected ? 'var(--color-live)' : 'var(--color-ember)',
-              boxShadow: `0 0 8px ${isConnected ? 'var(--color-live)' : 'var(--color-ember)'}`,
-            }}
-          />
-          <span className="shell-bar__status-text">{isConnected ? 'Live' : 'Offline'}</span>
-        </span>
-
-        {!isMobile && (
-          <>
-            <span className="hairline--v" aria-hidden="true" style={{ height: 16 }} />
-            <span className="readout">
-              Events
-              <span className="readout__value" style={{ animation: eventsFlashing ? 'value-glow 0.6s ease-out' : undefined }}>
-                {totalEvents.toLocaleString()}
-              </span>
-            </span>
-            <span className="hairline--v" aria-hidden="true" style={{ height: 16 }} />
-            <span className="readout">
-              Wagered
-              <span className="readout__value readout__value--gold" style={{ animation: amountFlashing ? 'value-glow 0.6s ease-out' : undefined }}>
-                {wagered}
-              </span>
-            </span>
-          </>
-        )}
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-        <SoundToggle />
-        {!isMobile && (
-          <button
-            type="button"
-            className="btn btn--primary"
-            style={{ minHeight: 36, padding: '0.5rem 1.1rem' }}
-            onMouseEnter={() => soundEngine.hover()}
-            onClick={onClientArea}
-          >
-            Client Area
-            <ExternalLink size={12} aria-hidden="true" />
-          </button>
-        )}
-      </div>
-    </header>
-  );
-}
 
 // ─── Content panel (sliding glass drawer) ─────────────────────────────────────
 
@@ -335,30 +215,6 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, 
   );
 }
 
-function MobileMenuButton({ onClick, visible }: { readonly onClick: () => void; readonly visible: boolean }) {
-  return (
-    <motion.button
-      type="button"
-      onClick={onClick}
-      aria-label="Open menu"
-      aria-hidden={!visible} tabIndex={visible ? 0 : -1}
-      whileTap={{ scale: 0.92 }}
-      className="glass"
-      style={{
-        // Sits above the live-wins ticker (38px + its safe-area pad), never on it.
-        position: 'absolute',
-        bottom: 'calc(38px + 16px + env(safe-area-inset-bottom, 0px))', right: 16, zIndex: 55,
-        width: 54, height: 54, borderRadius: '50%',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: HOLO, cursor: 'pointer',
-        visibility: visible ? 'visible' : 'hidden', pointerEvents: visible ? 'auto' : 'none',
-      }}
-    >
-      <Menu size={22} aria-hidden="true" />
-    </motion.button>
-  );
-}
-
 // ─── Game iframe overlay ───────────────────────────────────────────────────────
 
 interface GameOverlayProps {
@@ -463,7 +319,9 @@ function GameOverlay({ game, isMobile, onClose }: GameOverlayProps) {
 
 export function App() {
   const { verified, verify, reject, showGate } = useAgeGate();
-  const [introComplete, setIntroComplete] = useState(false);
+  // The first screen is released as the age gate starts to fade (or at once with no gate); until then the site
+  // holds only the sky and its 3D emblem, which the gate hides.
+  const released = useSyncExternalStore(homeReveal.subscribe, () => homeReveal.getSnapshot() !== null, () => false);
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [playingGame, setPlayingGame] = useState<{ title: string; link: string } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -472,7 +330,7 @@ export function App() {
   const sceneReady = useSyncExternalStore(sceneReadiness.subscribe, sceneReadiness.getSnapshot, sceneReadiness.getSnapshot);
   const isMobile = useIsMobile();
   const transition = useTransition(isMobile);
-  const skyRootRef = useGameSky(verified && introComplete, isMobile, transition.mode === 'reduced');
+  const skyRootRef = useGameSky(verified && released, isMobile, transition.mode === 'reduced');
   const activePanel = transition.panel;
   const timeline = transitionTimeline(transition.mode, transition.kind);
   const playTimerRef = useRef<number | null>(null);
@@ -492,10 +350,7 @@ export function App() {
     soundEngine.unlock();
     verify();
   }, [verify]);
-  const completeIntro = useCallback(() => {
-    setIntroComplete(true);
-    soundEngine.startAmbient();
-  }, []);
+  useEffect(() => { if (released) soundEngine.startAmbient(); }, [released]);
   const openClientArea = useCallback(() => {
     if (warpSounds.start()) setClientArea('transitioning');
   }, [warpSounds]);
@@ -631,8 +486,9 @@ export function App() {
     slotGames: GLADIATOR_SLOTS, miniGames: METAWIN_ORIGINALS,
   }, [gameData]);
 
-  // The gate keeps its slot across verification: it stays mounted above the site while it
-  // fades into the warp intro, which starts underneath on the same click.
+  // The gate keeps its slot across verification: it stays mounted above the site while the site's sky
+  // and 3D emblem are built underneath, then fades into the first screen.
+  const topBarCovered = (isMobile && activePanel !== 'none') || showCoverflow;
   return (
     <>
     {verified && (
@@ -645,8 +501,7 @@ export function App() {
       {/* 3D scene — always behind everything */}
       <StarfieldCanvas suspended={isSceneCovered(playingGame !== null, clientArea !== 'closed', isMobile, activePanel)} />
 
-      {!introComplete && <WarpIntro onComplete={completeIntro} />}
-      {introComplete && <>
+      {released && <>
       <a href="#main" className="skip-to-content">Skip to content</a>
 
       {/* Holographic display overlay — subtle scanlines over the 3D backdrop */}
@@ -657,10 +512,11 @@ export function App() {
       {!isMobile && <CursorFX />}
 
       <main id="main">
-        {/* Keep the hidden hero mounted so a closing catalogue can restore its opener. */}
+        {/* Keep the hidden hero mounted so a closing catalogue can restore its opener. It arrives by its own
+            keyframes (the headline's letters), not by this fade, so it starts fully shown. */}
         <motion.div
           key="hero-full"
-          initial={{ opacity: 0 }}
+          initial={false}
           animate={transition.hubVisible
             ? { opacity: 1, visibility: 'visible' }
             : { opacity: 0, transitionEnd: { visibility: 'hidden' } }}
@@ -670,18 +526,24 @@ export function App() {
             delay: transition.hubVisible ? 0 : timeline.feedbackMs / 1000, ease: motionTokens.ease }}
           style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, visibility: transition.hubVisible ? 'visible' : undefined }}
         >
-          <Hero panelSide={activeSide} active={transition.hubVisible} target={transition.target} />
+          <Suspense fallback={null}>
+            <ArenaHero panelSide={activeSide} active={transition.hubVisible} target={transition.target} />
+          </Suspense>
         </motion.div>
       </main>
 
       <ConstellationDoors active={transition.phase === 'idle' && !drawerOpen && playingGame === null && clientArea === 'closed'}
         phone={isMobile} games={allGames} onFocusGame={handleFocusGame} />
 
-      {/* Top status bar — hidden on mobile when a panel is open, and for the
+      {/* Top bar: the brand, the seven sections, sound and Client Area (a menu button on phones). It stays
+          mounted so its arrival never replays; it is hidden on mobile when a panel is open, and for the
           full-screen coverflow (whose own header carries the tabs + close). */}
-      {!(isMobile && activePanel !== 'none') && !showCoverflow && (
-        <StatusBar isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} isMobile={isMobile} onClientArea={openClientArea} />
-      )}
+      <Suspense fallback={null}>
+        <TopBar isConnected={isConnected} isMobile={isMobile} target={transition.target} covered={topBarCovered}
+          menuVisible={clientArea === 'closed' && transition.phase === 'idle'}
+          onActivate={handleActivate} onClientArea={openClientArea}
+          onMenu={() => { rememberPanelOpener('about'); soundEngine.click(); setDrawerOpen(true); }} />
+      </Suspense>
 
       {/* Homepage live-wins ticker — horizontal crawl across the hero's bottom edge.
           Shares App's single feeder socket (no second connection). */}
@@ -723,9 +585,6 @@ export function App() {
       {/* Navigation */}
       {isMobile ? (
         <>
-          {clientArea === 'closed' && (
-            <MobileMenuButton visible={transition.phase === 'idle'} onClick={() => { rememberPanelOpener('about'); soundEngine.click(); setDrawerOpen(true); }} />
-          )}
           <MobileDrawer
             isOpen={drawerOpen}
             motionMode={transition.mode}
@@ -736,7 +595,7 @@ export function App() {
           />
         </>
       ) : (
-        // Footer nav is redundant with the hero holo-nodes on home — show it only
+        // Footer nav is redundant with the top bar on home — show it only
         // while a panel is open, where it's the quick way to switch sections.
         <AnimatePresence>
           {transition.phase !== 'idle' && (

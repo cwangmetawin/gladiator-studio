@@ -74,6 +74,7 @@ async function homepageCamera(B, scene, width) {
     .replace("from './skyStore'", `from '${urls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
+    .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`);
   const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
     export const probeWidth = ${width};
