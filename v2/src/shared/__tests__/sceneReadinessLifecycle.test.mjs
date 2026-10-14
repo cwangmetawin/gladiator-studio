@@ -299,7 +299,7 @@ async function warmupRig(tag) {
   };
 }
 
-const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'focusin'];
+const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart']; // not focusin: the gate focuses its own button when it opens
 
 test('the first screen\'s files are not warmed while the gate paints: a sign of the visitor comes first, then they are (once)', async () => {
   const rig = await warmupRig('sign');
@@ -309,6 +309,7 @@ test('the first screen\'s files are not warmed while the gate paints: a sign of 
     await flush();
     assert.deepEqual(rig.warmed(), [], 'nothing of the first screen yet: in a Lighthouse run it would be on the gate\'s critical path');
     for (const type of SIGNS) assert.equal(rig.listeners.get(type)?.size, 1, `listening for ${type}`);
+    assert.equal(rig.listeners.get('focusin')?.size ?? 0, 0, 'but not for focus: the gate takes focus itself when it opens');
     const timer = rig.timers[1];
     assert.equal(timer.ms, rig.module.HOME_WARMUP_DELAY_MS, 'and a timer for a visitor who only reads');
     [...rig.listeners.get('pointermove')][0]();

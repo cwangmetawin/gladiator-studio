@@ -75,8 +75,11 @@ export function preloadScene(): void {
  * simulated LCP). Three seconds is after the gate has painted, and a visitor who reads it that long is still ahead of the click.
  */
 export const HOME_WARMUP_DELAY_MS = 3000;
-/** Any of these says the visitor is there and about to answer: the first screen's files are warmed at once. */
-const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart', 'focusin'] as const;
+/**
+ * Any of these says the visitor is there and about to answer: the first screen's files are warmed at once. Not focusin:
+ * the gate focuses its own button when it opens, and that is not a visitor.
+ */
+const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart'] as const;
 
 /**
  * While the age gate is up. A frame plus a task lets it paint before speculative downloads; then the scene's own files
