@@ -120,7 +120,7 @@
   color: var(--color-ice-200);
 }
 .arena-hero__tagline a { color: var(--color-holo-300); text-decoration: underline; text-underline-offset: 3px; }
-.arena-hero__stats { list-style: none; margin: 0; padding: 0; display: flex; align-items: baseline; gap: 18px; }
+.arena-hero__stats { list-style: none; margin: 0; padding: 0; display: flex; align-items: baseline; gap: 18px; flex-shrink: 0; }
 .arena-hero__stat {
   display: flex;
   align-items: baseline;
@@ -132,6 +132,7 @@
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--color-ice-200);
+  white-space: nowrap; /* a label never breaks in two ("MAX / RTP"): the tagline beside the numbers is what wraps */
 }
 .arena-hero__stat + .arena-hero__stat::before { content: '·'; color: var(--color-ice-600); margin-right: 8px; }
 .arena-hero__stat b {

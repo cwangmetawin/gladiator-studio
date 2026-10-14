@@ -744,7 +744,7 @@ test('projected DOM doors receive accessible names, activate the correct title, 
   const obstacle = { getBoundingClientRect() { reads++; return { left: 1180, right: 1190, top: 100, bottom: 140 }; } };
   const buttons = Array.from({ length: 6 }, () => {
     const title = { textContent: '' }, count = { textContent: '' };
-    return { hidden: true, dataset: {}, style: { setProperty() {} }, attributes: {},
+    return { hidden: true, dataset: {}, style: { properties: {}, setProperty(name, value) { this.properties[name] = value; } }, attributes: {},
       querySelector: selector => selector.includes('__name') ? title : count,
       setAttribute(name, value) { this.attributes[name] = value; } };
   });
@@ -770,9 +770,22 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     assert.deepEqual(buttons.filter(button => !button.hidden).map(button => button.dataset.game),
       ['Door Game 5', 'Door Game 4', 'Door Game 3', 'Door Game 2', 'Door Game 1', 'Door Game 0']);
     assert.equal(buttons[0].attributes['aria-label'], 'Door Game 5, 1 recent win. Open game catalogue');
-    assert.equal(buttons[0].style.left, '885px');
+    // A door moves by transform (its position travels in two custom properties), never by left/top: the sky drifts, so a door moves
+    // a little on every frame, and a layout box that moves is a layout shift, which Core Web Vitals counts.
+    assert.equal(buttons[0].style.properties['--door-x'], '885px');
+    assert.equal(buttons[0].style.properties['--door-y'], '100px');
+    assert.equal(buttons[0].style.left, undefined, 'no left');
+    assert.equal(buttons[0].style.top, undefined, 'no top');
     tree.props.children[0].props.onClick({ currentTarget: buttons[0] });
     assert.equal(requested, 'Door Game 5');
+
+    // A door keeps its button when the brightness order changes: buttons never trade games, so no text swaps in place
+    // (a swap resizes the name and the count, which is a layout shift however the button is positioned).
+    const before = buttons.map(button => button.dataset.game);
+    skyStore.addWin('Door Game 0', 10 ** 9); // now the brightest of all
+    skyStore.publishFrame();
+    assert.deepEqual(buttons.map(button => button.dataset.game), before, 'the same game on every button, though Door Game 0 is now the brightest');
+    assert.ok(buttons.every(button => !button.hidden === (button.dataset.game !== '')), 'and the same buttons are shown');
     const revision = skyStore.layout.revision;
     const tickerRect = { left: 0, top: 590, right: 1280, bottom: 720 };
     elements.push({ getBoundingClientRect() { reads++; return tickerRect; } });

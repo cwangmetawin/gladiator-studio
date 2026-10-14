@@ -9,6 +9,10 @@
    in the marker star and the hairline that draws in on hover or focus. */
 .constellation {
   position: absolute;
+  left: 0;
+  top: 0;
+  /* ConstellationDoors writes where the door stands into these two properties (see paint()). */
+  transform: translate(var(--door-x, 0px), var(--door-y, 0px));
   width: 160px;
   height: 44px;
   padding: 0 6px;

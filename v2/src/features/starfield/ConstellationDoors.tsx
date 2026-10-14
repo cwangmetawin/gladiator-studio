@@ -27,6 +27,8 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
     const counts = buttons.map(button => button.querySelector<HTMLElement>('.constellation__count')!);
     const catalogue = new Map(games.map(game => [gameKey(game.title), game.title]));
     const selected: DoorCandidate[] = [];
+    /** Which door each button holds. A door keeps its button for as long as it stays selected (see paint). */
+    const held: (DoorCandidate | null)[] = buttons.map(() => null);
     const obstacles: ScreenRect[] = [];
     let pixels: string[] = [];
 
@@ -54,9 +56,20 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
       }
       if (active && skyStore.ready) selectDoors(candidates, obstacles, phone, selected);
       else selected.length = 0;
+      // Buttons never trade games: when the brightness order changes, a door that is still selected stays on its own
+      // button, and only a door that came or went moves a button on or off. (A trade resizes the name and the count in
+      // place, which is a layout shift, however the button is positioned: the first screen measured 0.04-0.16.)
+      for (let i = 0; i < held.length; i++) {
+        const door = held[i];
+        if (door && !selected.includes(door)) held[i] = null;
+      }
+      for (let i = 0; i < selected.length; i++) {
+        const door = selected[i]!;
+        if (!held.includes(door)) held[held.indexOf(null)] = door;
+      }
       for (let i = 0; i < buttons.length; i++) {
         const button = buttons[i]!;
-        const candidate = selected[i];
+        const candidate = held[i];
         button.hidden = !candidate;
         if (!candidate) continue;
         const title = candidate.gameTitle;
@@ -68,8 +81,10 @@ export function ConstellationDoors({ active, phone, games, onFocusGame }: Conste
           counts[i]!.textContent = count;
           button.style.setProperty('--constellation-accent', candidate.constellation.accent.hex);
         }
-        button.style.left = pixels[candidate.rect.left]!;
-        button.style.top = pixels[candidate.rect.top]!;
+        // By transform, not left/top: the sky drifts, so a door moves a little on every frame, and a transform moves no
+        // layout box, so none of that is a layout shift.
+        button.style.setProperty('--door-x', pixels[candidate.rect.left]!);
+        button.style.setProperty('--door-y', pixels[candidate.rect.top]!);
       }
     };
     const refresh = (): void => { measure(); paint(); };
