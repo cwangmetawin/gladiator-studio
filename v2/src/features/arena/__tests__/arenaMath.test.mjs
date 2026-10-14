@@ -161,10 +161,10 @@ test('3D arcs fire one at a time, 2.6-4.2 s apart, never the same wing twice run
 
 // ── quality tiers ──────────────────────────────────────────────────────────────────────────────────────
 
-test('a phone renders at no more than 1.5x its CSS size, without MSAA and without a pointer; a desktop keeps MSAA', () => {
+test('a phone renders at no more than 1.5x its CSS size, like a desktop, but follows no pointer and filters its textures less', () => {
   const phone = quality.arenaQuality(true, 3), desktop = quality.arenaQuality(false, 2), plain = quality.arenaQuality(false, 1);
   near(phone.hardwareScaling, 1 / 1.5, 1e-12); near(desktop.hardwareScaling, 1 / 1.5, 1e-12); assert.equal(plain.hardwareScaling, 1);
-  assert.equal(phone.antialias, false); assert.equal(desktop.antialias, true);
+  assert.equal('antialias' in phone, false, 'MSAA is not a tier: every screen has it (a phone\'s thin wing edges break into dashes without it)');
   assert.equal(phone.pointer, false); assert.equal(desktop.pointer, true);
   assert.ok(phone.anisotropy < desktop.anisotropy);
   assert.equal(quality.arenaQuality(false, NaN).hardwareScaling, 1, 'a missing device pixel ratio counts as 1');

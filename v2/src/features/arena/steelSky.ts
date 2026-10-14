@@ -1,11 +1,10 @@
 import { SKY_TINT, SKY_VIGNETTE, skyVoid } from '@/shared/brand/brandSky';
 import { approach } from '@/shared/utils/frameTime';
-import { LOOK } from './arenaLook';
 import type { BabylonModule, Scene } from './arenaTypes';
 
 // The sky the first screen sits on. At home the starfield's colourful nebula is turned steel blue and pressed
 // into the void with a vignette, the same recipe as the age gate's CSS sky (shared/brand/brandSky), so the gate
-// dissolves into the 3D scene without the sky changing colour. Two pieces, both plain Babylon layers:
+// dissolves into the 3D scene without the sky changing colour (a desktop home is a little darker, see arenaLook). Two pieces, both plain Babylon layers:
 //   - a graded copy of the nebula (a 2D canvas applies the same `color` blend the gate's CSS does), drawn in the
 //     starfield scene right above the colourful one, so the stars, planets and constellation doors above it
 //     are untouched, and the door tint that gameSkyRenderer writes to the nebula layer applies to it too;
@@ -83,9 +82,10 @@ function backgroundLayer(B: BabylonModule, scene: Scene, name: string, texture: 
 
 /**
  * Adds the steel sky to the two scenes. The starfield scene must already hold its colourful nebula layer
- * (named 'nebulaBg'); the graded copy follows that layer's tint and its slow drift each frame.
+ * (named 'nebulaBg'); the graded copy follows that layer's tint and its slow drift each frame. `gain` scales its
+ * brightness (1: exactly the age gate's sky).
  */
-export function installSteelSky(B: BabylonModule, starScene: Scene, arenaScene: Scene): SteelSky {
+export function installSteelSky(B: BabylonModule, starScene: Scene, arenaScene: Scene, gain: number): SteelSky {
   let grade = 0;
   let steel: { readonly layer: Layer; readonly texture: DynamicTexture } | null = null;
   let disposed = false;
@@ -102,7 +102,7 @@ export function installSteelSky(B: BabylonModule, starScene: Scene, arenaScene: 
   const follow = starScene.onBeforeRenderObservable.add(() => {
     if (!steel || !nebula) return;
     // The colourful layer's tint (and the drift its texture carries) is the steel layer's too.
-    steel.layer.color.set(nebula.color.r * LOOK.skyGain, nebula.color.g * LOOK.skyGain, nebula.color.b * LOOK.skyGain, grade);
+    steel.layer.color.set(nebula.color.r * gain, nebula.color.g * gain, nebula.color.b * gain, grade);
     const from = nebula.texture as InstanceType<BabylonModule['Texture']> | null;
     if (from) {
       steel.texture.uScale = from.uScale; steel.texture.vScale = from.vScale;

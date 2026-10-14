@@ -11,6 +11,7 @@ import { installGameSky } from './gameSkyRenderer';
 import { skyStore } from './skyStore';
 import { sceneReadiness } from './sceneReadiness';
 import { loadSceneModule } from '@/shared/utils/preloadScene';
+import { webglAvailable } from '@/shared/utils/webgl';
 import { installSceneEffects } from './sceneEffects';
 import { arenaQuality } from '@/features/arena/arenaQuality';
 import type { Arena } from '@/features/arena/installArena';
@@ -754,6 +755,28 @@ function buildScene(
   return scene;
 }
 
+/**
+ * The engine, or null where there is no WebGL at all: the static sky and the flat emblem are then the first screen,
+ * which is not an error to throw at the boundary (React logs a caught error to the console). Any other failure
+ * still goes to the boundary.
+ */
+function createEngine(BABYLON: BabylonModule, canvas: HTMLCanvasElement, hardwareScaling: number): InstanceType<BabylonModule['Engine']> | null {
+  try {
+    const engine = new BABYLON.Engine(canvas, true, {
+      antialias: true,
+      powerPreference: 'high-performance',
+      // Keep the last frame painted so the reduced-motion / hidden-tab static
+      // frame survives page compositing instead of clearing to black.
+      preserveDrawingBuffer: true,
+    });
+    engine.setHardwareScalingLevel(hardwareScaling);
+    return engine;
+  } catch (error) {
+    if (!webglAvailable()) return null;
+    throw error;
+  }
+}
+
 // ─── React component ──────────────────────────────────────────────────────────
 
 interface StarfieldBackgroundProps {
@@ -784,18 +807,13 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       if (disposed) return;
       sceneReadiness.mark('module');
 
-      // The 3D emblem shares this engine, so its quality tier sets the canvas's: a phone renders without MSAA at
-      // up to 1.5x the CSS size, a desktop with MSAA at up to 1.5x (see arenaQuality).
+      // The 3D emblem shares this engine, so its quality tier sets the canvas's render scale: up to 1.5x the CSS
+      // size, with MSAA, on a phone and on a desktop alike (see arenaQuality).
       const quality = arenaQuality(IS_MOBILE, window.devicePixelRatio || 1);
-      const engine = new BABYLON.Engine(canvas, quality.antialias, {
-        antialias: quality.antialias,
-        powerPreference: 'high-performance',
-        // Keep the last frame painted so the reduced-motion / hidden-tab static
-        // frame survives page compositing instead of clearing to black.
-        preserveDrawingBuffer: true,
-      });
+      const created = createEngine(BABYLON, canvas, quality.hardwareScaling);
+      if (!created) { sceneReadiness.mark('home'); return; } // no 3D scene is coming: the age gate need not wait
+      const engine = created; // (a function declaration below captures it: narrowing does not reach those)
       cleanupRef.current = () => engine.dispose();
-      engine.setHardwareScalingLevel(quality.hardwareScaling);
 
       let dt = 0;
       let sceneReady = false;

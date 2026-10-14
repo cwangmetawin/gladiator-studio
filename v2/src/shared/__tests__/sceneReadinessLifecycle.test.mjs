@@ -22,6 +22,7 @@ const loader = moduleUrl('export const loadSceneModule = () => globalThis.__m4aL
 const effects = moduleUrl('export const installSceneEffects = () => ({ setRunning() {} });');
 const quality = moduleUrl(source('../../features/arena/arenaQuality.ts'));
 const arenaModule = moduleUrl('export const installArena = (...args) => globalThis.__m4aInstallArena(...args);');
+const webgl = moduleUrl('export const webglAvailable = () => globalThis.__m4aWebglAvailable !== false;');
 
 function wiredScene(readiness) {
   return source('../../features/starfield/StarfieldBackground.tsx')
@@ -38,6 +39,7 @@ function wiredScene(readiness) {
     .replace("from './sceneReadiness'", `from '${readiness}'`)
     .replace("from './sceneEffects'", `from '${effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${quality}'`)
+    .replace("from '@/shared/utils/webgl'", `from '${webgl}'`)
     .replace("from './skyBodies'", `from '${moduleUrl(source('../../features/starfield/skyBodies.ts').replace("from '@/shared/utils/frameTime'", `from '${time}'`))}'`)
     .replace("import('@/features/arena/installArena')", `import('${arenaModule}')`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
@@ -151,6 +153,77 @@ test('a 3D emblem that cannot be built releases the age gate anyway and leaves t
     await flush();
     assert.equal(readiness.getSnapshot(), 'home');
     assert.equal(root.dataset.arena, 'unavailable');
+  } finally {
+    console.warn = warn;
+    cleanup?.();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+    }
+  }
+});
+
+test('without WebGL at all the scene stays silent: no failure reaches the boundary, the age gate is released, and the flat emblem stays', async () => {
+  const keys = ['window', 'document', '__m4aCanvas', '__m4aLoad', '__m4aScene', '__m4aInstallArena', '__m4aWebglAvailable'];
+  const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
+  const readinessUrl = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + '\n// no webgl');
+  const { sceneReadiness: readiness } = await import(readinessUrl);
+  const root = { dataset: {} };
+  class Engine { constructor() { throw new Error('WebGL not supported'); } }
+  const noise = []; const warn = console.warn, error = console.error;
+  console.warn = (...args) => noise.push(args); console.error = (...args) => noise.push(args);
+  globalThis.window = { innerWidth: 1000, devicePixelRatio: 1, addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) };
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  globalThis.__m4aCanvas = { dataset: {}, closest: () => root };
+  globalThis.__m4aLoad = () => Promise.resolve({ Engine });
+  globalThis.__m4aScene = { render() {}, executeWhenReady() {}, dispose() {} };
+  let built = 0;
+  globalThis.__m4aInstallArena = async () => { built++; return { render() {}, dispose() {} }; };
+  globalThis.__m4aWebglAvailable = false;
+  const probe = await import(hooks);
+  probe.begin();
+  let cleanup;
+  try {
+    const { default: StarfieldBackground } = await import(moduleUrl(wiredScene(readinessUrl)));
+    StarfieldBackground({ suspended: false });
+    probe.effects[0](); cleanup = probe.effects[1]();
+    await flush();
+    assert.equal(probe.values[1], null, 'nothing is thrown to the WebGL boundary (React would log it as an error)');
+    assert.equal(readiness.getSnapshot(), 'home', 'no 3D scene is coming: the age gate need not wait');
+    assert.equal(built, 0, 'no emblem scene is built without an engine');
+    assert.equal(root.dataset.arena, undefined, 'the flat emblem stays: only a drawn emblem sets data-arena');
+    assert.deepEqual(noise, [], 'and nothing is logged');
+  } finally {
+    console.warn = warn; console.error = error;
+    cleanup?.();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete globalThis[key]; else globalThis[key] = value;
+    }
+  }
+});
+
+test('an engine that fails although WebGL exists is still reported to the boundary', async () => {
+  const keys = ['window', 'document', '__m4aCanvas', '__m4aLoad', '__m4aScene', '__m4aInstallArena', '__m4aWebglAvailable'];
+  const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
+  const readinessUrl = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + '\n// engine failure');
+  const { sceneReadiness: readiness } = await import(readinessUrl);
+  class Engine { constructor() { throw new Error('GPU process crashed'); } }
+  const warn = console.warn; console.warn = () => {};
+  globalThis.window = { innerWidth: 1000, devicePixelRatio: 1, addEventListener() {}, removeEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }) };
+  globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
+  globalThis.__m4aCanvas = { dataset: {}, closest: () => ({ dataset: {} }) };
+  globalThis.__m4aLoad = () => Promise.resolve({ Engine });
+  globalThis.__m4aScene = { render() {}, executeWhenReady() {}, dispose() {} };
+  globalThis.__m4aInstallArena = async () => ({ render() {}, dispose() {} });
+  globalThis.__m4aWebglAvailable = true;
+  const probe = await import(hooks);
+  probe.begin();
+  let cleanup;
+  try {
+    const { default: StarfieldBackground } = await import(moduleUrl(wiredScene(readinessUrl)));
+    StarfieldBackground({ suspended: false });
+    probe.effects[0](); cleanup = probe.effects[1]();
+    await flush();
+    assert.ok(probe.values[1] instanceof Error && /GPU process crashed/.test(probe.values[1].message), 'the failure goes to the boundary as before');
   } finally {
     console.warn = warn;
     cleanup?.();

@@ -88,7 +88,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   scene.environmentIntensity = LOOK.environment;
 
   // The sky goes first so the vignette layer is the first thing this scene draws.
-  const sky = installSteelSky(B, ctx.starScene, scene);
+  const sky = installSteelSky(B, ctx.starScene, scene, ctx.phone ? LOOK.skyGainPhone : LOOK.skyGain);
 
   const texture = (file: string) => {
     const t = new B.Texture(mapUrl(file), scene, false, false, B.Texture.TRILINEAR_SAMPLINGMODE);

@@ -21,8 +21,9 @@ export interface Look {
   readonly aura: number;
   readonly auraFlash: number;
   readonly auraArc: number;
-  /** How much of the steel nebula's brightness the home keeps (1: exactly the age gate's sky). The prototype's sky is darker, so the bright emblem stands out. */
+  /** How much of the steel nebula's brightness the home keeps (1: exactly the age gate's sky). The prototype's desktop sky is darker, so the bright emblem stands out; its phone sky is not. */
   readonly skyGain: number;
+  readonly skyGainPhone: number;
   /** The metal's colour (its reflectivity tint). */
   readonly albedo: readonly [number, number, number];
 }
@@ -40,5 +41,6 @@ export const LOOK: Look = {
   auraFlash: 0.35,
   auraArc: 0.1,
   skyGain: 0.7,
+  skyGainPhone: 1,
   albedo: [0.88, 0.92, 0.98],
 };

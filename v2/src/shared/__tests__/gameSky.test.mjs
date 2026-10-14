@@ -75,6 +75,7 @@ async function homepageCamera(B, scene, width) {
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
+    .replace("from '@/shared/utils/webgl'", `from '${moduleUrl('export const webglAvailable = () => true;')}'`)
     .replace("from './skyBodies'", `from '${moduleUrl(source('../../features/starfield/skyBodies.ts').replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`))}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`);
   const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
