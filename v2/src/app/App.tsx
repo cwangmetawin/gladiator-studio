@@ -17,7 +17,8 @@ import { isSceneCovered } from '@/features/starfield/renderLoop';
 import { useFeederSocket } from '@/features/live-feed/useFeederSocket';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { WarpTransition } from '@/features/partner/WarpTransition';
-import { AgeGate, useAgeGate } from '@/shared/components/AgeGate';
+import { AgeGateLayer } from '@/shared/components/AgeGate';
+import { useAgeGate } from '@/shared/components/ageGateState';
 import { WarpIntro } from '@/shared/components/WarpIntro';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { preloadScene, scheduleScenePreload } from '@/shared/utils/preloadScene';
@@ -630,11 +631,11 @@ export function App() {
     slotGames: GLADIATOR_SLOTS, miniGames: METAWIN_ORIGINALS,
   }, [gameData]);
 
-  if (!verified) {
-    return <AgeGate onVerify={handleVerify} onReject={reject} rejected={!showGate} />;
-  }
-
+  // The gate keeps its slot across verification: it stays mounted above the site while it
+  // fades into the warp intro, which starts underneath on the same click.
   return (
+    <>
+    {verified && (
     <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
     <div ref={skyRootRef} data-transition={transition.phase} data-transition-target={transition.target}
@@ -773,5 +774,8 @@ export function App() {
     </div>
     </MotionConfig>
     </CatalogueStatsProvider>
+    )}
+    <AgeGateLayer verified={verified} rejected={!verified && !showGate} onVerify={handleVerify} onReject={reject} />
+    </>
   );
 }

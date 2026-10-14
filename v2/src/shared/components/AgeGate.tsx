@@ -1,124 +1,136 @@
-import { useState, useCallback, useId } from 'react';
+import './ageGate.css';
+import { useId, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { useMotionPreference } from '../motion/useMotionPreference';
+import { BRAND_SKY } from '../brand/brandSky';
+import { GATE_FADE_MS, GATE_IGNITE_MS, gateIsDialog, gateIsExiting, gatePhase, gateStepDelay, useGateOverlay } from './ageGateState';
+import { GateEmblem } from './GateEmblem';
 
-const STORAGE_KEY = 'gladiator_age_verified';
-
-// eslint-disable-next-line react-refresh/only-export-components -- Keep the existing age-verification hook in this module's public API.
-export function useAgeGate(): { verified: boolean; verify: () => void; reject: () => void; showGate: boolean } {
-  const [verified, setVerified] = useState(() => {
-    try { return sessionStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
-  });
-  const [rejected, setRejected] = useState(false);
-
-  const verify = useCallback(() => {
-    try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch { /* noop */ }
-    setVerified(true);
-  }, []);
-
-  const reject = useCallback(() => { setRejected(true); }, []);
-
-  return { verified, verify, reject, showGate: !verified && !rejected };
-}
+// The age gate is the site's first frame (Phase 4 M0): the brand only, never a game, an image
+// of one, an amount or a win. It stays a modal dialog until the visitor answers. After
+// "I am 18 or older" it stays mounted as an inert overlay: the emblem ignites at once while the
+// site and its warp intro mount underneath, then the gate fades into the warp (never before the
+// site is there, so no frame between them is empty) and calls onExited. With reduced motion
+// there is no exit: the gate goes in the commit that verifies.
 
 interface AgeGateProps {
+  readonly verified: boolean;
+  readonly rejected: boolean;
   readonly onVerify: () => void;
   readonly onReject: () => void;
-  readonly rejected: boolean;
+  readonly onExited: () => void;
 }
 
-// Deep-space backdrop shared by both states
-const BACKDROP: React.CSSProperties = {
-  position: 'fixed', inset: 0, zIndex: 99999,
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  padding: 20,
-  background:
-    'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(20,32,56,0.55), transparent 70%), var(--color-void-900)',
-};
+const BEGAMBLEAWARE = 'https://www.begambleaware.org';
+const TIMING = { '--gate-ignite': `${GATE_IGNITE_MS}ms`, '--gate-fade': `${GATE_FADE_MS}ms` } as CSSProperties;
 
-export function AgeGate({ onVerify, onReject, rejected }: AgeGateProps) {
+export function AgeGate({ verified, rejected, onVerify, onReject, onExited }: AgeGateProps) {
+  const reducedMotion = useMotionPreference();
+  const [entering, setEntering] = useState(false);
+  const [ignited, setIgnited] = useState(false);
+  const phase = gatePhase({ verified, rejected, entering, ignited });
+  const exiting = gateIsExiting(phase);
+  const denied = phase === 'denied';
   const titleId = useId();
+  const labelId = useId();
   const descriptionId = useId();
-  const dialogRef = useDialogFocus<HTMLDivElement>();
-  if (rejected) {
-    return (
-      <div style={BACKDROP}>
-        <div ref={dialogRef} className="glass" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={{ maxWidth: 420, width: '100%', padding: 'clamp(24px, 5vw, 44px) clamp(20px, 5vw, 40px)', textAlign: 'center' }}>
-          <div
-            aria-hidden="true"
-            style={{
-              width: 56, height: 56, margin: '0 auto 22px', borderRadius: '50%',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1px solid var(--color-ember)', color: 'var(--color-ember)',
-              fontFamily: 'var(--font-mono)', fontSize: 22,
-            }}
-          >
-            ✕
-          </div>
-          <h2 id={titleId} style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 20, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 14px' }}>
-            Access Denied
-          </h2>
-          <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: 0 }}>
-            You must be 18 or older to access this website. Please close this tab.
-          </p>
-          <p style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', fontSize: 10, marginTop: 22, letterSpacing: '0.04em' }}>
-            Need help? Visit{' '}
-            <a href="https://www.begambleaware.org" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-holo-300)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-              BeGambleAware.org
-            </a>
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const dialogRef = useDialogFocus<HTMLDivElement>({ active: gateIsDialog(phase) });
+  const exitedRef = useRef(onExited);
+  exitedRef.current = onExited;
 
+  // The exit runs in CSS; this only moves the gate on when a phase ends. A layout effect, so a
+  // gate with nothing left to show (gone) is closed before the browser paints it again.
+  useLayoutEffect(() => {
+    const delay = gateStepDelay(phase);
+    if (delay === null) return;
+    const step = phase === 'igniting' ? () => setIgnited(true) : () => exitedRef.current();
+    if (delay === 0) { step(); return; }
+    const timer = window.setTimeout(step, delay);
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  const enter = (): void => {
+    if (!reducedMotion) setEntering(true);
+    onVerify();
+  };
+
+  if (phase === 'gone') return null;
   return (
-    <div style={BACKDROP}>
-      <div ref={dialogRef} className="glass" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} tabIndex={-1} style={{ maxWidth: 460, width: '100%', padding: 'clamp(20px, 5vw, 48px)', textAlign: 'center' }}>
-        <img
-          src="/gladiator-logo.svg"
-          alt="Gladiator Studio"
-          width={935} height={535}
-          fetchPriority="high"
-          style={{ width: 220, height: 'auto', margin: '0 auto 10px', filter: 'brightness(0) invert(1) drop-shadow(0 0 20px rgba(79,195,247,0.42))' }}
-        />
-
-        <div
-          aria-hidden="true"
-          style={{
-            width: 52, height: 52, margin: '0 auto 18px', borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            border: '1px solid var(--color-holo-500)', color: 'var(--color-holo-300)',
-            fontFamily: 'var(--font-display)', fontSize: 18, fontWeight: 700, letterSpacing: '0.02em',
-            boxShadow: '0 0 18px rgba(79,195,247,0.25), inset 0 0 12px rgba(79,195,247,0.12)',
-          }}
-        >
-          18+
+    <div
+      ref={dialogRef}
+      className="gate"
+      data-age-gate=""
+      data-gate-phase={phase}
+      data-exit={exiting ? '' : undefined}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={denied ? titleId : labelId}
+      aria-describedby={descriptionId}
+      aria-hidden={exiting || undefined}
+      inert={exiting}
+      tabIndex={-1}
+      style={TIMING}
+    >
+      <div className="gate__sky" style={BRAND_SKY} aria-hidden="true" />
+      <div className="gate__scroll">
+        <div className="gate__stage">
+          <div className="gate__hero">
+            <GateEmblem mode={exiting ? 'ignite' : denied ? 'off' : 'idle'} reducedMotion={reducedMotion} />
+            <h1 id={titleId} className="gate__title">
+              {denied
+                ? <><span className="gate__line">Access</span> <span className="gate__line">denied</span></>
+                : <><span className="gate__line">Built for</span> <span className="gate__line">the arena</span></>}
+            </h1>
+          </div>
+          {denied ? (
+            <div className="gate__bar">
+              <div className="gate__copy">
+                <p className="gate__label gate__label--denied">18+ only</p>
+                <p id={descriptionId} className="gate__text">You must be 18 or older to access this website. Please close this tab.</p>
+              </div>
+              <p className="gate__rg">
+                Need help? Visit <a href={BEGAMBLEAWARE} target="_blank" rel="noopener noreferrer">BeGambleAware.org</a>
+              </p>
+            </div>
+          ) : (
+            <div className="gate__bar">
+              <div className="gate__copy">
+                <h2 id={labelId} className="gate__label">Age verification<span aria-hidden="true"> · 18+</span></h2>
+                <p id={descriptionId} className="gate__text">
+                  This site features gambling-related content for users aged 18 and over. By entering, you confirm you
+                  meet the minimum age in your jurisdiction.
+                </p>
+              </div>
+              <div className="gate__actions">
+                <button type="button" className="gate__btn gate__btn--enter" onClick={enter}>I am 18 or older</button>
+                <button type="button" className="gate__btn" onClick={onReject}>Under 18</button>
+              </div>
+              <p className="gate__rg">
+                Gambling can be addictive. Play responsibly.{' '}
+                <a href={BEGAMBLEAWARE} target="_blank" rel="noopener noreferrer">BeGambleAware.org</a>
+              </p>
+            </div>
+          )}
         </div>
-
-        <h2 id={titleId} style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 18, letterSpacing: '0.16em', textTransform: 'uppercase', color: 'var(--color-ice-50)', margin: '0 0 12px' }}>
-          Age Verification
-        </h2>
-
-        <p id={descriptionId} style={{ fontFamily: 'var(--font-body)', color: 'var(--color-text-mute)', fontSize: 13, lineHeight: 1.7, margin: '0 0 26px', maxWidth: '34ch', marginInline: 'auto' }}>
-          This site features gambling-related content for users aged 18 and over. By entering, you confirm you meet the minimum age in your jurisdiction.
-        </p>
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-          <button type="button" onClick={onVerify} className="btn btn--primary" style={{ flex: '1 1 140px', minHeight: 44 }}>
-            I am 18 or older
-          </button>
-          <button type="button" onClick={onReject} className="btn" style={{ flex: '1 1 140px', minHeight: 44 }}>
-            Under 18
-          </button>
-        </div>
-
-        <p style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-dim)', fontSize: 10, marginTop: 22, letterSpacing: '0.04em', lineHeight: 1.6 }}>
-          Gambling can be addictive. Play responsibly.{' '}
-          <a href="https://www.begambleaware.org" target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-holo-300)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
-            BeGambleAware.org
-          </a>
-        </p>
       </div>
+      <div className="gate__flash" aria-hidden="true" />
     </div>
   );
+}
+
+interface AgeGateLayerProps {
+  readonly verified: boolean;
+  readonly rejected: boolean;
+  readonly onVerify: () => void;
+  readonly onReject: () => void;
+}
+
+/**
+ * Where App puts the gate. It owns whether the gate is still open, so when the exit ends only
+ * this small component re-renders, not the site the gate has just revealed.
+ */
+export function AgeGateLayer({ verified, rejected, onVerify, onReject }: AgeGateLayerProps) {
+  const { gateOpen, closeGate } = useGateOverlay(verified);
+  if (!gateOpen) return null;
+  return <AgeGate verified={verified} rejected={rejected} onVerify={onVerify} onReject={onReject} onExited={closeGate} />;
 }

@@ -1,0 +1,361 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   Age gate — the brand opening (Phase 4 M0).
+   One hero (the emblem), one big line, one signature colour, and the age question as a
+   plain band along the bottom: no card. Every animation moves only transform or opacity;
+   the glow is a static blur inside its own layer, so no frame re-runs a filter.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* The title's face, served from public/fonts and preloaded in index.html: the title is the gate's
+   LCP element, and from Google Fonts it waited for a cross-origin stylesheet, then swapped late.
+   Saira 800, latin subset, SIL Open Font License (public/fonts/OFL.txt). */
+@font-face {
+  font-family: 'Saira Title';
+  src: url('/fonts/saira-800-latin.woff2') format('woff2');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* Arial Bold scaled to Saira 800's width, so the title barely moves when the web font swaps in. */
+@font-face {
+  font-family: 'Saira Gate Fallback';
+  src: local('Arial Bold'), local('Arial-BoldMT'), local('Helvetica Neue Bold'), local('HelveticaNeue-Bold');
+  font-weight: 800;
+  size-adjust: 94%;
+}
+
+.gate {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  overflow: hidden;
+  background: var(--color-void-900);
+  color: var(--color-text);
+}
+
+/* Deep space (BRAND_SKY, shared with the warp intro) is set inline. */
+.gate__sky {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.gate__scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.gate__stage {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(24px, 7vh, 88px) clamp(16px, 4vw, 64px) max(clamp(16px, 3vh, 32px), env(safe-area-inset-bottom));
+}
+
+.gate__hero {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(18px, 5vh, 60px);
+  padding-bottom: clamp(16px, 5vh, 64px);
+}
+
+/* ── Emblem ─────────────────────────────────────────────────────────────────── */
+
+.gate__emblem {
+  position: relative;
+  flex: none;
+  width: min(66vw, 118vh);
+  aspect-ratio: 935 / 237;
+}
+
+.gate__layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.gate__halo {
+  position: absolute;
+  inset: -110% -14%;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(79, 195, 247, 0.2), rgba(79, 195, 247, 0.06) 46%, rgba(79, 195, 247, 0) 70%);
+  opacity: 0.5;
+  will-change: opacity;
+}
+
+.gate__glow { opacity: 0.34; will-change: opacity; }
+.gate__lit { opacity: 0; will-change: opacity; }
+
+/* Ignition current: a clip window slides one way while its content slides back, so the
+   outline appears to run outwards from the helmet without the outline itself moving. */
+.gate__current {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  overflow: hidden;
+  opacity: 0;
+  will-change: opacity, transform;
+}
+.gate__current-reveal { position: absolute; inset: 0; will-change: transform; }
+
+/* Spark on the helmet: breathes while the gate waits. */
+.gate__spark {
+  position: absolute;
+  width: 9%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.gate__spark-halo,
+.gate__spark-core {
+  position: absolute;
+  will-change: transform, opacity;
+}
+.gate__spark-halo {
+  inset: 0;
+  background: radial-gradient(circle, rgba(128, 216, 255, 0.55) 0%, rgba(79, 195, 247, 0.18) 34%, rgba(79, 195, 247, 0) 68%);
+  animation: gate-breathe 2.6s ease-in-out infinite alternate;
+}
+.gate__spark-core {
+  inset: 40%;
+  background: radial-gradient(circle, #ffffff 0%, #b6e8ff 42%, rgba(79, 195, 247, 0) 72%);
+  animation: gate-breathe-core 2.6s ease-in-out infinite alternate;
+}
+@keyframes gate-breathe { from { transform: scale(0.7); opacity: 0.5; } to { transform: scale(1.08); opacity: 1; } }
+@keyframes gate-breathe-core { from { transform: scale(0.8); opacity: 0.7; } to { transform: scale(1.18); opacity: 1; } }
+
+/* Arcs: GateEmblem sets data-firing on one arc at a time; each flash lasts 300 ms. */
+.gate__arc { position: absolute; opacity: 0; pointer-events: none; }
+.gate__arc-window { position: absolute; inset: 0; overflow: hidden; }
+.gate__arc-reveal { position: absolute; inset: 0; }
+.gate__bolt--b { opacity: 0; }
+.gate__arc-light {
+  position: absolute;
+  left: 0;
+  right: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse 50% 50% at 50% 50%, rgba(182, 232, 255, 0.5), rgba(79, 195, 247, 0.14) 52%, rgba(79, 195, 247, 0) 72%);
+}
+.gate__arc[data-firing] { animation: gate-arc 300ms linear both; will-change: opacity; }
+.gate__arc[data-firing] .gate__arc-window { animation: gate-arc-window 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.gate__arc[data-firing] .gate__arc-reveal { animation: gate-arc-reveal 300ms cubic-bezier(0.2, 0.7, 0.3, 1) both; }
+.gate__arc[data-firing] .gate__bolt--a { animation: gate-bolt-a 300ms step-end both; }
+.gate__arc[data-firing] .gate__bolt--b { animation: gate-bolt-b 300ms step-end both; }
+.gate__arc[data-firing] .gate__arc-light { animation: gate-arc-light 300ms ease-out both; }
+@keyframes gate-arc { 0% { opacity: 0; } 6% { opacity: 1; } 72% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes gate-arc-window { 0% { transform: translateX(-100%); } 40%, 100% { transform: translateX(0); } }
+@keyframes gate-arc-reveal { 0% { transform: translateX(100%); } 40%, 100% { transform: translateX(0); } }
+@keyframes gate-bolt-a { 0% { opacity: 1; } 15% { opacity: 0; } 30% { opacity: 1; } 48% { opacity: 0; } 62%, 100% { opacity: 1; } }
+@keyframes gate-bolt-b { 0% { opacity: 0; } 15% { opacity: 1; } 30% { opacity: 0; } 48% { opacity: 1; } 62%, 100% { opacity: 0; } }
+@keyframes gate-arc-light { 0% { opacity: 0; } 30% { opacity: 0.9; } 100% { opacity: 0; } }
+
+/* ── Title ──────────────────────────────────────────────────────────────────── */
+
+.gate__title {
+  margin: 0;
+  font-family: 'Saira Title', 'Saira', 'Saira Gate Fallback', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: min(8.5vw, 16vh);
+  line-height: 0.92;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--color-ice-50);
+  text-shadow: 0 2px 40px rgba(5, 6, 9, 0.55);
+}
+
+/* ── Age question ───────────────────────────────────────────────────────────── */
+
+.gate__bar {
+  flex: none;
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--color-line-bright);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 40px;
+  row-gap: 14px;
+}
+
+.gate__copy { min-width: 0; }
+
+.gate__label {
+  margin: 0 0 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--color-holo-300);
+}
+.gate__label--denied { color: var(--color-ember); }
+
+.gate__text {
+  margin: 0;
+  max-width: 64ch;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--color-ice-200);
+}
+
+.gate__actions { display: flex; gap: 12px; }
+
+.gate__btn {
+  min-height: 48px;
+  padding: 0 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--color-ice-50);
+  background: transparent;
+  border: 1px solid rgba(198, 210, 226, 0.36);
+  border-radius: 2px;
+  cursor: pointer;
+}
+.gate__btn:hover { border-color: var(--color-ice-50); background: rgba(242, 247, 252, 0.06); }
+.gate__btn--enter {
+  color: var(--color-void-900);
+  background: var(--color-holo-500);
+  border-color: var(--color-holo-500);
+}
+.gate__btn--enter:hover { background: var(--color-holo-300); border-color: var(--color-holo-300); }
+
+.gate__rg {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.6;
+  letter-spacing: 0.06em;
+  color: var(--color-ice-400);
+}
+.gate__rg a { color: var(--color-holo-300); text-decoration: underline; text-underline-offset: 2px; }
+
+/* Exposure flash of the ignition. */
+.gate__flash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse 62% 48% at 50% 34%, rgba(234, 248, 255, 0.55), rgba(79, 195, 247, 0.18) 42%, rgba(79, 195, 247, 0) 72%);
+  will-change: opacity;
+}
+
+/* ── Denied: the emblem powers down; no spark, no arcs ─────────────────────── */
+
+.gate[data-gate-phase='denied'] .gate__spark,
+.gate[data-gate-phase='denied'] .gate__arc { display: none; }
+.gate[data-gate-phase='denied'] .gate__glow { opacity: 0.14; }
+.gate[data-gate-phase='denied'] .gate__halo { opacity: 0.2; }
+.gate[data-gate-phase='denied'] .gate__steel { opacity: 0.85; }
+
+/* ── Exit: igniting (--gate-ignite) → lit (held until the site is there) → fading (--gate-fade) ──
+   The ignition's animations stay applied through all three phases (fill-mode both) so the lit
+   frame holds still and nothing restarts when the phase changes. The fade then dissolves the
+   gate into the warp intro mounted underneath, which paints the same sky. */
+
+.gate[data-exit] { pointer-events: none; }
+.gate[data-exit] .gate__bar { animation: gate-bar-out var(--gate-ignite) ease-out both; }
+.gate[data-exit] .gate__title { animation: gate-title-out var(--gate-ignite) ease-in both; }
+.gate[data-exit] .gate__flash { animation: gate-flash var(--gate-ignite) ease-out both; }
+.gate__emblem[data-mode='ignite'] .gate__spark-halo { animation: gate-spark-burst var(--gate-ignite) ease-out both; }
+.gate__emblem[data-mode='ignite'] .gate__spark-core { animation: gate-spark-core-out var(--gate-ignite) ease-out both; }
+.gate__emblem[data-mode='ignite'] .gate__lit { animation: gate-lit var(--gate-ignite) linear both; }
+.gate__emblem[data-mode='ignite'] .gate__glow { animation: gate-glow var(--gate-ignite) ease-out both; }
+.gate__emblem[data-mode='ignite'] .gate__halo { animation: gate-halo var(--gate-ignite) ease-out both; }
+.gate__emblem[data-mode='ignite'] .gate__current--right {
+  animation: gate-current var(--gate-ignite) linear both, gate-wipe-out-right var(--gate-ignite) cubic-bezier(0.3, 0.6, 0.4, 1) both;
+}
+.gate__emblem[data-mode='ignite'] .gate__current--right .gate__current-reveal { animation: gate-wipe-in-right var(--gate-ignite) cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+.gate__emblem[data-mode='ignite'] .gate__current--left {
+  animation: gate-current var(--gate-ignite) linear both, gate-wipe-out-left var(--gate-ignite) cubic-bezier(0.3, 0.6, 0.4, 1) both;
+}
+.gate__emblem[data-mode='ignite'] .gate__current--left .gate__current-reveal { animation: gate-wipe-in-left var(--gate-ignite) cubic-bezier(0.3, 0.6, 0.4, 1) both; }
+
+.gate[data-gate-phase='fading'] { animation: gate-fade var(--gate-fade) cubic-bezier(0.4, 0, 0.7, 1) both; }
+.gate[data-gate-phase='fading'] .gate__emblem { animation: gate-emblem-push var(--gate-fade) cubic-bezier(0.4, 0, 0.8, 0.5) both; will-change: transform; }
+
+@keyframes gate-bar-out { 0% { opacity: 1; transform: none; } 24%, 100% { opacity: 0; transform: translateY(10px); } }
+@keyframes gate-title-out { 0%, 38% { opacity: 1; transform: none; } 85%, 100% { opacity: 0; transform: translateY(-6px) scale(1.02); } }
+@keyframes gate-flash { 0%, 47% { opacity: 0; } 61% { opacity: 0.8; } 92%, 100% { opacity: 0; } }
+@keyframes gate-spark-burst { 0% { transform: scale(1); opacity: 1; } 40%, 100% { transform: scale(3.4); opacity: 0; } }
+@keyframes gate-spark-core-out { 0% { transform: scale(1.1); opacity: 1; } 27%, 100% { transform: scale(2); opacity: 0; } }
+@keyframes gate-lit { 0%, 30% { opacity: 0; } 35% { opacity: 0.78; } 40% { opacity: 0.12; } 46% { opacity: 0.9; } 50% { opacity: 0.36; } 61%, 100% { opacity: 1; } }
+@keyframes gate-glow { 0%, 21% { opacity: 0.34; } 70% { opacity: 1; } 94%, 100% { opacity: 0.82; } }
+@keyframes gate-halo { 0%, 39% { opacity: 0.5; } 73% { opacity: 1; } 96%, 100% { opacity: 0.8; } }
+@keyframes gate-current { 0% { opacity: 0; } 5% { opacity: 1; } 70% { opacity: 1; } 92%, 100% { opacity: 0; } }
+@keyframes gate-wipe-out-right { 0% { transform: translateX(-100%); } 61%, 100% { transform: translateX(0); } }
+@keyframes gate-wipe-in-right { 0% { transform: translateX(100%); } 61%, 100% { transform: translateX(0); } }
+@keyframes gate-wipe-out-left { 0% { transform: translateX(100%); } 61%, 100% { transform: translateX(0); } }
+@keyframes gate-wipe-in-left { 0% { transform: translateX(-100%); } 61%, 100% { transform: translateX(0); } }
+@keyframes gate-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes gate-emblem-push { from { transform: none; } to { transform: scale(1.14); } }
+
+/* ── Portrait screens: the title breaks into two lines ─────────────────────── */
+
+@media (orientation: portrait) {
+  .gate__line { display: block; }
+  .gate__title { font-size: min(calc((100vw - 32px) * 0.175), 11vh); line-height: 0.95; }
+}
+
+/* ── Narrow screens ────────────────────────────────────────────────────────── */
+
+@media (max-width: 720px) {
+  .gate__stage { padding: clamp(20px, 7vh, 72px) 16px max(16px, env(safe-area-inset-bottom)); }
+  .gate__actions { flex-wrap: wrap; }
+  .gate__btn { flex: 1 1 140px; padding: 0 14px; letter-spacing: 0.1em; }
+}
+
+/* A portrait phone: the emblem is wider than the screen, its wing tips run off both edges (the
+   gate clips them), and the answers stack under the copy. A landscape phone keeps the desktop
+   layout: one-line title, emblem sized by height, copy and answers side by side. */
+@media (max-width: 720px) and (orientation: portrait) {
+  .gate__emblem { width: 112vw; }
+  .gate__bar { grid-template-columns: minmax(0, 1fr); padding-top: 16px; }
+}
+
+@media (max-width: 360px) {
+  .gate__text { font-size: 13px; }
+  .gate__btn { flex-basis: 120px; padding: 0 10px; font-size: 11px; letter-spacing: 0.06em; }
+}
+
+@media (max-height: 620px) {
+  .gate__stage { padding-top: clamp(16px, 4vh, 40px); }
+  .gate__hero { gap: clamp(12px, 3vh, 32px); padding-bottom: 16px; }
+}
+
+/* ── Reduced motion: one complete still (the emblem lit), nothing moves ────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .gate__spark,
+  .gate__arc,
+  .gate__current,
+  .gate__flash { display: none; }
+  .gate__lit { opacity: 1; }
+  .gate__glow { opacity: 0.8; }
+  .gate__halo { opacity: 0.85; }
+  .gate[data-gate-phase='denied'] .gate__lit { opacity: 0; }
+  .gate[data-gate-phase='denied'] .gate__glow { opacity: 0.14; }
+  .gate,
+  .gate * { animation: none !important; }
+}

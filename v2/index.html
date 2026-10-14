@@ -20,7 +20,7 @@
     <meta name="twitter:description" content="Award-winning slot games and mini games by Gladiator Studio." />
 
     <!-- CSP -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' blob: data: https://cdn-dev.gladiatorgames.io https://content.prod.platform.mwapp.io https://mw-com-prod.imgix.net https://lejutvltkmbscpgpfzru.supabase.co; frame-src https://cdn-dev.gladiatorgames.io https://cdn-dev.mwgames.io https://metawin.com; connect-src 'self' https://game-lobby-kappa.vercel.app https://socket.prod.platform.metawin.com wss://socket.prod.platform.metawin.com https://*.supabase.co wss://*.supabase.co;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' blob: data: https://cdn-dev.gladiatorgames.io https://content.prod.platform.mwapp.io https://mw-com-prod.imgix.net https://lejutvltkmbscpgpfzru.supabase.co; frame-src https://cdn-dev.gladiatorgames.io https://cdn-dev.mwgames.io https://metawin.com; connect-src 'self' https://game-lobby-kappa.vercel.app https://socket.prod.platform.metawin.com wss://socket.prod.platform.metawin.com https://*.supabase.co wss://*.supabase.co;" />
 
     <!-- JSON-LD Organization Schema -->
     <script type="application/ld+json">
@@ -43,12 +43,13 @@
     }
     </script>
 
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- The gate title (the first screen's LCP) is set in this self-hosted Saira 800, so it does not wait for Google Fonts. -->
+    <link rel="preload" href="/fonts/saira-800-latin.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700;800&family=Sora:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" />
     <link rel="preconnect" href="https://content.prod.platform.mwapp.io" crossorigin />
-    <link rel="preload" as="image" href="/gladiator-logo.svg" type="image/svg+xml" />
     <title>Gladiator Studio | Premium iGaming Experiences</title>
   </head>
   <body style="background:#0A0B12;">
