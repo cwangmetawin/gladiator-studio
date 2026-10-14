@@ -30,10 +30,10 @@ export interface TopBarProps {
 export function TopBar({ isConnected, isMobile, target, onActivate, onClientArea, onMenu, menuVisible, covered }: TopBarProps) {
   return (
     <header role="banner" aria-label="Studio" className="topbar" data-covered={covered ? '' : undefined} inert={covered}>
-      <span className="topbar__brand" aria-label="Gladiator Studio">
+      <span className="topbar__brand">
         <MiniEmblem className="topbar__mark" />
         <span className="topbar__name">Gladiator</span>
-        <span className="topbar__sub" aria-hidden="true">Studio</span>
+        <span className="topbar__sub">Studio</span>
       </span>
 
       {!isMobile && (

@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef } from 'react';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
 import type { PanelId as TransitionTarget } from '@/shared/motion/transition';
+import { EMBLEM_FEATHER_EDGES, EMBLEM_HEIGHT, EMBLEM_HELMET_BOX, EMBLEM_WIDTH } from '@/shared/brand/emblemPaths';
 import { FlatEmblem } from './FlatEmblem';
 import { emblemSlot } from './emblemSlot';
 import { useCountUp } from './useCountUp';
@@ -14,6 +15,24 @@ import './arenaHero.css';
 // gate releases the first screen, and its pieces arrive by CSS keyframes from that moment.
 
 const TITLE = ['Built for', 'the arena'] as const;
+
+/**
+ * Where a constellation door may not stand: the emblem's silhouette as three boxes (the helmet, and the wings on each
+ * side), in percent of the emblem's own box. The slot as a whole is mostly empty sky, so it is not an obstacle: with
+ * it marked, no door could stand anywhere on the first screen (they showed in none of three loads). The sky above the
+ * wings, either side of the helmet, stays free.
+ */
+const WING_TOP = Math.min(...EMBLEM_FEATHER_EDGES.map(edge => Math.min(edge.y0, edge.y1)));
+const HELMET_RIGHT = EMBLEM_HELMET_BOX.x + EMBLEM_HELMET_BOX.width;
+const percent = (value: number, of: number): string => `${((100 * value) / of).toFixed(3)}%`;
+const box = (left: number, top: number, width: number, height: number) => ({
+  left: percent(left, EMBLEM_WIDTH), top: percent(top, EMBLEM_HEIGHT), width: percent(width, EMBLEM_WIDTH), height: percent(height, EMBLEM_HEIGHT),
+});
+const KEEPOUTS = [
+  { name: 'helmet', style: box(EMBLEM_HELMET_BOX.x, 0, EMBLEM_HELMET_BOX.width, EMBLEM_HEIGHT) },
+  { name: 'left-wings', style: box(0, WING_TOP, EMBLEM_HELMET_BOX.x, EMBLEM_HEIGHT - WING_TOP) },
+  { name: 'right-wings', style: box(HELMET_RIGHT, WING_TOP, EMBLEM_WIDTH - HELMET_RIGHT, EMBLEM_HEIGHT - WING_TOP) },
+] as const;
 
 export interface ArenaHeroProps {
   readonly panelSide?: 'left' | 'right';
@@ -82,8 +101,11 @@ export function ArenaHero({ target = 'none' }: ArenaHeroProps) {
 
   return (
     <section id="home" ref={stageRef} className="arena-hero" aria-labelledby="arena-title" data-dimming={target !== 'none'}>
-      <div ref={slotRef} className="arena-hero__slot" data-sky-obstacle="" role="img" aria-label="Gladiator Studio emblem: a helmet between two wings">
+      <div ref={slotRef} className="arena-hero__slot" role="img" aria-label="Gladiator Studio emblem: a helmet between two wings">
         <FlatEmblem className="arena-hero__flat" />
+        <span className="arena-hero__keepout" aria-hidden="true">
+          {KEEPOUTS.map(({ name, style }) => <i key={name} data-sky-obstacle="" data-keepout={name} style={style} />)}
+        </span>
       </div>
 
       <h1 id="arena-title" className="arena-hero__title" data-sky-obstacle="" aria-label="Gladiator Studio. Built for the arena">

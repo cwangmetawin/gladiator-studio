@@ -42,6 +42,19 @@
 }
 [data-arena='ready'] .arena-hero__flat { opacity: 0; }
 
+/* The emblem's box, for the constellation doors' obstacles (ArenaHero's KEEPOUTS): the same rectangle as the flat emblem. */
+.arena-hero__keepout {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--emblem-fraction));
+  aspect-ratio: 935 / 237;
+  max-height: 94%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.arena-hero__keepout i { position: absolute; display: block; }
+
 .arena-hero__title {
   grid-row: 3;
   margin: 0;
