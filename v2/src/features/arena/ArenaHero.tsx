@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef } from 'react';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
 import type { PanelId as TransitionTarget } from '@/shared/motion/transition';
-import { BigWinFlash } from './BigWinFlash';
 import { FlatEmblem } from './FlatEmblem';
 import { emblemSlot } from './emblemSlot';
 import { useCountUp } from './useCountUp';
@@ -102,8 +101,6 @@ export function ArenaHero({ target = 'none' }: ArenaHeroProps) {
           {numbers.map((n, i) => <CountStat key={n.label} {...n} delay={700 + i * 160} />)}
         </ul>
       </div>
-
-      <BigWinFlash />
     </section>
   );
 }

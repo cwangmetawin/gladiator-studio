@@ -41,7 +41,7 @@ export function TopBar({ isConnected, isMobile, target, onActivate, onClientArea
           <ul>
             {NAV_ITEMS.map(({ short, panelId }) => (
               <li key={panelId}>
-                <button type="button" className="topbar__item" aria-pressed={target === panelId}
+                <button type="button" className="topbar__item" data-cursor="OPEN" aria-pressed={target === panelId}
                   aria-label={panelId === 'live' ? `Live feed, ${isConnected ? 'connected' : 'offline'}` : undefined}
                   onMouseEnter={() => soundEngine.hover()} onClick={() => onActivate(panelId)}>
                   {panelId === 'live' && <i className="topbar__dot" data-live={isConnected} aria-hidden="true" />}

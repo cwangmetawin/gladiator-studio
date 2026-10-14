@@ -38,6 +38,7 @@ function wiredScene(readiness) {
     .replace("from './sceneReadiness'", `from '${readiness}'`)
     .replace("from './sceneEffects'", `from '${effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${quality}'`)
+    .replace("from './skyBodies'", `from '${moduleUrl(source('../../features/starfield/skyBodies.ts').replace("from '@/shared/utils/frameTime'", `from '${time}'`))}'`)
     .replace("import('@/features/arena/installArena')", `import('${arenaModule}')`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
     // M1 separately executes the real builders with NullEngine. Isolate only the

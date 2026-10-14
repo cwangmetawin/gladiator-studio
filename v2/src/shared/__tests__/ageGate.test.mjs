@@ -7,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { source } from './sourceModule.mjs';
+import { moduleUrl, source } from './sourceModule.mjs';
 import { loadAgeGate, loadCuratedCatalogue } from './ageGateModules.mjs';
 import { createClock, createHarness, findAll, textOf } from './hookHarness.mjs';
 
@@ -194,6 +194,42 @@ test('a site that is mounted but whose 3D emblem never draws is shown after the 
   assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null);
   assert.ok(HOME_SAFETY_MS <= 5000, 'a slow network must not hold the gate far beyond a few seconds');
   view.harness.unmount();
+});
+
+test('with no WebGL at all nothing is worth waiting for: the fade follows the ignition at once', () => {
+  const view = mountGate();
+  const realDocument = globalThis.document;
+  globalThis.document = { createElement: () => ({ getContext: () => null }) };
+  try {
+    view.press('I am 18 or older');
+    view.update({ verified: true });
+    view.advance(GATE_IGNITE_MS);
+    assert.equal(view.phase(), 'fading', 'no 3D emblem is coming');
+    assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null);
+    assert.equal(gate.readiness.sceneReadiness.getSnapshot(), 'home');
+  } finally {
+    if (realDocument === undefined) delete globalThis.document; else globalThis.document = realDocument;
+    view.harness.unmount();
+  }
+});
+
+test('webglAvailable asks once, releases the throwaway context, and treats a failing canvas as no WebGL', async () => {
+  const fresh = () => import(moduleUrl(`${source('../utils/webgl.ts')}\n// ${Math.random()}`));
+  const realDocument = globalThis.document;
+  try {
+    let created = 0, lost = 0;
+    globalThis.document = { createElement: () => { created++; return { getContext: type => (type === 'webgl2' ? { getExtension: () => ({ loseContext: () => { lost++; } }) } : null) }; } };
+    const { webglAvailable } = await fresh();
+    assert.equal(webglAvailable(), true);
+    assert.equal(webglAvailable(), true);
+    assert.deepEqual([created, lost], [1, 1], 'one throwaway canvas, its context released');
+    globalThis.document = { createElement: () => ({ getContext: () => { throw new Error('blocked'); } }) };
+    assert.equal((await fresh()).webglAvailable(), false);
+    delete globalThis.document;
+    assert.equal((await fresh()).webglAvailable(), true, 'no DOM to ask: assume yes');
+  } finally {
+    if (realDocument === undefined) delete globalThis.document; else globalThis.document = realDocument;
+  }
 });
 
 test('when the 3D emblem has already drawn the ignition goes straight into the fade, without a hold', () => {

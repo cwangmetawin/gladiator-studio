@@ -9,7 +9,8 @@ import type { BabylonModule, Scene } from './arenaTypes';
 //     starfield scene right above the colourful one, so the stars, planets and constellation doors above it
 //     are untouched, and the door tint that gameSkyRenderer writes to the nebula layer applies to it too;
 //   - the vignette, drawn in the arena scene before the emblem, over everything the starfield scene drew.
-// `setGrade(0)` shows the colourful nebula again (while a panel is open, as in phase 3).
+// `setGrade(0)` shows the colourful nebula again (while a panel is open, as in phase 3). The planets and the sun
+// glow are not this module's: the starfield scene keeps them out of the picture at home by itself.
 
 type Layer = InstanceType<BabylonModule['Layer']>;
 type DynamicTexture = InstanceType<BabylonModule['DynamicTexture']>;

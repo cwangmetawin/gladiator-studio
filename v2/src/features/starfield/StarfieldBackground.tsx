@@ -3,6 +3,7 @@ import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } from '@/shared/utils/frameTime';
 import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
 import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
+import { fadeBodies } from './skyBodies';
 import { transitionStore } from '@/shared/motion/transitionStore';
 import { journeyMotion } from '@/features/journey/journeyMotion';
 import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
@@ -110,6 +111,7 @@ function buildStarField(
 interface PlanetMeshes {
   readonly mars: InstanceType<BabylonModule['Mesh']>;
   readonly gasGiant: InstanceType<BabylonModule['Mesh']>;
+  readonly gasRing: InstanceType<BabylonModule['Mesh']>;
   readonly iceMoon: InstanceType<BabylonModule['Mesh']>;
   readonly nebula1: InstanceType<BabylonModule['Mesh']>;
   readonly nebula2: InstanceType<BabylonModule['Mesh']>;
@@ -247,7 +249,7 @@ function buildDistantPlanets(
   neb2Mat.backFaceCulling = false;
   nebula2.material = neb2Mat;
 
-  return { mars, gasGiant, iceMoon, nebula1, nebula2 };
+  return { mars, gasGiant, gasRing: ring, iceMoon, nebula1, nebula2 };
 }
 
 // ─── Solar-system nav planets — one per section, flown into on click ──────────
@@ -602,6 +604,20 @@ function buildScene(
   const unsubscribeCameraTarget = transitionStore.subscribe(syncCameraTarget);
   syncCameraTarget();
 
+  // ── Planets and sun glow: out of the picture at home, in for a panel's camera flight ──────────────────────
+  // (Phones never fly a camera, so they never show them: their panels cover the scene.) Each nav planet is its
+  // own group (with its ring), so only the focal one comes in; the distant bodies and the sun glow come in together.
+  const navGroups = navPlanets.map(p => ({ planet: p, meshes: p.ring ? [p.mesh, p.ring] : [p.mesh] }));
+  const distantBodies = [planets.mars, planets.gasGiant, planets.gasRing, planets.iceMoon];
+  const showBodies = (dt: number, instant: boolean): void => {
+    for (const { planet, meshes } of navGroups) {
+      fadeBodies(meshes, cameraHasPanel && planet.panelId === focalPanelId ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
+    }
+    fadeBodies(distantBodies, cameraHasPanel ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
+    fadeBodies([sunGlow], cameraHasPanel ? 1 : 0, CAMERA_FAST_RATE, dt, instant);
+  };
+  showBodies(0, true); // the very first frame is already the home picture
+
   // ── Blackhole effect state ────────────────────────────────────────────────
   let blackholeActive = false;
   let wasBlackhole = false;
@@ -698,16 +714,10 @@ function buildScene(
     planets.gasGiant.rotation.y += perSecond(0.00015) * dt;
     planets.iceMoon.rotation.y += perSecond(0.0008) * dt;
 
-    // Solar-system nav planets spin; fade out the non-focal ones while a panel is
-    // open so the framed planet stands alone (no others crowding the close-up).
-    for (const p of navPlanets) {
-      p.mesh.rotation.y += p.spin * dt;
-      const targetVis = !cameraHasPanel || p.panelId === focalPanelId ? 1 : 0;
-      const vis = transitionStore.getSnapshot().mode === 'reduced' ? targetVis : approach(p.mesh.visibility, targetVis, CAMERA_FAST_RATE, dt);
-      p.mesh.visibility = vis;
-      p.mesh.setEnabled(vis > 0.012);
-      if (p.ring) { p.ring.visibility = vis; p.ring.setEnabled(vis > 0.012); }
-    }
+    // Solar-system nav planets spin. Only the framed planet is in the picture, and only while a panel's camera
+    // flight has it (no others crowding the close-up; none at home, where the emblem has the stage).
+    for (const p of navPlanets) p.mesh.rotation.y += p.spin * dt;
+    showBodies(dt, transitionStore.getSnapshot().mode === 'reduced');
 
     // Ice moon orbits earth
     moonOrbitAngle += 0.05 * dt;

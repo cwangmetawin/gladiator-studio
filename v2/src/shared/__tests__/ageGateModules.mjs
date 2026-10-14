@@ -14,8 +14,10 @@ export async function loadAgeGate({ harness = false, transform = (_path, text) =
 
   const readinessUrl = moduleUrl(read('../../features/starfield/sceneReadiness.ts'));
   const revealUrl = moduleUrl(read('../brand/homeReveal.ts'));
+  const webglUrl = moduleUrl(read('../utils/webgl.ts'));
   const stateUrl = moduleUrl(withHooks(read('../components/ageGateState.ts'))
-    .replace("from '@/features/starfield/sceneReadiness'", `from '${readinessUrl}'`));
+    .replace("from '@/features/starfield/sceneReadiness'", `from '${readinessUrl}'`)
+    .replace("from '../utils/webgl'", `from '${webglUrl}'`));
   const skyUrl = moduleUrl(read('../brand/brandSky.ts'));
   const dialogFocusUrl = moduleUrl(harness
     ? 'export const useDialogFocus = options => { (globalThis.__dialogFocusCalls ??= []).push(options); return { current: null }; };'
@@ -44,7 +46,7 @@ export async function loadAgeGate({ harness = false, transform = (_path, text) =
     .replace("from './ageGateState'", `from '${stateUrl}'`)
     .replace("from './GateEmblem'", `from '${emblemUrl}'`));
 
-  return { ...(await import(gateUrl)), state: await import(stateUrl), readiness: await import(readinessUrl), reveal: await import(revealUrl) };
+  return { ...(await import(gateUrl)), state: await import(stateUrl), readiness: await import(readinessUrl), reveal: await import(revealUrl), webgl: await import(webglUrl) };
 }
 
 /** The curated catalogue the site ships (what a visitor must not see before the gate answers). */

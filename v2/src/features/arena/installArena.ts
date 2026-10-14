@@ -47,6 +47,10 @@ export interface Arena {
 
 const FADE_RATE = 18; // 1/s: about the hub's 160-180 ms fade
 const HIDDEN = 0.003;
+/** The probe attributes (pose) are refreshed this often, not every frame: a DOM write per frame is not free. */
+const FLAG_EVERY_MS = 250;
+/** Only the first few arcs leave a performance mark (for the timing probe); the timeline must not grow for ever. */
+const ARC_MARKS = 12;
 const BOB_UNITS = 0.018;
 const REDUCED_ARRIVAL: Arrival = Object.freeze({ ...SETTLED, progress: -1, currentOn: false });
 
@@ -155,6 +159,8 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   let ready = false;
   let lateReady = false;
   let firstFrameAt: number | null = null;
+  let arcsFired = 0;
+  let flaggedAt = -Infinity;
   let clock = 0; // seconds of animated time, for the sway and the rim's shimmer
   const pointer = new B.Vector3();
 
@@ -196,6 +202,11 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     const rotation = emblemRotation(pose, 1);
     nodes.pivot.rotation.y = rotation.yaw;
     nodes.pivot.rotation.x = rotation.pitch;
+    if (now - flaggedAt >= FLAG_EVERY_MS) {
+      flaggedAt = now;
+      const degrees = 180 / Math.PI;
+      setFlag(ctx.root, 'emblemPose', numbers([rotation.yaw * degrees, rotation.pitch * degrees], 1));
+    }
 
     // framing: from the gate's rectangle to the slot over the glide (not at all when there was no gate or with reduced motion)
     const gliding = reduced || gateFraming === null ? 1 : seconds < 0 ? 0 : glide(seconds);
@@ -224,7 +235,10 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     // arcs: one at a time, 2.6-4.2 s apart, once the opening is under way (never in a static frame)
     if (!reduced && seconds >= 0 && lateReady && visibility > 0.5) {
       const feather = scheduler.poll(seconds * 1000);
-      if (feather !== null) arcs.fire(feather, now);
+      if (feather !== null) {
+        arcs.fire(feather, now);
+        if (arcsFired++ < ARC_MARKS) performance.mark('arena:arc');
+      }
     }
     arcs.update(now, visibility);
 

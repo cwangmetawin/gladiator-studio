@@ -1,5 +1,6 @@
 import { startTransition, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { sceneReadiness } from '@/features/starfield/sceneReadiness';
+import { webglAvailable } from '../utils/webgl';
 
 const STORAGE_KEY = 'gladiator_age_verified';
 
@@ -94,6 +95,8 @@ export function useHomeReady(entering: boolean): boolean {
   const [waited, setWaited] = useState(false);
   useEffect(() => {
     if (!entering) return;
+    // No WebGL: no 3D emblem will ever draw, so the flat one is the first screen's emblem and nothing is worth waiting for.
+    if (!webglAvailable()) sceneReadiness.mark('home');
     const timer = window.setTimeout(() => setWaited(true), HOME_SAFETY_MS);
     return () => window.clearTimeout(timer);
   }, [entering]);

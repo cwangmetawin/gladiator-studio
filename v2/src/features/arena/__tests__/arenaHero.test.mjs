@@ -14,7 +14,6 @@ const data = text => `data:text/javascript;base64,${Buffer.from(text).toString('
 const { load } = createLoader({
   '@/shared/content/SiteContentContext': data("export const useSection = (_name, fallback) => ({ ...fallback, ...(globalThis.__section ?? {}) });"),
   '@/shared/content/StudioStats': data('export const useStudioStats = () => globalThis.__stats;'),
-  './BigWinFlash': data('export const BigWinFlash = () => null;'),
   './arenaHero.css': data(''),
 });
 const { ArenaHero } = await load('features/arena/ArenaHero.tsx');
