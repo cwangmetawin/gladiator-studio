@@ -13,8 +13,8 @@ const LANDING = 0.01;
  *
  * The first screen (Phase 4) is the emblem alone: no planet and no sun glow is in its picture. They belong to a panel's
  * camera flight: they fade in as it leaves home and out as it returns. A group shares one fade, held in its first
- * member's visibility. The bodies stay enabled (visibility 0 is not drawn), so the scene's readiness still waits for
- * their shaders and textures, and the first flight to a planet does not hitch on a shader compile.
+ * member's visibility. Visibility 0 is not drawn; nav surfaces load after the arena hand-off (planetSurfaces),
+ * independently of this fade. A tint stands in until a surface arrives.
  *
  * `instant` jumps straight to the target (reduced motion, and the very first frame).
  */

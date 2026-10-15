@@ -4,6 +4,7 @@ import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } f
 import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
 import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
 import { fadeBodies } from './skyBodies';
+import { createPlanetSurfaces, schedulePlanetIdle } from './planetSurfaces';
 import { transitionStore } from '@/shared/motion/transitionStore';
 import { journeyMotion } from '@/features/journey/journeyMotion';
 import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
@@ -264,6 +265,7 @@ interface NavPlanet {
   readonly viewRadius: number;
   readonly spin: number;
   readonly ring?: InstanceType<BabylonModule['Mesh']>;
+  readonly loadSurface: () => void;
 }
 
 interface PlanetDef {
@@ -320,13 +322,63 @@ function ringTexture(
   return tex;
 }
 
+function loadPlanetSurface(
+  BABYLON: BabylonModule,
+  scene: InstanceType<BabylonModule['Scene']>,
+  def: PlanetDef,
+  mat: InstanceType<BabylonModule['StandardMaterial']>,
+  onSurfaceReady: () => void,
+  ring?: InstanceType<BabylonModule['Mesh']>,
+  ringMat?: InstanceType<BabylonModule['StandardMaterial']>,
+): void {
+  if (scene.isDisposed) return;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const tx = (file: string, attach: (texture: InstanceType<BabylonModule['Texture']>) => void): void => {
+    const texture = new BABYLON.Texture(`${origin}/textures/${file}`, scene);
+    const apply = (): void => {
+      if (scene.isDisposed) return;
+      attach(texture);
+      onSurfaceReady();
+    };
+    if (texture.isReady()) apply();
+    else texture.onLoadObservable.addOnce(apply);
+  };
+
+  // Attach only ready maps: a pending or failed texture must leave the tint visible.
+  if (def.earth) {
+    tx('earth_day_2048.webp', texture => { mat.diffuseTexture = texture; mat.diffuseColor = BABYLON.Color3.White(); });
+    tx('earth_bump.webp', texture => { texture.level = 0.35; mat.bumpTexture = texture; });
+    tx('earth_specular.webp', texture => {
+      mat.specularTexture = texture;
+      mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
+    });
+    tx('earth_night_2048.webp', texture => {
+      mat.emissiveTexture = texture;
+      mat.emissiveColor = new BABYLON.Color3(0.42, 0.38, 0.28);
+    });
+  } else if (def.tex) {
+    tx(def.tex, surface => {
+      mat.diffuseColor = BABYLON.Color3.White();
+      mat.diffuseTexture = surface;
+      mat.emissiveTexture = surface;
+      mat.emissiveColor = new BABYLON.Color3(0.18, 0.18, 0.2);
+    });
+  }
+
+  if (ring && ringMat) {
+    const texture = ringTexture(BABYLON, scene, def.id);
+    ringMat.diffuseTexture = texture;
+    ringMat.emissiveTexture = texture;
+    ring.setEnabled(true);
+    onSurfaceReady();
+  }
+}
+
 function buildSolarSystem(
   BABYLON: BabylonModule,
   scene: InstanceType<BabylonModule['Scene']>,
+  onSurfaceReady: () => void = () => {},
 ): NavPlanet[] {
-  const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const tx = (file: string) => new BABYLON.Texture(`${origin}/textures/${file}`, scene);
-
   return PLANET_DEFS.map((def) => {
     const rad = (def.ang * Math.PI) / 180;
     const position = new BABYLON.Vector3(Math.cos(rad) * def.r, def.y, Math.sin(rad) * def.r);
@@ -339,26 +391,10 @@ function buildSolarSystem(
     mat.specularColor = new BABYLON.Color3(0.06, 0.06, 0.08);
     mat.specularPower = 48;
 
-    if (def.earth) {
-      // Real Earth: day surface + bump relief + ocean specular + night city lights.
-      mat.diffuseColor = BABYLON.Color3.White();
-      mat.diffuseTexture = tx('earth_day.webp');
-      const bump = tx('earth_bump.webp'); bump.level = 0.35; mat.bumpTexture = bump;
-      mat.specularTexture = tx('earth_specular.webp');
-      mat.specularColor = new BABYLON.Color3(0.25, 0.25, 0.25);
-      mat.emissiveTexture = tx('earth_night_2k.webp');
-      mat.emissiveColor = new BABYLON.Color3(0.42, 0.38, 0.28);
-    } else if (def.tex) {
-      const surface = tx(def.tex);
-      mat.diffuseColor = BABYLON.Color3.White();
-      mat.diffuseTexture = surface;
-      // Re-use the surface as a dim self-illumination so the night side keeps its detail.
-      mat.emissiveTexture = surface;
-      mat.emissiveColor = new BABYLON.Color3(0.18, 0.18, 0.2);
-    }
     mesh.material = mat;
 
     let ringMesh: InstanceType<BabylonModule['Mesh']> | undefined;
+    let ringMat: InstanceType<BabylonModule['StandardMaterial']> | undefined;
     if (def.ring) {
       // A flat translucent banded sheet on a tilted plane — reads as a real ring,
       // not a geometric donut. Standalone (not parented) so the planet's axial
@@ -366,30 +402,54 @@ function buildSolarSystem(
       const ring = BABYLON.MeshBuilder.CreatePlane('navRing_' + def.id, { size: def.d * 2.4 }, scene);
       ring.position = position.clone();
       ring.rotation.x = Math.PI / 2 - 0.42; // lie ~flat, tilt ~24° toward the camera
-      const rtex = ringTexture(BABYLON, scene, def.id);
       const rmat = new BABYLON.StandardMaterial('navRingMat_' + def.id, scene);
       rmat.diffuseColor = new BABYLON.Color3(0.80, 0.72, 0.55);
-      rmat.diffuseTexture = rtex;
       rmat.useAlphaFromDiffuseTexture = true;
-      rmat.emissiveTexture = rtex;            // self-lit so the ring reads on the night side
       rmat.emissiveColor = new BABYLON.Color3(0.42, 0.37, 0.28);
       rmat.specularColor = BABYLON.Color3.Black();
       rmat.backFaceCulling = false;
       rmat.transparencyMode = BABYLON.Material.MATERIAL_ALPHABLEND;
       ring.material = rmat;
+      ring.setEnabled(false); // the untextured plane must not show as a square
       ringMesh = ring;
+      ringMat = rmat;
     }
 
-    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: perSecond(0.0007 + Math.random() * 0.0006), ring: ringMesh };
+    return { panelId: def.id, mesh, position, viewRadius: def.d * 2.4 + (def.ring ? 6 : 1.5), spin: perSecond(0.0007 + Math.random() * 0.0006), ring: ringMesh,
+      loadSurface: () => loadPlanetSurface(BABYLON, scene, def, mat, onSurfaceReady, ringMesh, ringMat) };
   });
 }
 
 // ─── Main scene factory ───────────────────────────────────────────────────────
 
+function watchPlanetHandoff(onReady: () => void): () => void {
+  let stopped = false;
+  let observer: MutationObserver | null = null;
+  let unsubscribe = () => {};
+  const stop = (): void => {
+    if (stopped) return;
+    stopped = true;
+    unsubscribe();
+    observer?.disconnect();
+  };
+  const check = (): void => {
+    // 'home' starts the gate fade; wait for the overlay itself to leave before warming hidden planets.
+    if (stopped || sceneReadiness.getSnapshot() !== 'home' || document.querySelector('[data-age-gate]')) return;
+    stop();
+    onReady();
+  };
+  unsubscribe = sceneReadiness.subscribe(check);
+  observer = new MutationObserver(check);
+  observer.observe(document.body, { childList: true, subtree: true });
+  check();
+  return stop;
+}
+
 function buildScene(
   BABYLON: BabylonModule,
   engine: InstanceType<BabylonModule['Engine']>,
   getDeltaSeconds: () => number,
+  onSurfaceReady: () => void,
 ): InstanceType<BabylonModule['Scene']> {
   const scene = new BABYLON.Scene(engine);
   // Pure black space background
@@ -476,8 +536,15 @@ function buildScene(
   const planets = buildDistantPlanets(BABYLON, scene);
 
   // ── Solar-system nav planets (one per section) ─────────────────────────────
-  const navPlanets = buildSolarSystem(BABYLON, scene);
+  const navPlanets = buildSolarSystem(BABYLON, scene, onSurfaceReady);
   const PLANET_BY_PANEL = new Map(navPlanets.map((p) => [p.panelId, p] as const));
+  const planetSurfaces = createPlanetSurfaces({
+    planets: navPlanets.map(planet => planet.panelId),
+    load: panelId => PLANET_BY_PANEL.get(panelId)?.loadSurface(),
+    scheduleIdle: callback => schedulePlanetIdle(window, callback),
+    canFly: () => !IS_MOBILE && window.innerWidth > 767 && transitionStore.getSnapshot().mode !== 'phone',
+  });
+  const stopPlanetHandoff = watchPlanetHandoff(planetSurfaces.ready);
 
   // ── Soft sun-core glow at the system's heart — additive billboard sprite,
   //    NOT glow-layer driven, so it stays a gentle halo (no bloom blob) ────────
@@ -553,6 +620,7 @@ function buildScene(
     cameraNarrative.sync(state);
     if (state.mode === 'phone' || window.innerWidth <= 767) return;
     const panelId = state.target === 'games' ? 'cosmos' : state.target;
+    planetSurfaces.flight(panelId);
     focalPanelId = panelId;
     cameraHasPanel = panelId !== 'none';
 
@@ -633,7 +701,10 @@ function buildScene(
     blackholeActive = active;
   });
 
-  scene.onDisposeObservable.addOnce(() => { unsubscribeCameraTarget(); unsubscribeBlackhole(); });
+  scene.onDisposeObservable.addOnce(() => {
+    stopPlanetHandoff(); planetSurfaces.dispose();
+    unsubscribeCameraTarget(); unsubscribeBlackhole();
+  });
 
   // ── Render loop ────────────────────────────────────────────────────────────
   let nebulaTime = 0;
@@ -819,7 +890,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       let sceneReady = false;
       let frameReady = false;
       let arena: Arena | null = null;
-      const scene = buildScene(BABYLON, engine, () => dt);
+      let repaintSurfaces = () => {};
+      const scene = buildScene(BABYLON, engine, () => dt, () => repaintSurfaces());
 
       // Keep the last frame when preferences, hidden tabs or full-screen
       // overlays stop the continuous render loop. The engine stays mounted.
@@ -849,6 +921,9 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         stop: () => { effects.setRunning(false); engine.stopRenderLoop(); },
       });
       const { startLoop, renderStatic } = loop;
+      repaintSurfaces = () => {
+        if (!disposed && !shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic();
+      };
       canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;
       const unsubscribeStaticTransition = transitionStore.subscribe(() => {
         canvas.dataset.cameraTarget = transitionStore.getSnapshot().target;

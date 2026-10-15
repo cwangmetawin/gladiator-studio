@@ -37,6 +37,7 @@ function wiredScene(readiness) {
     .replace("from './gameSkyRenderer'", `from '${sky.renderer}'`)
     .replace("from './skyStore'", `from '${sky.store}'`)
     .replace("from './sceneReadiness'", `from '${readiness}'`)
+    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${quality}'`)
     .replace("from '@/shared/utils/webgl'", `from '${webgl}'`)
@@ -45,7 +46,7 @@ function wiredScene(readiness) {
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
     // M1 separately executes the real builders with NullEngine. Isolate only the
     // effect's lifecycle here so textures and WebGL cannot hide readiness bugs.
-    .replace('const scene = buildScene(BABYLON, engine, () => dt);', 'const scene = globalThis.__m4aScene;');
+    .replace('const scene = buildScene(BABYLON, engine, () => dt, () => repaintSurfaces());', 'const scene = globalThis.__m4aScene;');
 }
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
@@ -255,10 +256,10 @@ test('the shipped preloader waits past public first paint, shares the Babylon pr
     assert.equal(requests.length, 0); assert.equal(milestones.getSnapshot(), null);
     frame(); assert.equal(requests.length, 0, 'RAF queues a task instead of fetching in the paint callback');
     tasks.shift()();
-    assert.equal(requests.length, 6);
+    assert.deepEqual(requests.map(request => request.src), ['/nebula.webp'], 'only the first screen\'s sky; planets load after the hand-off');
     assert.ok(requests.every(request => request.mode === 'anonymous'));
     const first = loadSceneModule(); assert.equal(loadSceneModule(), first);
-    preloadScene(); assert.equal(requests.length, 6);
+    preloadScene(); assert.equal(requests.length, 1);
     assert.equal((await first).chunk, 'Babylon');
     assert.equal(milestones.getSnapshot(), 'module');
   } finally {
