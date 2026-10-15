@@ -5,13 +5,13 @@ import type { ArenaModule, BabylonModule, Scene } from './arenaTypes';
 
 type Point = readonly [number, number, number];
 type Colour = readonly [number, number, number];
-interface GateGeometry { positions: number[]; normals: number[]; colors: number[]; indices: number[] }
+interface GateGeometry { positions: number[]; normals: number[]; colors: number[]; indices: number[]; nameVertex: number; nameIndex: number }
 const FRONT: Colour = [0.28, 0.39, 0.46], REVEAL: Colour = [0.07, 0.13, 0.19];
 const EDGE: Colour = [1.25, 1.72, 1.94], SIGN: Colour = [0.022, 0.049, 0.073], LETTER: Colour = [1.44, 1.62, 1.72];
 
 /** A hollow, lit portal below the ground-tier cornice. Saira outlines are baked: no runtime font or texture work. */
 export function pageGateGeometry(gate: ArenaPageGate, phone: boolean): GateGeometry {
-  const result: GateGeometry = { positions: [], normals: [], colors: [], indices: [] };
+  const result: GateGeometry = { positions: [], normals: [], colors: [], indices: [], nameVertex: 0, nameIndex: 0 };
   const [nx, , nz] = gate.outward, tx = -nz, tz = nx;
   const aperture = ARENA_RADIUS * Math.sin(gate.halfAngle) - 0.18;
   const half = Math.max(1.7, aperture + 0.58), inset = half - aperture;
@@ -75,6 +75,7 @@ export function pageGateGeometry(gate: ArenaPageGate, phone: boolean): GateGeome
   const signHalf = Math.max(half + 0.08, width / 2 + 0.16), baseline = gate.floorY + 3.765;
   box(-signHalf, signHalf, gate.floorY + 3.74, gate.floorY + 4.24, front - 0.05, back + 0.05, SIGN);
   box(-signHalf - 0.03, signHalf + 0.03, gate.floorY + 3.69, gate.floorY + 3.74, front - 0.07, back + 0.07, EDGE);
+  result.nameVertex = result.positions.length / 3; result.nameIndex = result.indices.length;
   let left = -width / 2;
   for (let letter = 0; letter < name.length; letter++) {
     const char = name[letter]!, strips = SAIRA_TITLE_GLYPHS[char];
@@ -97,25 +98,38 @@ export function createPageGateMeshes(B: BabylonModule, _A: ArenaModule, scene: S
   const material = new B.StandardMaterial('arenaPageGateSteel', scene);
   material.disableLighting = true; material.emissiveColor.set(1, 1, 1); material.backFaceCulling = false;
   material.transparencyMode = B.Material.MATERIAL_ALPHABLEND; material.forceDepthWrite = true;
+  const names: InstanceType<BabylonModule['Mesh']>[] = [];
   const meshes = createPageGates(phone ? 40 : 64).map(gate => {
-    const mesh = new B.Mesh(`arenaPageGate-${gate.id}`, scene), data = new B.VertexData();
-    Object.assign(data, pageGateGeometry(gate, phone)); data.applyToMesh(mesh, false);
-    mesh.material = material; mesh.isPickable = false; mesh.isVisible = false;
-    mesh.alphaIndex = 2; mesh.useVertexColors = true; mesh.hasVertexAlpha = false;
-    return mesh;
+    const geometry = pageGateGeometry(gate, phone), { nameVertex, nameIndex } = geometry;
+    function part(name: string, lettering: boolean) {
+      const mesh = new B.Mesh(name, scene), data = new B.VertexData();
+      const first = lettering ? nameVertex : 0, last = lettering ? geometry.positions.length / 3 : nameVertex;
+      data.positions = geometry.positions.slice(first * 3, last * 3);
+      data.normals = geometry.normals.slice(first * 3, last * 3);
+      data.colors = geometry.colors.slice(first * 4, last * 4);
+      data.indices = lettering ? geometry.indices.slice(nameIndex).map(index => index - nameVertex) : geometry.indices.slice(0, nameIndex);
+      data.applyToMesh(mesh, false);
+      mesh.material = material; mesh.isPickable = false; mesh.isVisible = false;
+      mesh.alphaIndex = lettering ? 3 : 2; mesh.useVertexColors = true; mesh.hasVertexAlpha = false;
+      return mesh;
+    }
+    names.push(part(`arenaPageGateName-${gate.id}`, true));
+    return part(`arenaPageGate-${gate.id}`, false);
   });
+  const warmMeshes = [...meshes, ...names];
   let disposed = false;
   return {
-    meshes,
-    update(fade: number, _activeGate?: string): void {
+    meshes, names, warmMeshes,
+    update(fade: number, _activeGate?: string, nameFade = 1): void {
       if (disposed) return;
       const visible = Math.min(1, Math.max(0, fade));
       for (const mesh of meshes) { mesh.isVisible = visible > 0.001; mesh.visibility = visible; }
+      for (const mesh of names) { mesh.isVisible = visible > 0.001; mesh.visibility = visible * Math.min(1, Math.max(0, nameFade)); }
     },
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      for (const mesh of meshes) mesh.dispose();
+      for (const mesh of warmMeshes) mesh.dispose();
       material.dispose();
     },
   };

@@ -117,7 +117,7 @@
 /* Section pages share the Client Area composition, with navigation inside the same focus scope. */
 .arena-page--section .partner__hero { background: #050609; margin-inline: calc(-1 * var(--partner-pad)); padding-inline: var(--partner-pad); }
 /* A small soft pool sits behind the headline; copy carries its own scrim as it scrolls. */
-.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; --page-copy-shade: rgba(5, 6, 9, 0.86); background: transparent; animation: none; }
+.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; --page-copy-shade: rgba(5, 6, 9, 0.86); --page-copy-feather: 12px; --page-copy-bleed: 32px; background: transparent; animation: none; }
 .arena-page[data-scene='live'] .partner__hero { background: transparent; }
 .arena-page[data-scene='live'] .partner__shade {
   inset: 28% auto auto 0;
@@ -127,23 +127,39 @@
   mask-image: radial-gradient(ellipse at center, #000 8%, transparent 72%);
   transition: opacity 180ms ease-out;
 }
-.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3) {
+/* Blur an expanded layer, not the glyphs: the text edges stay inside its full-opacity plateau. */
+.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3)::after,
+.arena-page[data-scene='live'] .partner__stats::after,
+.arena-page[data-scene='live'] .arena-page__stats::after,
+.arena-page[data-scene='live'] .partner__access::after,
+.arena-page[data-scene='live'] .arena-page__action::after,
+.arena-page[data-scene='live'] .partner__foot::after,
+.arena-page[data-scene='live'] .partner__dots li::after,
+.arena-page[data-scene='live'] .arena-page__dots li::after,
+.arena-page[data-scene='live'] .arena-page__meta::after,
+.arena-page[data-scene='live'] .arena-page__details summary::after,
+.arena-page[data-scene='live'] .field-label::after,
+.arena-page[data-scene='live'] .arena-page__feed li > :is(span, strong)::after,
+.arena-page[data-scene='live'] .arena-page__row > :is(a, span)::after,
+.arena-page[data-scene='live'] .arena-page__contact-form > [aria-live='polite']::after,
+.arena-page[data-scene='live'] .field-error::after,
+.arena-page[data-scene='live'] .readout::after {
+  content: '';
+  position: absolute;
+  inset: calc(-1 * var(--page-copy-bleed));
+  z-index: -1;
   background: var(--page-copy-shade);
-  box-shadow: 0 0 18px 8px var(--page-copy-shade);
+  filter: blur(var(--page-copy-feather));
+  pointer-events: none;
 }
-.arena-page[data-scene='live'] .partner__stage :is(h2, h3) { width: fit-content; max-width: 100%; }
-.arena-page[data-scene='live'] :is(.partner__stats, .arena-page__stats, .partner__access, .arena-page__action, .partner__foot, .partner__dots li, .arena-page__dots li, .arena-page__meta, .arena-page__details summary, .field-label) {
-  background: var(--page-copy-shade);
-  box-shadow: 0 0 18px 8px var(--page-copy-shade);
-}
+.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3),
+.arena-page[data-scene='live'] :is(.partner__stats, .arena-page__stats, .partner__access, .arena-page__action, .partner__foot, .partner__dots li, .arena-page__dots li, .arena-page__meta, .arena-page__details summary, .field-label),
 .arena-page[data-scene='live'] .arena-page__feed li > :is(span, strong),
 .arena-page[data-scene='live'] .arena-page__row > :is(a, span),
 .arena-page[data-scene='live'] .arena-page__contact-form > [aria-live='polite'],
 .arena-page[data-scene='live'] .field-error,
-.arena-page[data-scene='live'] .readout {
-  background: var(--page-copy-shade);
-  box-shadow: 0 0 18px 8px var(--page-copy-shade);
-}
+.arena-page[data-scene='live'] .readout { position: relative; isolation: isolate; }
+.arena-page[data-scene='live'] .partner__stage :is(h2, h3) { width: fit-content; max-width: 100%; }
 .arena-page[data-scene='live'] .partner__title { filter: drop-shadow(0 3px 8px #050609); }
 .arena-page[data-scene='live'] .partner__hero-foot { border-color: rgba(174, 198, 218, 0.4); }
 .arena-page[data-scene='live'] :is(.partner__access, .arena-page__action):hover { background: var(--color-ice-50); color: #050609; }

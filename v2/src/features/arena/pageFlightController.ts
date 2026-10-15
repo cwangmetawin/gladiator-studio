@@ -31,19 +31,20 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
   const legs: Leg[] = [];
   let active = false, returning = false, disposed = false, revision = -1, available = false;
   let reverseRate = 1, scroll = 0;
+  let names = 1, departureNames = 1;
 
   function apply(): void {
     camera.position.set(pose.x, pose.y, pose.z);
     camera.rotation.set(pose.pitch, pose.yaw, pose.roll); camera.fov = pose.fov;
   }
   function finishReturn(): void {
-    copy(home, pose); apply(); legs.length = 0; active = returning = false; scroll = 0;
+    copy(home, pose); apply(); legs.length = 0; active = returning = false; scroll = 0; names = 1;
     store.setPhase('idle', revision);
   }
   function land(): void {
     const leg = legs.at(-1);
     if (!leg) return;
-    leg.upto = 1; sample(leg, pose); apply(); copy(pose, rest);
+    leg.upto = 1; sample(leg, pose); apply(); copy(pose, rest); names = 0;
     store.setPhase('settled', revision);
   }
   function bridgeScroll(): void {
@@ -63,7 +64,7 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
     const state = store.getSnapshot(), newlyAvailable = state.sceneAvailable && !available;
     available = state.sceneAvailable;
     if (!available) {
-      if (active) { copy(home, pose); apply(); legs.length = 0; active = returning = false; }
+      if (active) { copy(home, pose); apply(); legs.length = 0; active = returning = false; names = 1; }
       return;
     }
     if (state.revision === revision && !newlyAvailable) return;
@@ -73,7 +74,7 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
       if (!gate) return;
       if (!active) { copy(capture(camera), home); active = true; }
       else bridgeScroll();
-      returning = false; scroll = 0;
+      returning = false; scroll = 0; departureNames = names;
       const leg = { path: createPageFlight(capture(camera), gate, phone, mouth()), upto: 0 };
       legs.push(leg);
       sample(leg, pose); apply(); // Establish the exact takeover sample before any frame consumes time.
@@ -93,11 +94,13 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
   return {
     isActive: (): boolean => active,
     homeDepth: (): number => home.z,
+    gateNames: (): number => names,
     step(dt: number): void {
       if (disposed || !active) return;
       const reduced = reducedMotion(), state = store.getSnapshot();
       if (returning) {
         if (reduced) { finishReturn(); return; }
+        names += (1 - names) * Math.min(1, Math.max(0, dt) / 0.12);
         let budget = Math.max(0, dt) * 1000 * reverseRate;
         while (legs.length) {
           const leg = legs[legs.length - 1]!, ms = duration(leg), remaining = leg.upto * ms;
@@ -108,9 +111,13 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
       } else if (state.phase === 'flying') {
         const leg = legs[legs.length - 1]!;
         leg.upto = reduced ? 1 : Math.min(1, leg.upto + Math.max(0, dt) * 1000 / timing.durationMs);
+        const elapsed = leg.upto * timing.durationMs;
+        const enter = Math.min(1, elapsed / 120), leave = Math.min(1, (timing.durationMs - elapsed) / 180);
+        names = (departureNames + (1 - departureNames) * enter * enter * (3 - 2 * enter)) * leave * leave * (3 - 2 * leave);
         sample(leg, pose); apply();
         if (leg.upto === 1) land();
       } else {
+        names = 0;
         const target = reduced ? 0 : state.scrollProgress;
         scroll = reduced ? 0 : scroll + (target - scroll) * (1 - Math.exp(-5 * Math.max(0, dt)));
         samplePageScroll(rest, scroll, pose); apply();

@@ -40,7 +40,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
   const pageState = { screens: displayed, presence: 0, emblemVisible: false, flash: 0 };
 
   return {
-    meshes: [...world.meshes, ...gates.meshes],
+    meshes: [...world.meshes, ...gates.warmMeshes],
     setPageAvailable: (available: boolean): void => pageTransition.setAvailable(available),
     pageActive: (): boolean => pages.isActive(),
     step(framing: Framing, fov: number, dt: number, visibility: number, time: number, home: boolean, sceneReady: boolean) {
@@ -59,7 +59,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
         pageWorld.night = night + (1 - night) * throughMouth;
         pageWorld.time = reducedMotion() ? 0 : time;
         world.update(pageWorld);
-        gates.update(pageWorld.fade, pageTransition.getSnapshot().targetPage ?? undefined);
+        gates.update(pageWorld.fade, pageTransition.getSnapshot().targetPage ?? undefined, pages.gateNames());
         // Existing ring geometry stays in the same scene while the camera departs; its builder stays frozen.
         flash.suspend();
         pageState.screens = displayed;
