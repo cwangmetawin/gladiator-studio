@@ -5,7 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
-const css = readFileSync(new URL('../partner.css', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../../arena-page/arenaPage.css', import.meta.url), 'utf8');
 
 test('every focus ring inside the Client Area has square corners', () => {
   const rule = /\.partner\s+:focus-visible\s*\{([^}]*)\}/.exec(css)?.[1];

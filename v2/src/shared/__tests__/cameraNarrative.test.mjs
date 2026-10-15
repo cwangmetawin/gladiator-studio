@@ -21,26 +21,12 @@ const urls = motionModuleUrls(moduleUrl, source, timeUrl, {
 const { motionTokens, transitionTimeline } = await import(urls.tokens);
 const { initialTransition, transitionReducer, nextTransitionDeadline, isPanelId } = await import(urls.transition);
 const { createTransitionStore } = await import(urls.store);
-const { createCameraTween, sampleCameraTween, approachCameraPose } = await import(urls.tween);
-const { createCameraNarrative, panelCameraPose } = await import(urls.camera);
-const { JOURNEY_CHAPTERS, groupJourneyChapters, journeyChapterAt, journeyCameraPose } = await import(urls.chapters);
-const { createJourneyMotion } = await import(urls.journey);
-const { frameDeltaSeconds, approachRate } = await import(timeUrl);
+const { groupJourneyChapters } = await import(urls.chapters);
 
 const request = (state, target, now = 100) => transitionReducer(state, { type: 'request', target, now });
 const tick = (state, now) => transitionReducer(state, { type: 'tick', now });
-const settle = state => tick(state, state.startedAt + transitionTimeline(state.mode, state.kind).totalMs);
 const within = (actual, expected, tolerance, label) => assert.ok(Math.abs(actual - expected) <= tolerance, `${label}: ${actual} vs ${expected}`);
-const poseWithin = (actual, expected, tolerance = 1e-9) => {
-  for (const key of Object.keys(expected)) {
-    const error = key === 'alpha' ? Math.atan2(Math.sin(actual[key] - expected[key]), Math.cos(actual[key] - expected[key])) : actual[key] - expected[key];
-    within(error, 0, tolerance, key);
-  }
-};
-const HOME = Object.freeze({ alpha: -1.5, beta: 1.2, radius: 30, x: 0, y: 0, z: 0, screenX: 0 });
-const PLANET = Object.freeze({ x: 29.7, y: -6, z: 4.2, radius: 13.65 });
-const targetPose = id => panelCameraPose(id, HOME, PLANET);
-
+const settle = state => tick(state, state.startedAt + transitionTimeline(state.mode, state.kind).totalMs);
 test('open waits for camera arrival, then exposes the full panel at the deadline', () => {
   const idle = initialTransition();
   const flying = request(idle, 'about');
@@ -202,94 +188,6 @@ test('the external store publishes boundaries and ignores already-queued callbac
   assert.equal(changes.length, count);
 });
 
-test('the camera reaches every target at its duration at 30/60/120 Hz within 5%', () => {
-  for (const id of ['about', 'team', 'journey', 'live', 'careers', 'contact', 'games', 'none']) {
-    const from = { ...HOME, alpha: -0.5, x: -4, y: 2, z: -2, radius: 36, screenX: 2 };
-    const to = targetPose(id);
-    const flight = createCameraTween(from, to, 1000, motionTokens.flightMs);
-    poseWithin(sampleCameraTween(flight, 1000), from);
-    poseWithin(sampleCameraTween(flight, 1000 + motionTokens.flightMs), to);
-    for (const hz of [30, 60, 120]) {
-      let elapsed = 0;
-      while (elapsed < motionTokens.flightMs) elapsed += frameDeltaSeconds(1000 / hz) * 1000;
-      within(elapsed, motionTokens.flightMs, motionTokens.flightMs * 0.05, `${id}, ${hz} Hz arrival`);
-      poseWithin(sampleCameraTween(flight, 1000 + elapsed), to);
-    }
-  }
-});
-
-test('camera retarget captures the current pose without shared mutation, and takes the shortest orbit', () => {
-  const from = { ...HOME };
-  const flight = createCameraTween(from, targetPose('about'), 100, motionTokens.flightMs);
-  from.x = 999;
-  assert.equal(flight.from.x, HOME.x);
-  const current = sampleCameraTween(flight, 310);
-  const redirected = createCameraTween(current, targetPose('journey'), 310, motionTokens.flightMs);
-  poseWithin(sampleCameraTween(redirected, 310), current);
-  poseWithin(sampleCameraTween(redirected, 730), targetPose('journey'));
-  const nearTurn = { ...HOME, alpha: Math.PI * 2 - 0.05 };
-  const acrossTurn = createCameraTween(nearTurn, { ...HOME, alpha: 0.05 }, 0, 420);
-  within(acrossTurn.to.alpha - acrossTurn.from.alpha, 0.1, 1e-9, 'shortest arc');
-  const scrub = approachCameraPose(nearTurn, { ...HOME, alpha: 0.05 }, approachRate(0.10), 1 / 60);
-  assert.ok(scrub.alpha > nearTurn.alpha && scrub.alpha - nearTurn.alpha < 0.1);
-});
-
-test('the real camera adapter follows bursts, close interrupts and drift without a discontinuity', () => {
-  let pose = { ...HOME };
-  const adapter = createCameraNarrative({ read: () => pose, write: next => { pose = next; }, target: targetPose,
-    journey: () => ({ progress: 0, count: 3 }) });
-  let state = initialTransition();
-  let now = 100;
-  adapter.sync(state);
-  for (const id of ['about', 'team', 'journey', 'live', 'games', 'careers', 'contact', 'team', 'about', 'contact']) {
-    state = request(tick(state, now), id, now);
-    const current = { ...pose };
-    adapter.sync(state);
-    adapter.update(state, now, 0);
-    poseWithin(pose, current);
-    now += 100;
-    adapter.update(state, now, 0.1);
-  }
-  const arrival = state.startedAt + transitionTimeline(state.mode, state.kind).panelAtMs;
-  state = tick(state, arrival);
-  adapter.update(state, arrival, 1 / 60);
-  poseWithin(pose, targetPose('contact'));
-  const settledPose = { ...pose };
-  adapter.update(state, arrival + 1000 / 60, 1 / 60);
-  within(pose.alpha - settledPose.alpha, 0.024 / 60, 1e-9, 'drift resumes at arrival');
-  state = request(state, 'none', arrival + 50);
-  adapter.sync(state);
-  const exitPose = { ...pose };
-  adapter.update(state, state.startedAt + 159, 1 / 60);
-  poseWithin(pose, exitPose);
-  const returningAt = state.startedAt + transitionTimeline('desktop', 'close').hubAtMs;
-  adapter.update(tick(state, returningAt), returningAt, 1 / 60);
-  poseWithin(pose, HOME);
-});
-
-test('phone camera requests do no work and reduced motion paints one target with no later scrub', () => {
-  for (const mode of ['phone', 'reduced']) {
-    let pose = { ...HOME };
-    let writes = 0;
-    const adapter = createCameraNarrative({ read: () => pose, write: next => { pose = next; writes++; },
-      target: targetPose, journey: () => ({ progress: 1, count: 3 }) });
-    const state = request(initialTransition(mode), 'journey');
-    adapter.sync(state);
-    const initialWrites = writes;
-    for (let i = 0; i < 120; i++) adapter.update(settle(state), 1000 + i * 1000 / 60, 1 / 60);
-    assert.equal(writes, initialWrites);
-    if (mode === 'phone') { assert.equal(writes, 0); poseWithin(pose, HOME); }
-    else { assert.equal(writes, 1); poseWithin(pose, targetPose('journey')); }
-  }
-  let phoneWrites = 0;
-  const phoneReduced = createCameraNarrative({ read: () => HOME, write: () => { phoneWrites++; },
-    target: targetPose, journey: () => ({ progress: 1, count: 3 }), isPhone: () => true });
-  const state = request(initialTransition('reduced'), 'journey');
-  phoneReduced.sync(state);
-  phoneReduced.update(settle(state), 1000, 1 / 60);
-  assert.equal(phoneWrites, 0, 'reduced motion on a phone also skips static camera retargeting');
-});
-
 test('default Journey has three nonempty chapters; arbitrary back-office ordering is preserved', () => {
   const { milestones } = JSON.parse(source('../../api/journeyDefault.json'));
   const chapters = groupJourneyChapters(milestones);
@@ -303,95 +201,11 @@ test('default Journey has three nonempty chapters; arbitrary back-office orderin
   }
 });
 
-test('chapter mapping is monotonic, reversible and has distinct orbit, position and framing', () => {
-  const progress = Array.from({ length: 101 }, (_, i) => i / 100);
-  const forward = progress.map(p => journeyChapterAt(p));
-  assert.equal(forward[0], 0);
-  assert.equal(forward.at(-1), 2);
-  assert.deepEqual([...new Set(forward)], [0, 1, 2]);
-  assert.ok(forward.every((chapter, i) => i === 0 || chapter >= forward[i - 1]));
-  assert.deepEqual([...progress].reverse().map(p => journeyChapterAt(p)), [...forward].reverse());
-  const base = targetPose('journey');
-  const poses = [0, 0.5, 1].map(p => journeyCameraPose(base, p));
-  assert.equal(new Set(poses.map(p => p.alpha)).size, JOURNEY_CHAPTERS.length);
-  assert.equal(new Set(poses.map(p => `${p.x},${p.y},${p.z}`)).size, JOURNEY_CHAPTERS.length);
-  assert.equal(new Set(poses.map(p => p.screenX)).size, JOURNEY_CHAPTERS.length);
-  poseWithin(journeyCameraPose(base, 0), base);
-  const forwardPoses = progress.map(p => journeyCameraPose(base, p));
-  assert.deepEqual([...progress].reverse().map(p => journeyCameraPose(base, p)), [...forwardPoses].reverse());
-  assert.equal(journeyChapterAt(-1), 0);
-  assert.equal(journeyChapterAt(2), 2);
-  assert.equal(journeyChapterAt(Number.NaN), 0);
-});
-
-test('reopening a scrolled Journey during close flies to its retained chapter pose', () => {
-  let progress = 0;
-  let pose = { ...HOME };
-  const adapter = createCameraNarrative({ read: () => pose, write: next => { pose = next; }, target: targetPose,
-    journey: () => ({ progress, count: 3 }) });
-  let state = request(initialTransition(), 'journey');
-  adapter.sync(state);
-  adapter.update(state, 600, 1 / 60);
-  state = settle(state);
-  progress = 1;
-  for (let frame = 0; frame < 120; frame++) adapter.update(state, 1000 + frame * 1000 / 60, 1 / 60);
-  state = request(state, 'none', 3100);
-  adapter.sync(state);
-  adapter.update(state, 3300, 1 / 60);
-  state = request(state, 'journey', 3300);
-  const current = { ...pose };
-  adapter.sync(state);
-  adapter.update(state, 3300, 0);
-  poseWithin(pose, current);
-  const t = transitionTimeline(state.mode, state.kind);
-  adapter.update(tick(state, 3300 + t.panelAtMs), 3300 + t.panelAtMs, 1 / 60);
-  poseWithin(pose, journeyCameraPose(targetPose('journey'), 1));
-  assert.equal(settle(state).panel, 'journey');
-});
-
-test('Journey scrub converges and scroll back restores the earlier pose at 30/60/120 Hz', () => {
-  for (const hz of [30, 60, 120]) {
-    let progress = 0;
-    let pose = targetPose('journey');
-    const adapter = createCameraNarrative({ read: () => pose, write: next => { pose = next; }, target: targetPose,
-      journey: () => ({ progress, count: 3 }) });
-    let state = request(initialTransition(), 'journey');
-    adapter.sync(state);
-    adapter.update(state, 600, 1 / hz);
-    state = settle(state);
-    progress = 1;
-    for (let frame = 0; frame < hz * 2; frame++) adapter.update(state, 1000 + frame * 1000 / hz, 1 / hz);
-    poseWithin(pose, journeyCameraPose(targetPose('journey'), 1), 0.02);
-    progress = 0;
-    for (let frame = 0; frame < hz * 2; frame++) adapter.update(state, 3000 + frame * 1000 / hz, 1 / hz);
-    poseWithin(pose, journeyCameraPose(targetPose('journey'), 0), 0.02);
+test('homepage drift preserves the original phone and desktop pace at 30/60/120 Hz', async () => {
+  const { driftHomeCamera } = await import(urls.camera);
+  for (const phone of [false, true]) for (const hz of [30, 60, 120]) {
+    let alpha = -1.5;
+    for (let i = 0; i < hz * 10; i++) alpha = driftHomeCamera(alpha, 1 / hz, phone);
+    assert.ok(Math.abs(alpha - (-1.5 + (phone ? 0.00035 : 0.00060) * 600)) < 1e-10);
   }
-  const journey = createJourneyMotion();
-  journey.setProgress(1);
-  assert.equal(journey.getSnapshot().chapter, 2);
-  journey.setProgress(0);
-  assert.equal(journey.getSnapshot().chapter, 0);
-  journey.setCount(2);
-  journey.setProgress(0.75);
-  assert.equal(journey.getSnapshot().chapter, 1);
-});
-
-test('Journey publishes React snapshots only at chapter boundaries while the camera reads every scroll sample', () => {
-  const journey = createJourneyMotion();
-  const initial = journey.getChapterSnapshot();
-  let updates = 0;
-  const dispose = journey.subscribe(() => { updates++; });
-  for (const progress of [0.01, 0.04, 0.1, 0.2, 0.3]) journey.setProgress(progress);
-  assert.equal(updates, 0);
-  assert.equal(journey.getSnapshot().progress, 0.3);
-  assert.equal(journey.getChapterSnapshot(), initial);
-  journey.setProgress(0.5);
-  journey.setProgress(0.8);
-  assert.equal(updates, 2);
-  journey.setProgress(0);
-  assert.equal(updates, 3);
-  assert.equal(journey.getChapterSnapshot().chapter, 0);
-  dispose();
-  journey.setProgress(1);
-  assert.equal(updates, 3);
 });

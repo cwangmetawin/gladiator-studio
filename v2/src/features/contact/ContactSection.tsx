@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { SectionWrapper } from '@/shared/components/SectionWrapper';
-import { SectionHeading, Reveal } from '@/shared/ui';
+import { ARENA_PAGE_COPY } from '@/features/arena-page/pageCopy';
+import { ArenaPageContent } from '@/features/arena-page/ArenaPageContent';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
 import { useSection } from '@/shared/content/SiteContentContext';
@@ -68,7 +68,7 @@ function enquiryEmail(fields: FormFields): { subject: string; body: string } {
   };
 }
 
-export function ContactSection() {
+export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId: string; readonly bodyOnly?: boolean }) {
   const s = useStudioStats();
   const { email } = useSection('contact', { email: CONTACT.email });
   const channels = DIRECT_CHANNELS.map((c) => (c.label === 'Email' ? { ...c, value: email, href: `mailto:${email}` } : c));
@@ -170,32 +170,23 @@ export function ContactSection() {
   }
 
   return (
-    <SectionWrapper id="contact">
-      <SectionHeading
-        as="h1"
-        eyebrow="Contact"
-        title="Establish contact"
-        lede="We work with operators, aggregators, and platform partners. Tell us what you’re looking for and our team will respond within one business day."
-      />
+    <ArenaPageContent titleId={titleId} bodyOnly={bodyOnly} {...ARENA_PAGE_COPY.contact}>
 
-      {/* Partner protocols */}
-      <Reveal delay={0}>
+      {/* Partner types */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {PARTNER_TYPES.map((p) => (
-            <div key={p.label} className="card card--hover" style={{ padding: '0.85rem 1rem' }}>
-              <span className="card__label" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
+            <div key={p.label} className="arena-page__row" style={{ padding: '0.85rem 1rem' }}>
+              <span className="arena-page__meta" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
               <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{withCatalogueCounts(p.description, s)}</p>
             </div>
           ))}
         </div>
-      </Reveal>
 
       {/* Direct channels */}
-      <Reveal delay={0.06}>
       {/* 2×2 in the desktop panel, one column on phones (never a 3 + 1 orphan). */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 8 }}>
         {channels.map((c) => (
-          <div key={c.label} className="card card--hover" style={{ padding: '0.7rem 0.85rem' }}>
+          <div key={c.label} className="arena-page__row" style={{ padding: '0.7rem 0.85rem' }}>
             <span className="field-label" style={{ marginBottom: '0.25rem' }}>{c.label}</span>
             {c.href ? (
               <a href={c.href} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ice-200)', wordBreak: 'break-word', textDecoration: 'none', borderBottom: '1px solid var(--color-line)' }}>{c.value}</a>
@@ -205,25 +196,23 @@ export function ContactSection() {
           </div>
         ))}
       </div>
-      </Reveal>
 
       {/* Enquiry form */}
-      <Reveal delay={0.12}>
-      <div className="card" style={{ padding: '1.1rem 1.25rem' }}>
-        <span className="card__label">Send an enquiry</span>
+      <div className="arena-page__section arena-page__contact-form" style={{ padding: '1.1rem 1.25rem' }}>
+        <span className="arena-page__meta">Send an enquiry</span>
         <AnimatePresence mode="wait">
           {status === 'success' ? (
-            <motion.div key="ok" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
+            <motion.div key="ok" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
               style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-soft)', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>
               Enquiry received — we’ll reply within one business day. You can also email{' '}
-              <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)' }}>{email}</a> directly.
+              <a href={`mailto:${email}`} style={{ color: 'var(--color-ice-200)' }}>{email}</a> directly.
               <button type="button" onClick={() => setStatus('idle')}
-                style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-holo-300)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ice-200)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
                 Send another
               </button>
             </motion.div>
           ) : (
-            <motion.form key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            <motion.form key="form" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
               <input type="text" name="website" value={website} onChange={(e) => setWebsite(e.target.value)}
                 aria-hidden="true" tabIndex={-1} autoComplete="off"
@@ -281,13 +270,13 @@ export function ContactSection() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   <p role="status" className="body-text" style={{ fontSize: 13 }}>
                     {status === 'mailto' ? 'Your email app should have opened — if not, copy your message.' : 'You can send your saved message using your email app.'}{' '}
-                    Email <a href={`mailto:${email}`} style={{ color: 'var(--color-holo-300)', overflowWrap: 'anywhere' }}>{email}</a>.
+                    Email <a href={`mailto:${email}`} style={{ color: 'var(--color-ice-200)', overflowWrap: 'anywhere' }}>{email}</a>.
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    <button type="button" className="btn" onClick={openMailto} style={{ flex: '1 1 140px' }}>
+                    <button type="button" className="arena-page__action" onClick={openMailto} style={{ flex: '1 1 140px' }}>
                       {status === 'mailto' ? 'Open email app again' : 'Use email app'}
                     </button>
-                    <button type="button" className="btn" onClick={copyMessage} style={{ flex: '1 1 140px' }}>Copy message</button>
+                    <button type="button" className="arena-page__action" onClick={copyMessage} style={{ flex: '1 1 140px' }}>Copy message</button>
                   </div>
                   {copyStatus !== 'idle' && (
                     <p role="status" className="body-text" style={{ fontSize: 13 }}>
@@ -297,10 +286,10 @@ export function ContactSection() {
                 </div>
               )}
 
-              <button type="submit" className="btn btn--primary" disabled={status === 'submitting'} aria-busy={status === 'submitting'} style={{ width: '100%' }}>
+              <button type="submit" className="arena-page__action" disabled={status === 'submitting'} aria-busy={status === 'submitting'} style={{ width: '100%' }}>
                 {status === 'submitting' ? (
                   <>
-                    <span className="animate-spin" aria-hidden="true" style={{ width: 14, height: 14, border: '2px solid var(--color-line)', borderTopColor: 'var(--color-holo-300)', borderRadius: '50%' }} />
+                    <span className="animate-spin" aria-hidden="true" style={{ width: 14, height: 14, border: '2px solid var(--color-line)', borderTopColor: 'var(--color-ice-200)' }} />
                     Sending…
                   </>
                 ) : 'Send Enquiry'}
@@ -309,7 +298,6 @@ export function ContactSection() {
           )}
         </AnimatePresence>
       </div>
-      </Reveal>
-    </SectionWrapper>
+    </ArenaPageContent>
   );
 }

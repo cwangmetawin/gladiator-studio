@@ -23,6 +23,7 @@ export function createHallLayer(B: BabylonModule, A: ArenaModule, scene: Scene, 
     if (reducedMotion() && journeyProgress.getSnapshot() >= 1) requestStatic();
   });
   return {
+    setCovered: (covered: boolean): void => hall?.setCovered(covered),
     step(fade: number, dt: number, time: number) {
       if (disposed) return undefined;
       const reduced = reducedMotion(), screens = journeyProgress.getSnapshot();

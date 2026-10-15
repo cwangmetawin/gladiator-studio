@@ -60,6 +60,19 @@ test('All games retains the existing open-panel request and opener focus; hidden
   assert.doesNotMatch(ready, /<img/);
 });
 
+test('opening the catalogue from the arena ring requests its selected title and captures the actual opener', () => {
+  const previous = globalThis.window, events = [], order = [];
+  globalThis.window = { dispatchEvent: event => { order.push('request'); events.push(event); } };
+  try {
+    const button = findAll(HallCopy(props({ index: 1 })), 'button').find(row => row.props.className?.includes('hall-all'));
+    button.props.onClick({ currentTarget: { focus: options => { assert.equal(options.preventScroll, true); order.push('focus'); } } });
+    assert.deepEqual(order, ['focus', 'request']);
+    assert.equal(events.length, 1);
+    assert.equal(events[0].type, 'focus-game');
+    assert.equal(events[0].detail, 'Legend of Tartarus');
+  } finally { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; }
+});
+
 test('an intentionally empty published roster has a readable catalogue action, no phantom game and no Play demo', () => {
   const markup = renderToStaticMarkup(React.createElement(HallCopy, props({ games: [], cover: null, total: 0 })));
   assert.match(markup, /The arena/); assert.match(markup, /All 0 games/);

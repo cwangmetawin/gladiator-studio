@@ -1,7 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════════════
-   Luxe primitive classes — the visual vocabulary of the Starmap UI.
-   Frosted glass, hairlines, holo buttons, telemetry type, leader labels.
-   Wrapped by React components in shared/ui/*.tsx.
+   Shared controls still used by the homepage menu, game overlay and contact form.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 /* ── Glass surface ──────────────────────────────────────────────────────────── */
@@ -13,25 +11,6 @@
   border: 1px solid var(--color-line);
   box-shadow: var(--shadow-glass), inset 0 1px 0 var(--color-line-bright);
   border-radius: var(--radius-lg);
-}
-
-.glass--flat {
-  background: linear-gradient(157deg, rgba(20, 26, 42, 0.5), rgba(9, 11, 20, 0.62));
-  box-shadow: inset 0 1px 0 var(--color-line-bright);
-}
-
-/* ── Hairline dividers ──────────────────────────────────────────────────────── */
-
-.hairline {
-  height: 1px;
-  border: 0;
-  background: linear-gradient(90deg, transparent, var(--color-line), transparent);
-}
-
-.hairline--v {
-  width: 1px;
-  align-self: stretch;
-  background: linear-gradient(180deg, transparent, var(--color-line), transparent);
 }
 
 /* ── Eyebrow / technical label ──────────────────────────────────────────────── */
@@ -118,80 +97,6 @@
   box-shadow: none;
 }
 
-/* ── Telemetry stat ─────────────────────────────────────────────────────────── */
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.stat__value {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: clamp(1.5rem, 3vw, 2.25rem);
-  line-height: 1;
-  letter-spacing: -0.01em;
-  color: var(--color-ice-50);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat__value--accent {
-  color: var(--color-holo-300);
-  text-shadow: 0 0 24px rgba(79, 195, 247, 0.35);
-}
-
-.stat__label {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--color-text-mute);
-  /* Stays legible where it floats over bright nebula / planet limbs. */
-  text-shadow: 0 1px 8px rgba(3, 4, 8, 0.95), 0 0 2px rgba(3, 4, 8, 0.9);
-}
-
-/* ── Section heading ────────────────────────────────────────────────────────── */
-
-.section-heading {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: var(--text-h2);
-  line-height: 1.05;
-  letter-spacing: -0.015em;
-  color: var(--color-ice-50);
-  text-wrap: balance;
-}
-
-.section-lede {
-  font-family: var(--font-body);
-  font-size: var(--text-body-lg);
-  line-height: 1.6;
-  color: var(--color-text-soft);
-  max-width: 56ch;
-  text-wrap: pretty;
-}
-
-/* ── Pill / chip ────────────────────────────────────────────────────────────── */
-
-.chip {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 500;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-soft);
-  padding: 0.3rem 0.7rem;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--color-line);
-  background: var(--holo-tint);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
 /* ── Telemetry readout (label: value) ───────────────────────────────────────── */
 
 .readout {
@@ -213,127 +118,6 @@
 }
 
 .readout__value--gold { color: var(--color-gold); }
-
-/* ── Leader label — the Starmap signature callout ───────────────────────────── */
-
-@keyframes leader-grow { to { transform: scaleX(1); } }
-@keyframes leader-body { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
-
-.leader {
-  display: inline-flex;
-  align-items: center;
-  pointer-events: none;
-  font-family: var(--font-mono);
-  user-select: none;
-}
-
-.leader__node {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1px solid var(--color-holo-500);
-  background: radial-gradient(circle, var(--color-holo-300) 0%, transparent 72%);
-  box-shadow: 0 0 12px var(--holo-glow);
-  flex-shrink: 0;
-}
-
-.leader__line {
-  height: 1px;
-  width: var(--leader-len, 56px);
-  background: linear-gradient(90deg, var(--color-holo-500), var(--color-line));
-  transform: scaleX(0);
-  transform-origin: left center;
-  animation: leader-grow 0.7s var(--ease-out-expo) 0.12s forwards;
-}
-
-.leader__body {
-  display: flex;
-  flex-direction: column;
-  padding-left: 0.65rem;
-  opacity: 0;
-  animation: leader-body 0.5s var(--ease-out-expo) 0.5s forwards;
-}
-
-.leader__title {
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--color-ice-50);
-  white-space: nowrap;
-}
-
-.leader__meta {
-  font-size: 0.62rem;
-  letter-spacing: 0.12em;
-  color: var(--color-text-mute);
-  white-space: nowrap;
-}
-
-.leader--left { flex-direction: row-reverse; }
-.leader--left .leader__line {
-  transform-origin: right center;
-  background: linear-gradient(270deg, var(--color-holo-500), var(--color-line));
-}
-.leader--left .leader__body {
-  padding-left: 0;
-  padding-right: 0.65rem;
-  text-align: right;
-  align-items: flex-end;
-}
-
-/* ── Shell: frosted bars ────────────────────────────────────────────────────── */
-
-.shell-bar {
-  background: linear-gradient(180deg, rgba(14, 18, 28, 0.82), rgba(8, 10, 18, 0.9));
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-}
-
-/* Below 360 px the "Offline" label pushes the sound toggle 8 px off-screen.
-   The dot's colour still shows the state, and the readout keeps its aria-label. */
-@media (max-width: 359px) {
-  .shell-bar__status-text { display: none; }
-}
-
-/* ── Command-bar nav button ─────────────────────────────────────────────────── */
-
-.navbtn {
-  position: relative;
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--color-text-mute);
-  background: transparent;
-  border: 0;
-  padding: 0 0.95rem;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: color var(--dur-fast) var(--ease-out-expo);
-}
-
-.navbtn:hover { color: var(--color-holo-300); }
-.navbtn[aria-pressed="true"] { color: var(--color-holo-50); }
-.navbtn[aria-pressed="true"]::after {
-  content: '';
-  position: absolute;
-  left: 0.95rem;
-  right: 0.95rem;
-  bottom: -1px;
-  height: 2px;
-  background: var(--color-holo-500);
-  box-shadow: 0 0 12px var(--color-holo-500);
-  border-radius: 2px;
-}
-
-.cmd-nav-scroll::-webkit-scrollbar { display: none; }
-.cmd-nav-scroll { scrollbar-width: none; }
 
 /* ── Icon button (close, sound, menu) ───────────────────────────────────────── */
 
@@ -401,141 +185,12 @@
   flex-shrink: 0;
 }
 
-/* ── Panel content reveal — subtle staggered fade-up ────────────────────────── */
-
-.panel-content > * {
-  animation: panel-rise 0.55s var(--ease-out-expo) both;
-}
-
-/* Narrative panels use the shared clock; don't add the legacy second reveal. */
-.narrative-panel .panel-content > * { animation: none; }
-/* The deadline also wins over a reveal mounted just before the final RAF. */
-[data-reveal-static="true"] { opacity: 1 !important; transform: none !important; }
-
-@keyframes panel-rise {
-  from { opacity: 0; transform: translateY(12px); }
-  to   { opacity: 1; transform: none; }
-}
-
-.panel-content > *:nth-child(1) { animation-delay: 0.04s; }
-.panel-content > *:nth-child(2) { animation-delay: 0.10s; }
-.panel-content > *:nth-child(3) { animation-delay: 0.16s; }
-.panel-content > *:nth-child(4) { animation-delay: 0.22s; }
-.panel-content > *:nth-child(5) { animation-delay: 0.28s; }
-.panel-content > *:nth-child(n+6) { animation-delay: 0.34s; }
-
-/* ── Content card (sections) ────────────────────────────────────────────────── */
-
-.card {
-  position: relative;
-  background: linear-gradient(157deg, rgba(20, 26, 42, 0.55), rgba(9, 11, 20, 0.65));
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius-md);
-  box-shadow: inset 0 1px 0 var(--color-line-bright);
-  padding: 1.1rem 1.25rem;
-  transition: border-color var(--dur-fast) var(--ease-out-expo), box-shadow var(--dur-fast) var(--ease-out-expo), transform var(--dur-fast) var(--ease-out-expo);
-}
-
-/* Interactive cards: a left accent bar lights up + the card lifts and glows. */
-.card--hover { overflow: hidden; }
-.card--hover::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; bottom: 0;
-  width: 2px;
-  background: linear-gradient(180deg, var(--color-holo-300), var(--color-holo-500));
-  transform: scaleY(0);
-  transform-origin: top;
-  transition: transform var(--dur) var(--ease-out-expo);
-}
-.card--hover:hover {
-  border-color: rgba(79, 195, 247, 0.4);
-  box-shadow: inset 0 1px 0 var(--color-line-bright), 0 16px 38px -18px rgba(0, 0, 0, 0.7), var(--shadow-glow);
-  transform: translateY(-3px);
-}
-.card--hover:hover::before { transform: scaleY(1); }
-
-@media (prefers-reduced-motion: reduce) {
-  .card--hover:hover { transform: none; }
-}
-
-/* Pulsing node (timeline active milestone) — colour via --pc */
-@keyframes node-pulse {
-  0%, 100% { box-shadow: 0 0 7px var(--pc, var(--color-live)); }
-  50%      { box-shadow: 0 0 18px var(--pc, var(--color-live)); }
-}
-.pulse-node { animation: node-pulse 2.2s var(--ease-in-out) infinite; }
-@media (prefers-reduced-motion: reduce) { .pulse-node { animation: none; } }
-
-.card__label {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: var(--tracking-label);
-  text-transform: uppercase;
-  color: var(--color-holo-300);
-  display: block;
-  margin-bottom: 0.6rem;
-}
-
-.card__title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 1.05rem;
-  letter-spacing: -0.005em;
-  color: var(--color-ice-50);
-  margin-bottom: 0.4rem;
-}
-
 .body-text {
   font-family: var(--font-body);
   font-size: var(--text-sm);
   line-height: 1.65;
   color: var(--color-text-soft);
   text-wrap: pretty;
-}
-
-/* ── Tabs ───────────────────────────────────────────────────────────────────── */
-
-.tablist {
-  display: inline-flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-line);
-  background: var(--holo-tint);
-}
-
-.tab {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-mute);
-  background: transparent;
-  border: 0;
-  padding: 0.5rem 0.9rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  min-height: 36px;
-  transition: color var(--dur-fast) var(--ease-out-expo), background var(--dur-fast) var(--ease-out-expo);
-}
-
-.tab:hover { color: var(--color-holo-300); }
-.tab[aria-selected="true"] {
-  color: var(--color-holo-50);
-  background: var(--holo-tint-2);
-  box-shadow: inset 0 0 0 1px rgba(79, 195, 247, 0.25);
-}
-
-/* Labels like "Slots (11)" must never break mid-label; on the narrowest phones the
-   tabs tighten first and, as a last resort, the strip scrolls instead of wrapping. */
-.tablist { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.tablist::-webkit-scrollbar { display: none; }
-.tab { white-space: nowrap; flex-shrink: 0; }
-@media (max-width: 380px) {
-  .tab { padding: 0.5rem 0.6rem; letter-spacing: 0.06em; }
 }
 
 /* ── Form fields ────────────────────────────────────────────────────────────── */

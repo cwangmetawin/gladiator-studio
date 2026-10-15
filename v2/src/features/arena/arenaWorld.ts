@@ -1,5 +1,6 @@
 import { ARENA_CENTER, ARENA_RADIUS, arenaStars, colosseumLines } from './colosseumGeometry';
-import { FLOOR_FRAGMENT, FLOOR_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from './arenaWorldShaders';
+import { ARENA_LIGHTING } from './arenaLighting';
+import { FLOOR_FRAGMENT, FLOOR_VERTEX, OUTLINE_FRAGMENT, OUTLINE_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from './arenaWorldShaders';
 import type { ArenaModule, BabylonModule, Mesh, Scene, ShaderMaterial } from './arenaTypes';
 import type { RGB } from './hallLayout';
 
@@ -18,13 +19,23 @@ function shader(B: BabylonModule, scene: Scene, name: string, vertexSource: stri
 
 export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene, phone: boolean) {
   const outlines = colosseumLines(phone ? 40 : 64);
-  const lines = outlines.map(line => line.points.map(p => new B.Vector3(...p)));
-  const colors = outlines.map(line => line.points.map(([x, y, z]) => {
-    const distance = Math.hypot(x, y - 3, z - 16);
-    const fade = 0.04 + 0.96 * Math.min(1, Math.max(0, (distance - 13) / 20));
-    return new B.Color4(0.38 * line.gain, 0.65 * line.gain, 0.82 * line.gain, line.alpha * fade);
-  }));
-  const colosseum = B.MeshBuilder.CreateLineSystem('arenaColosseum', { lines, colors, useVertexAlpha: true }, scene);
+  const colosseum = new B.Mesh('arenaColosseum', scene), outlineData = new B.VertexData();
+  const positions: number[] = [], normals: number[] = [], uvs: number[] = [], colors: number[] = [], indices: number[] = [];
+  for (const line of outlines) {
+    const first = positions.length / 3;
+    for (let i = 0; i < line.points.length; i++) {
+      const point = line.points[i]!, before = line.points[Math.max(0, i - 1)]!, after = line.points[Math.min(line.points.length - 1, i + 1)]!;
+      for (const side of [-1, 1]) {
+        positions.push(...point); normals.push(after[0] - before[0], after[1] - before[1], after[2] - before[2]);
+        uvs.push(side, 0); colors.push(0.40 * line.gain, 0.68 * line.gain, 0.86 * line.gain, line.alpha);
+      }
+      if (i > 0) { const a = first + (i - 1) * 2; indices.push(a, a + 1, a + 3, a, a + 3, a + 2); }
+    }
+  }
+  const outlineMaterial = shader(B, scene, 'arenaOutlineMaterial', OUTLINE_VERTEX, OUTLINE_FRAGMENT,
+    ['position', 'normal', 'uv', 'color'], ['worldView', 'projection', 'uPixel', 'uFade'], true);
+  colosseum.material = outlineMaterial;
+  Object.assign(outlineData, { positions, normals, uvs, colors, indices }); outlineData.applyToMesh(colosseum, false);
   colosseum.alphaIndex = 1;
 
   const stars = new B.Mesh('arenaStars', scene), starData = new B.VertexData();
@@ -45,7 +56,7 @@ export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene,
   const floorMaterial = shader(B, scene, 'arenaFloorMaterial', FLOOR_VERTEX, FLOOR_FRAGMENT, ['position'],
     ['world', 'viewProjection', 'uCenter', 'uTime', 'uFade', 'uTheme'], false);
   floorMaterial.setVector3('uCenter', new B.Vector3(...ARENA_CENTER));
-  const floorColour = new B.Color3(0.38, 0.65, 0.82);
+  const floorColour = new B.Color3(...ARENA_LIGHTING.theme);
   floor.material = floorMaterial;
   floor.alphaIndex = -1;
 
@@ -61,14 +72,16 @@ export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene,
   return {
     meshes,
     update({ fade, night, time, camera, theme }: { readonly fade: number; readonly night: number; readonly time: number; readonly camera: Camera; readonly theme?: RGB }): void {
-      meshes.forEach(mesh => { mesh.isVisible = fade > 0.001; });
-      colosseum.alpha = fade;
+      for (const mesh of meshes) mesh.isVisible = fade > 0.001;
+      const pixel = 2 * Math.tan(camera.fov / 2) / Math.max(1, scene.getEngine().getRenderHeight());
+      outlineMaterial.setFloat('uFade', fade);
+      outlineMaterial.setFloat('uPixel', pixel);
       starMaterial.setFloat('uFade', fade);
       starMaterial.setFloat('uTime', time);
-      starMaterial.setFloat('uPixel', 2 * Math.tan(camera.fov / 2) / Math.max(1, scene.getEngine().getRenderHeight()));
+      starMaterial.setFloat('uPixel', pixel);
       floorMaterial.setFloat('uFade', fade);
       floorMaterial.setFloat('uTime', time);
-      floorColour.set(...(theme ?? [0.38, 0.65, 0.82] as const));
+      floorColour.set(...(theme ?? ARENA_LIGHTING.theme));
       floorMaterial.setColor3('uTheme', floorColour);
       nightSky.color.a = night;
     },

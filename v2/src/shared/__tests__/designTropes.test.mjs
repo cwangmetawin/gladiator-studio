@@ -99,7 +99,7 @@ function roundedBlocks(text) {
 test('Client Area has square blocks, including the shared sound button and ticker covers', () => {
   const partner = files.filter(file => file.path.startsWith('features/partner/'));
   for (const file of partner) assert.deepEqual(roundedBlocks(file.text), [], file.path);
-  const css = partner.find(file => file.path.endsWith('partner.css')).text;
+  const css = files.find(file => file.path.endsWith('arena-page/arenaPage.css')).text;
   assert.match(css, /\.partner \.icon-btn[^}]*border-radius:\s*0/s);
   assert.match(css, /\.partner \.ticker__thumb[^}]*border-radius:\s*0/s);
   for (const bad of ['border-radius: 4px;', 'borderRadius: 8,', 'border-radius: var(--radius-sm);', 'border-radius: 50%;']) {
@@ -118,7 +118,7 @@ test('the Client Area radius guard catches corner-only rules and utility classes
 });
 
 test('Client Area uses the arena title scale, a static backdrop and bounded instant reduced motion', () => {
-  const css = files.find(file => file.path === 'features/partner/partner.css').text;
+  const css = files.find(file => file.path === 'features/arena-page/arenaPage.css').text;
   assert.match(css, /\.partner__title\s*\{[^}]*font-family:\s*'Saira Title'/s);
   assert.match(css, /font-size:\s*clamp\(96px,/);
   assert.match(css, /font-size:\s*clamp\(44px,/);
@@ -126,6 +126,14 @@ test('Client Area uses the arena title scale, a static backdrop and bounded inst
   assert.match(css, /overscroll-behavior:\s*contain/);
   assert.match(css, /prefers-reduced-motion:\s*reduce[^]*animation:\s*none/);
   assert.doesNotMatch(css, /animation[^;]*\b(?:infinite|[1-9]\d{3}ms|[1-9]s)\b/);
-  const area = files.find(file => file.path === 'features/partner/PartnerDialog.tsx')?.text ?? '';
+  const area = files.find(file => file.path === 'features/arena-page/ArenaPageShell.tsx')?.text ?? '';
   for (const pattern of [/role="dialog"/, /aria-modal="true"/, /aria-labelledby=\{titleId\}/, /useDialogFocus/, /onEscape: onClose/, /returnFocusRef/, /client-backdrop\.svg/]) assert.match(area, pattern);
+});
+
+test('all seven arena pages and their shell keep square blocks and use editorial primitives', () => {
+  const pagePaths = ['features/arena-page/', 'features/about/', 'features/team/', 'features/journey/', 'features/careers/', 'features/contact/', 'features/games/', 'features/live-feed/LiveActivityFeed.tsx'];
+  for (const file of files.filter(file => pagePaths.some(prefix => file.path.startsWith(prefix)))) {
+    assert.deepEqual(roundedBlocks(file.text), [], file.path);
+    assert.doesNotMatch(file.text, /className=["'][^"']*\b(?:card|glass|btn)\b/, file.path);
+  }
 });

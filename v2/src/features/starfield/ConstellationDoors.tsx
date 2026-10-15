@@ -11,7 +11,7 @@ interface ConstellationDoorsProps {
   readonly active: boolean;
   readonly phone: boolean;
   readonly games: readonly { readonly title: string }[];
-  readonly onFocusGame: (title: string) => void;
+  readonly onFocusGame: (title: string, opener?: HTMLButtonElement) => void;
 }
 
 const SLOTS = Array.from({ length: DESKTOP_DOOR_CAP }, (_, i) => i);
@@ -116,7 +116,7 @@ export function ConstellationDoors({ active: homeActive, phone, games, onFocusGa
     <nav ref={rootRef} className="constellation-doors" aria-label="Recent win constellations" hidden={!active}>
       {SLOTS.map(slot => (
         <button key={slot} type="button" className="constellation" hidden data-game="" data-cursor="VIEW"
-          onClick={event => onFocusGame(event.currentTarget.dataset.game ?? '')}>
+          onClick={event => onFocusGame(event.currentTarget.dataset.game ?? '', event.currentTarget)}>
           <span className="constellation__name" />
           <span className="constellation__count" />
         </button>

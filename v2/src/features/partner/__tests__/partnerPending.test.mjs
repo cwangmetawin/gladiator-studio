@@ -13,7 +13,7 @@ const { load } = createLoader({
   './liveCatalogue': data('export const lookupGame = () => null;'),
   '@/shared/content/SiteContentContext': data('export const useSection = (_key, fallback) => ({ ...fallback, title: "Edited partner headline" });'),
   '@/api/partnerDefault.json': data(`export default ${JSON.stringify(content)};`),
-  '@/features/arena/topBar.css': data(''), './partner.css': data(''),
+  '@/features/arena/topBar.css': data(''), './partner.css': data(''), './arenaPage.css': data(''),
 });
 const { PartnerPending } = await load('features/partner/PartnerPending.tsx');
 const { PartnerDialog } = await load('features/partner/PartnerDialog.tsx');

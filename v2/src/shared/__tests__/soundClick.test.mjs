@@ -4,37 +4,41 @@ import { moduleUrl, source } from './sourceModule.mjs';
 import { soundModuleUrls } from './soundModuleUrls.mjs';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
 import { audioRecorder } from './audioRecorder.mjs';
-import { createClock } from './hookHarness.mjs';
+import { createHarness, harnessHooksUrl } from './hookHarness.mjs';
 
-test('the shipped About and Team CTA props give the real Button exactly one reduced-motion arrival cue', async () => {
-  const previous = { window: globalThis.window, AudioContext: globalThis.AudioContext, __navigate: globalThis.__navigate };
+test('the shipped About and Team in-copy links switch the arena page with exactly one click cue', async () => {
+  const previous = { window: globalThis.window, AudioContext: globalThis.AudioContext };
   const { AudioContext, record } = audioRecorder();
   globalThis.window = { localStorage: { getItem: () => null }, requestIdleCallback() {} };
   globalThis.AudioContext = AudioContext;
   try {
     const motion = motionModuleUrls(moduleUrl, source, moduleUrl(source('../utils/frameTime.ts')));
-    const urls = soundModuleUrls(moduleUrl, source, { tokens: motion.tokens, suffix: 'real-cta' });
+    const urls = soundModuleUrls(moduleUrl, source, { tokens: motion.tokens, suffix: 'real-arena-cta' });
+    const pageTransitionUrl = moduleUrl(source('../../features/arena-page/pageTransitionStore.ts'));
     const { soundEngine } = await import(urls.engine), { CUE_NOTES } = await import(urls.key);
-    const { bindTransitionSounds } = await import(urls.transition), { createTransitionStore } = await import(motion.store);
-    const clock = createClock();
-    const store = createTransitionStore({ now: () => clock.now, schedule: clock.setTimeout, cancel: clock.clearTimeout });
-    store.configure('reduced');
-    const off = bindTransitionSounds(store, soundEngine);
-    const buttonUrl = moduleUrl(source('../ui/Button.tsx').replace("from '@/shared/utils/soundEngine'", `from '${urls.engine}'`));
-    const { Button } = await import(buttonUrl);
+    const { useArenaPage } = await import(moduleUrl(source('../../features/arena-page/useArenaPage.ts')
+      .replace("from 'react'", `from '${harnessHooksUrl(moduleUrl)}'`)
+      .replace("from '@/shared/utils/soundEngine'", `from '${urls.engine}'`)
+      .replace("from './pageTransitionStore'", `from '${pageTransitionUrl}'`)
+      .replace("from '@/shared/audio/transitionSound'", `from '${urls.transition}'`)));
     soundEngine.unlock();
+    const h = createHarness(useArenaPage); h.mount();
+    h.act(() => h.output.openPage('about', { focus() {} }));
+    globalThis.window.dispatchEvent = event => h.act(() => h.output.openPage(event.detail));
     for (const [path, handler, target] of [
       ['../../features/about/AboutSection.tsx', 'openContact', 'contact'],
       ['../../features/team/TeamSection.tsx', 'openCareers', 'careers'],
     ]) {
-      store.request('none'); clock.advance(1000); record.pitches.length = 0;
-      globalThis.__navigate = () => store.request(target);
-      const markup = source(path).match(new RegExp(`<Button\\b[^>]*onClick=\\{${handler}\\}[^>]*>[\\s\\S]*?</Button>`))[0];
-      const { control } = await import(moduleUrl(`import { Button } from '${buttonUrl}'; const ${handler} = globalThis.__navigate; export const control = (${markup});`));
-      Button(control.props).props.onClick({});
-      assert.deepEqual(record.pitches, CUE_NOTES.panelOpen.tones.map(pitch => pitch.hz), `${path}: no generic click alongside the arrival`);
+      record.pitches.length = 0;
+      const original = source(path);
+      const fn = original.match(new RegExp(`function ${handler}\\(\\) \\{[\\s\\S]*?\\n\\}`))[0];
+      const markup = original.match(new RegExp(`<button\\b[^>]*onClick=\\{${handler}\\}[^>]*>[\\s\\S]*?</button>`))[0];
+      const { control } = await import(moduleUrl(`${fn}\nexport const control = (${markup});`));
+      control.props.onClick();
+      assert.equal(h.output.page, target);
+      assert.deepEqual(record.pitches, CUE_NOTES.click.tones.map(pitch => pitch.hz), `${path}: a switch never adds another open cue`);
     }
-    off();
+    h.unmount();
   } finally {
     for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; }
   }

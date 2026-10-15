@@ -213,16 +213,13 @@ test('the real star builder gives Babylon an updatable colour buffer and static 
     .replace("from './renderLoop'", `from '${loopUrl}'`)
     .replace("from './starTwinkle'", `from '${twinkleUrl}'`)
     .replace("from '@/shared/motion/transitionStore'", `from '${motionUrls.store}'`)
-    .replace("from '@/features/journey/journeyMotion'", `from '${motionUrls.journey}'`)
     .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
     .replace("from './gameSkyRenderer'", `from '${skyUrls.renderer}'`)
     .replace("from './skyStore'", `from '${skyUrls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
-    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
     .replace("from '@/shared/utils/webgl'", `from '${moduleUrl('export const webglAvailable = () => true;')}'`)
-    .replace("from './skyBodies'", `from '${moduleUrl(timeImports(source('../../features/starfield/skyBodies.ts')))}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`)
     .replace('function buildStarField(', 'export function buildStarField(');
   const { buildStarField } = await import(moduleUrl(starfieldSource));

@@ -138,18 +138,13 @@ async function aboutRenderer(content = {}) {
   const statsUrl = moduleUrl(rtpImports(source('../content/StudioStats.tsx'))
     .replace("from './SiteContentContext'", `from '${sectionUrl}'`));
   const { CatalogueStatsProvider, useStudioStats, useCatalogueGames } = await import(statsUrl);
-  const uiUrl = moduleUrl(`
-    import { createElement } from 'react';
-    export function Reveal({ children }) { return children; }
-    export function CountUp({ to, suffix = '' }) { return createElement('span', null, to + suffix); }
-    export function SectionHeading({ title, lede }) { return createElement('header', null, title, lede); }
-    export function Button({ children }) { return createElement('button', null, children); }
-    export function Divider() { return null; }
-    export function SectionWrapper({ children }) { return createElement('section', null, children); }
-  `);
+  const { createLoader } = await import('./loadTs.mjs');
+  const { urlOf } = createLoader();
+  const arenaUrl = urlOf('features/arena-page/ArenaPageContent.tsx');
+  const copyUrl = urlOf('features/arena-page/pageCopy.ts');
   const aboutUrl = moduleUrl(source('../../features/about/AboutSection.tsx')
-    .replace("from '@/shared/components/SectionWrapper'", `from '${uiUrl}'`)
-    .replace("from '@/shared/ui'", `from '${uiUrl}'`)
+    .replace("from '@/features/arena-page/pageCopy'", `from '${copyUrl}'`)
+    .replace("from '@/features/arena-page/ArenaPageContent'", `from '${arenaUrl}'`)
     .replace("from '@/shared/content/SiteContentContext'", `from '${sectionUrl}'`)
     .replace("from '@/shared/content/StudioStats'", `from '${statsUrl}'`)
     .replace("from '@/shared/utils/catalogueText'", `from '${countUrl}'`)
@@ -157,7 +152,7 @@ async function aboutRenderer(content = {}) {
     .replace("from '@/api/aboutDefault.json'", `from '${moduleUrl(`export default ${source('../../api/aboutDefault.json')}`)}'`));
   const { AboutSection } = await import(aboutUrl);
   return {
-    render: (catalogue) => renderToStaticMarkup(React.createElement(CatalogueStatsProvider, { catalogue }, React.createElement(AboutSection))),
+    render: (catalogue) => renderToStaticMarkup(React.createElement(CatalogueStatsProvider, { catalogue }, React.createElement(AboutSection, { titleId: 'about-title' }))),
     stats: (catalogue) => {
       let result;
       function Probe() { result = { ...useStudioStats(), titles: useCatalogueGames().map((g) => g.title) }; return null; }
@@ -171,9 +166,10 @@ test('About Games metric and copy use published rows despite a stale content met
   const { render } = await aboutRenderer({ about: { metrics: [{ label: 'Games', value: 34 }] } });
   const html = render({ slotGames: Array.from({ length: 12 }, () => ({})), miniGames: Array.from({ length: 31 }, () => ({})) });
   assert.match(html.match(/library of \d+ titles/)?.[0], /library of 43 titles/);
-  assert.match(html, /<span>43<\/span><span class="stat__label">Games/);
+  assert.match(html, /<dt>Games<\/dt><dd>43<\/dd>/);
   assert.match(html, /all 12 Gladiator slots and 31 MetaWin Originals/);
-  assert.doesNotMatch(html, /\b34\b|\{\{/);
+  const visibleText = html.replace(/<svg\b[^]*?<\/svg>/g, '').replace(/<[^>]*>/g, '');
+  assert.doesNotMatch(visibleText, /\b34\b|\{\{/);
 });
 
 test('shared stats default to 97% and use the curated roster while loading', async () => {
@@ -194,32 +190,3 @@ test('an authoritative empty catalogue stays empty and a stale content Max RTP i
   assert.equal(stats(live).rtp, 99.5);
 });
 
-test('catalogue tabs omit loading counts and show the published category totals when ready', async () => {
-  const uiUrl = moduleUrl(`
-    import { createElement } from 'react';
-    export function SectionWrapper({ children }) { return createElement('section', null, children); }
-    export function SectionHeading() { return null; }
-    export function GameCard() { return null; }
-    export function FeaturedCard() { return null; }
-  `);
-  const soundUrl = moduleUrl('export const soundEngine = { click() {} };');
-  const identityUrl = moduleUrl(source('../../features/starfield/gameIdentity.ts'));
-  const focusUrl = moduleUrl(source('../../features/games/catalogueFocus.ts')
-    .replace("from '@/features/starfield/gameIdentity'", `from '${identityUrl}'`));
-  const showcaseUrl = moduleUrl(source('../../features/games/GameShowcase.tsx')
-    .replace("from '@/shared/components/SectionWrapper'", `from '${uiUrl}'`)
-    .replace("from '@/shared/ui'", `from '${uiUrl}'`)
-    .replace("from './GameCard'", `from '${uiUrl}'`)
-    .replace("from './catalogueFocus'", `from '${focusUrl}'`)
-    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`));
-  const { GameShowcase } = await import(showcaseUrl);
-  const render = (props) => renderToStaticMarkup(React.createElement(GameShowcase, props));
-  const loading = render({ slotGames: [], miniGames: [], loading: true });
-  assert.match(loading, />Slots<\/button>/);
-  assert.match(loading, />Originals<\/button>/);
-  assert.doesNotMatch(loading, /\(0\)|class="readout__value"/);
-  const ready = render({ slotGames: GLADIATOR_SLOTS, miniGames: METAWIN_ORIGINALS, loading: false });
-  assert.ok(ready.includes(`Slots (${GLADIATOR_SLOTS.length})`));
-  assert.ok(ready.includes(`Originals (${METAWIN_ORIGINALS.length})`));
-  assert.match(render({ slotGames: [], miniGames: [], loading: false }), /Slots \(0\)/);
-});
