@@ -5,7 +5,7 @@ import { createLoader } from '../../../shared/__tests__/loadTs.mjs';
 
 const { load } = createLoader();
 const { HallCopy } = await load('features/arena/HallCopy.tsx');
-const { playDetail, openAllGames, loadCoverManifest } = await load('features/arena/hallActions.ts');
+const { playDetail, openAllGames } = await load('features/arena/hallActions.ts');
 const { coverForGame } = await load('features/arena/hallManifest.ts');
 const require = createRequire(import.meta.url), React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 const games = [
@@ -64,14 +64,4 @@ test('an intentionally empty published roster has a readable catalogue action, n
   const markup = renderToStaticMarkup(React.createElement(HallCopy, props({ games: [], cover: null, total: 0 })));
   assert.match(markup, /The arena/); assert.match(markup, /All 0 games/);
   assert.doesNotMatch(markup, /Play demo|<img|RTP|01 \/ 00/);
-});
-
-test('manifest loading happens through a same-origin request, tolerates absent/invalid content, and honours cancellation', async () => {
-  const calls = [], signal = new AbortController().signal;
-  const fetcher = async (...args) => { calls.push(args); return { ok: true, json: async () => ({ version: 1, entries: {} }) }; };
-  assert.deepEqual(Object.keys((await loadCoverManifest(signal, fetcher)).entries), []);
-  assert.equal(calls[0][0], '/arena/games/manifest.json');
-  assert.equal(calls[0][1].signal === signal, true);
-  assert.equal(await loadCoverManifest(signal, async () => ({ ok: false })), null);
-  assert.equal(await loadCoverManifest(signal, async () => { throw new Error('offline'); }), null);
 });

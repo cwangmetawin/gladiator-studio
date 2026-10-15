@@ -13,23 +13,16 @@ const { load } = createLoader({
   `),
 });
 const { ArenaLanding } = await load('features/arena/ArenaLanding.tsx');
+const { COVER_MANIFEST } = await load('features/arena/hallManifest.ts');
 const { hallContent } = await load('features/arena/hallState.ts');
 const { journeyProgress } = await load('features/arena/journeyProgress.ts');
 const { hallScreens } = await load('features/arena/hallProgress.ts');
 const { soundEngine } = await load('shared/utils/soundEngine.ts');
-const games = [{ id: 1, title: 'First game', slug: 'first-game', category: 'slot', image: 'https://content.prod.platform.mwapp.io/games/first.jpg', timeline: '', link: 'https://example.com' }];
-const manifest = { version: 1, entries: { 'first-game': {
-  source: games[0].image, primary: [.2, .6, .3], secondary: [.8, .4, .2], widths: {
-    '320': { url: '/arena/games/first-game-320.webp', width: 320, height: 429, bytes: 1000 },
-    '640': { url: '/arena/games/first-game-640.webp', width: 640, height: 858, bytes: 3000 },
-  },
-} } };
-const settle = async () => { for (let i = 0; i < 8; i++) await Promise.resolve(); };
+const games = [{ id: 1, title: 'First game', slug: 'gladiator-eyes-of-medusa', category: 'slot', image: 'https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg', timeline: '', link: 'https://example.com' }];
 
 function rig() {
   const original = { window: globalThis.window, fetch: globalThis.fetch, __hallCatalogue: globalThis.__hallCatalogue };
   const clock = createClock(), calls = [], listeners = new Map(), pointers = new Map(), queries = [];
-  let resolve;
   const host = { innerWidth: 390, innerHeight: 844, scrollY: 0, ...clock,
     matchMedia(query) {
       const callbacks = new Set();
@@ -46,7 +39,7 @@ function rig() {
     hasPointerCapture: () => false, setPointerCapture() {}, releasePointerCapture() {},
   };
   globalThis.window = host; globalThis.__hallCatalogue = games;
-  globalThis.fetch = (url, options) => { calls.push({ url, options }); return new Promise(done => { resolve = done; }); };
+  globalThis.fetch = (url, options) => { calls.push({ url, options }); return new Promise(() => {}); };
   // Only React's hook runtime is simulated. The shipped component, controls,
   // catalogue selection, manifest parser, publication and copy are all real.
   const harness = createHarness(props => { const copy = ArenaLanding(props); return copy.type(copy.props); }, { attach: () => root });
@@ -57,22 +50,22 @@ function rig() {
         media.matches = width < 768; media.callbacks.forEach(fn => fn({ matches: media.matches }));
       }
     },
-    finish(value = manifest) { resolve({ ok: true, json: async () => value }); },
     dispose() { harness.unmount(); for (const [key, value] of Object.entries(original)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } journeyProgress.setLimit(1.9); journeyProgress.publish(0); hallContent.publish([]); },
   };
 }
 
-test('the shipped landing requests nothing on the first screen and publishes baked art only after the manifest resolves', async () => {
+test('the landing stays idle on the first screen, then publishes bundled art and a static cover without a manifest request', () => {
   const r = rig(), props = { visible: false, interactive: true, onPlayGame() {} };
   try {
     r.harness.mount(props);
     assert.equal(r.calls.length, 0); assert.equal(hallContent.getSnapshot().length, 0);
+    assert.equal(findAll(r.harness.output, node => node.type === 'img').length, 0);
     r.harness.update({ ...props, visible: true });
-    assert.equal(r.calls.length, 1);
-    assert.equal(hallContent.getSnapshot().length, 0, 'no eager 1 MB catalogue textures while the manifest is still pending');
-    r.finish(); await settle(); r.harness.act(() => {});
-    assert.equal(hallContent.getSnapshot()[0].cover.url, '/arena/games/first-game-320.webp');
-    assert.equal(r.calls.length, 1);
+    const expected = COVER_MANIFEST.entries[games[0].slug].widths['320'].url;
+    assert.equal(hallContent.getSnapshot()[0].cover.url, expected);
+    const staticCover = findAll(r.harness.output, node => node.type?.name === 'StaticCover')[0];
+    assert.equal(staticCover.props.cover.url, expected);
+    assert.equal(r.calls.length, 0);
     globalThis.__hallCatalogue = [];
     r.harness.act(() => {});
     assert.equal(hallContent.getSnapshot().length, 0, 'an owner hiding every game removes the ring');
@@ -80,42 +73,41 @@ test('the shipped landing requests nothing on the first screen and publishes bak
   } finally { r.dispose(); }
 });
 
-test('unmount aborts the manifest request, a late response cannot publish game art, and listeners/timers are released', async () => {
+test('unmount clears published covers and releases controls, listeners and timers without a pending manifest request', () => {
   const r = rig();
   try {
     r.harness.mount({ visible: true, interactive: true, onPlayGame() {} });
-    const signal = r.calls[0].options.signal;
+    assert.equal(hallContent.getSnapshot().length, 1);
     r.harness.unmount();
-    assert.equal(signal.aborted, true);
-    r.finish(); await settle();
     assert.equal(hallContent.getSnapshot().length, 0);
+    assert.equal(r.calls.length, 0);
     assert.equal(r.listeners.size, 0); assert.equal(r.pointers.size, 0); assert.equal(r.clock.pending.length, 0);
   } finally { r.dispose(); }
 });
 
-test('an unavailable manifest releases catalogue covers after the request finishes, and a hung request is bounded', async () => {
-  const r = rig();
-  try {
-    r.harness.mount({ visible: true, interactive: true, onPlayGame() {} });
-    r.clock.advance(4000);
-    assert.equal(r.calls[0].options.signal.aborted, true);
-    // Native fetch rejects on abort; an invalid response follows the same neutral fallback.
-    r.finish({ invalid: true }); await settle(); r.harness.act(() => {});
-    assert.equal(hallContent.getSnapshot()[0].cover.url, games[0].image);
-    assert.deepEqual(hallContent.getSnapshot()[0].cover.primary, [.36, .5, .62]);
-    assert.equal(r.clock.pending.length, 0);
-  } finally { r.dispose(); }
+test('new or changed live covers use originals immediately and retain steel lighting without a manifest deadline', () => {
+  for (const changed of [{ slug: 'new-admin' }, { image: '/replacement.webp' }]) {
+    const r = rig();
+    try {
+      const game = { ...games[0], ...changed };
+      globalThis.__hallCatalogue = [game];
+      r.harness.mount({ visible: true, interactive: true, onPlayGame() {} });
+      assert.equal(hallContent.getSnapshot()[0].cover.url, game.image);
+      assert.deepEqual(hallContent.getSnapshot()[0].cover.primary, [.36, .5, .62]);
+      assert.equal(r.calls.length, 0); assert.equal(r.clock.pending.length, 0);
+    } finally { r.dispose(); }
+  }
 });
 
-test('a phone keeps 320 px textures and its compact ring after rotating into landscape', async () => {
+test('a phone keeps bundled 320 px textures and its compact ring after rotating into landscape', () => {
   const r = rig();
   try {
     r.harness.mount({ visible: true, interactive: true, onPlayGame() {} });
-    r.finish(); await settle(); r.harness.act(() => {});
     assert.equal(hallContent.getSnapshot()[0].cover.width, 320);
     r.harness.act(() => r.resize(844));
     assert.equal(hallContent.getSnapshot()[0].cover.width, 320);
     assert.equal(hallContent.getSnapshot()[0].compact, true);
+    assert.equal(r.calls.length, 0);
   } finally { r.dispose(); }
 });
 

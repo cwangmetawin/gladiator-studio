@@ -8,6 +8,9 @@ import { skyModuleUrls } from './skyModuleUrls.mjs';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
 import { sceneLoadingModuleUrls } from './sceneLoadingModuleUrls.mjs';
 import { sceneEffectsModuleUrls } from './sceneEffectsModuleUrls.mjs';
+import { createLoader } from './loadTs.mjs';
+
+const portraitUrl = createLoader().urlOf('features/games/useGameCover.ts');
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');
@@ -490,6 +493,7 @@ const soundUrl = moduleUrl('export const soundEngine = { click() {}, transmissio
 const contextUrl = moduleUrl(source('../motion/panelMotion.ts'));
 function coverflowSource() {
   return source('../../features/games/GameCoverflow.tsx').replace("import './coverflow.css';", '')
+    .replace("from './useGameCover'", `from '${portraitUrl}'`)
     .replace("from '@/shared/motion/tokens'", `from '${motionUrls.tokens}'`)
     .replace("from '@/shared/motion/panelMotion'", `from '${contextUrl}'`)
     .replace("from '@/shared/ui/Reveal'", `from '${visualUrl}'`)
@@ -554,6 +558,7 @@ test('the shipped phone showcase waits for data, switches tabs before focusing, 
 
 test('both shipped phone card types expose the stable focus key and remain keyboard focusable', async () => {
   const cardUrl = moduleUrl(source('../../features/games/GameCard.tsx')
+    .replace("from './useGameCover'", `from '${portraitUrl}'`)
     .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
     .replace("from '@/features/starfield/gameIdentity'", `from '${urls.identity}'`));
   const { GameCard, FeaturedCard } = await import(cardUrl);
