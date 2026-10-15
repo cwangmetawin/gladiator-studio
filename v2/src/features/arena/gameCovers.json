@@ -1,0 +1,1504 @@
+{
+  "version": 1,
+  "bakerSha256": "1f08207ff7ef01d5198395e039dde5e582f784310815553966710f5a93824765",
+  "roster": [
+    {
+      "slug": "gladiator-eyes-of-medusa",
+      "image": "https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg"
+    },
+    {
+      "slug": "gladiator-candy-cash-100k",
+      "image": "https://content.prod.platform.mwapp.io/games/candy-cash-new.jpg"
+    },
+    {
+      "slug": "thunder-tavern",
+      "image": "https://content.prod.platform.mwapp.io/games/thunder-tavern-vertical.jpg"
+    },
+    {
+      "slug": "rise-of-cetus",
+      "image": "https://content.prod.platform.mwapp.io/games/rise-of-cetus-new.jpg"
+    },
+    {
+      "slug": "legend-of-tartarus",
+      "image": "https://content.prod.platform.mwapp.io/games/legend-of-tartarus-new.jpg"
+    },
+    {
+      "slug": "gladiator-star-nudge",
+      "image": "https://content.prod.platform.mwapp.io/games/star-nudge.png"
+    },
+    {
+      "slug": "gladiator-to-the-top",
+      "image": "https://content.prod.platform.mwapp.io/games/ttt-cover-3.png"
+    },
+    {
+      "slug": "gladiator-all-about-the-fish",
+      "image": "https://content.prod.platform.mwapp.io/games/all-about-the-fish.png"
+    },
+    {
+      "slug": "gladiator-disco-dazzle",
+      "image": "https://content.prod.platform.mwapp.io/games/disco-dazzle.png"
+    },
+    {
+      "slug": "gladiator-maneater",
+      "image": "https://content.prod.platform.mwapp.io/games/maneater-icon-5.png"
+    },
+    {
+      "slug": "gladiator-sweety-treaty",
+      "image": "https://content.prod.platform.mwapp.io/games/sweety-treaty-prod.jpeg"
+    },
+    {
+      "slug": "mw-plinko-100k",
+      "image": "https://content.prod.platform.mwapp.io/games/plinko-world-cup-edition.jpg"
+    },
+    {
+      "slug": "mw-prime-dice",
+      "image": "https://content.prod.platform.mwapp.io/games/PRIME-DICE-new.png"
+    },
+    {
+      "slug": "mw-roulette-pro",
+      "image": "https://content.prod.platform.mwapp.io/games/ROULETTE-PRO-new.png"
+    },
+    {
+      "slug": "mw-cases",
+      "image": "https://content.prod.platform.mwapp.io/games/CASES-new.png"
+    },
+    {
+      "slug": "mw-bars",
+      "image": "https://content.prod.platform.mwapp.io/games/BARS-new.png"
+    },
+    {
+      "slug": "mw-packs",
+      "image": "https://content.prod.platform.mwapp.io/games/packs-new-1.png"
+    },
+    {
+      "slug": "mw-flip",
+      "image": "https://content.prod.platform.mwapp.io/games/coin-flip-new.png"
+    },
+    {
+      "slug": "mw-darts",
+      "image": "https://content.prod.platform.mwapp.io/games/darts-new.png"
+    },
+    {
+      "slug": "mw-snakes",
+      "image": "https://content.prod.platform.mwapp.io/games/snakes-new.png"
+    },
+    {
+      "slug": "mw-pump",
+      "image": "https://content.prod.platform.mwapp.io/games/pump-new.png"
+    },
+    {
+      "slug": "mw-navigator",
+      "image": "https://content.prod.platform.mwapp.io/games/navigator-new.png"
+    },
+    {
+      "slug": "mw-video-poker",
+      "image": "https://content.prod.platform.mwapp.io/games/video-poker-new.png"
+    },
+    {
+      "slug": "mw-baccarat",
+      "image": "https://content.prod.platform.mwapp.io/games/BACCARAT-new2.png"
+    },
+    {
+      "slug": "mw-roulette",
+      "image": "https://content.prod.platform.mwapp.io/games/ROULETTE-new.png"
+    },
+    {
+      "slug": "mw-blackjack",
+      "image": "https://content.prod.platform.mwapp.io/games/blackjack-new2.png"
+    },
+    {
+      "slug": "mw-crash",
+      "image": "https://content.prod.platform.mwapp.io/games/CRASH-new2.png"
+    },
+    {
+      "slug": "mw-dragon-tower",
+      "image": "https://content.prod.platform.mwapp.io/games/dragon-tower-new.png"
+    },
+    {
+      "slug": "mw-diamonds",
+      "image": "https://content.prod.platform.mwapp.io/games/diamonds-new-1.png"
+    },
+    {
+      "slug": "mw-hilo",
+      "image": "https://content.prod.platform.mwapp.io/games/hi-lo-new.png"
+    },
+    {
+      "slug": "mw-slide",
+      "image": "https://content.prod.platform.mwapp.io/games/slides-new.png"
+    },
+    {
+      "slug": "mw-wheel",
+      "image": "https://content.prod.platform.mwapp.io/games/wheel-new.png"
+    },
+    {
+      "slug": "mw-pepes-river-run",
+      "image": "https://content.prod.platform.mwapp.io/games/pepes-river-run-new.png"
+    },
+    {
+      "slug": "mw-keno",
+      "image": "https://content.prod.platform.mwapp.io/games/keno-new.png"
+    },
+    {
+      "slug": "mw-plinko",
+      "image": "https://content.prod.platform.mwapp.io/games/plinko-new.png"
+    },
+    {
+      "slug": "mw-mines",
+      "image": "https://content.prod.platform.mwapp.io/games/mines-new.png"
+    },
+    {
+      "slug": "mw-limbo",
+      "image": "https://content.prod.platform.mwapp.io/games/limbo-new.png"
+    },
+    {
+      "slug": "mw-dice",
+      "image": "https://content.prod.platform.mwapp.io/games/dice-new-1.png"
+    }
+  ],
+  "entries": {
+    "gladiator-eyes-of-medusa": {
+      "source": "https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg",
+      "sourceSha256": "61de3e7826a6c91fa726f7f83defef5adaee03e4d702c4c1a351323b08343adf",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1033038
+      },
+      "primary": [
+        0.162881,
+        0.561034,
+        0.195563
+      ],
+      "secondary": [
+        0.558325,
+        0.446864,
+        0.162094
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-eyes-of-medusa-320-6c70f476.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 20738,
+          "sha256": "6c70f4763c5ec7c2aa31775f35b5abb43946eb93bcf2c5bdbd0b53c4220674b2"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-eyes-of-medusa-640-e89217df.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 54186,
+          "sha256": "e89217df2f791f6cb71e68c94555632cae42b7c84fa0bbde4a84f85402506b7b"
+        }
+      }
+    },
+    "gladiator-candy-cash-100k": {
+      "source": "https://content.prod.platform.mwapp.io/games/candy-cash-new.jpg",
+      "sourceSha256": "40cb23707891808320c092a9e5c6f438ad567d4cd25cb022bf9c08707a2183c6",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 442156
+      },
+      "primary": [
+        0.927655,
+        0.297787,
+        0.551291
+      ],
+      "secondary": [
+        0.617304,
+        0.427858,
+        0.176694
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-candy-cash-100k-320-a3e1a58b.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 19198,
+          "sha256": "a3e1a58b6df8bc03a6764860f88d5696f9a7c6ed5eda2b21e56bfe53da21b2db"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-candy-cash-100k-640-15765fc0.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 45522,
+          "sha256": "15765fc0eb8017f926d5c077c6a1aca4f26b1b0ee20c48d4e956721013bad0bd"
+        }
+      }
+    },
+    "thunder-tavern": {
+      "source": "https://content.prod.platform.mwapp.io/games/thunder-tavern-vertical.jpg",
+      "sourceSha256": "eb60948aec1e56675862d515d9ee0e778fdfad3435847ab35965ce3cae7e3040",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1101901
+      },
+      "primary": [
+        0.1858,
+        0.509358,
+        0.639976
+      ],
+      "secondary": [
+        0.688285,
+        0.400306,
+        0.240606
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/thunder-tavern-320-3bc69a51.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 20060,
+          "sha256": "3bc69a5130d2230009458cbda780811c4b7f14132eab02159903373dd40c570c"
+        },
+        "640": {
+          "url": "/arena/games/thunder-tavern-640-c59a1163.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 59158,
+          "sha256": "c59a116345f0a416ec710d9eb84e8a264e2679e435e2cb506afe242ceee4910e"
+        }
+      }
+    },
+    "rise-of-cetus": {
+      "source": "https://content.prod.platform.mwapp.io/games/rise-of-cetus-new.jpg",
+      "sourceSha256": "1092dee0f6d2c04a22c0ce812199354bac9cb3aab62da27126848fe5c241734b",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 884693
+      },
+      "primary": [
+        0.093649,
+        0.531304,
+        0.693923
+      ],
+      "secondary": [
+        0.653229,
+        0.414133,
+        0.206867
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/rise-of-cetus-320-3ec9a8ad.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 21640,
+          "sha256": "3ec9a8ad4e9faca56ea123e896b8a5bc47a955514b08d7dfb796f02e746b5d4b"
+        },
+        "640": {
+          "url": "/arena/games/rise-of-cetus-640-9b05c6ab.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 49744,
+          "sha256": "9b05c6ab2d9da3545e6d0d721c4745ae4a650602a2309a86273c7d031e382bc1"
+        }
+      }
+    },
+    "legend-of-tartarus": {
+      "source": "https://content.prod.platform.mwapp.io/games/legend-of-tartarus-new.jpg",
+      "sourceSha256": "b45af6522f9d1ab4f6d60c9b28b0cdecf07c5ef67f5f32fd8a9f8f88094bded2",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 925172
+      },
+      "primary": [
+        0.822564,
+        0.350929,
+        0.334332
+      ],
+      "secondary": [
+        0.502225,
+        0.469213,
+        0.105897
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/legend-of-tartarus-320-924c6552.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 21904,
+          "sha256": "924c655287d30bf717d52d1cd9a615bece8c1a41d3ed7404e95445490d4f595b"
+        },
+        "640": {
+          "url": "/arena/games/legend-of-tartarus-640-0ab068c6.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 52602,
+          "sha256": "0ab068c608c0fd6e67715bd4989ebce8b1f0e93ce57829f2ea3d7c8ed462c9f3"
+        }
+      }
+    },
+    "gladiator-star-nudge": {
+      "source": "https://content.prod.platform.mwapp.io/games/star-nudge.png",
+      "sourceSha256": "a2421a131931c4d4c1ab21212169acecf89d6068c31b5e35a93da4517179321a",
+      "sourceSize": {
+        "width": 269,
+        "height": 360,
+        "bytes": 173575
+      },
+      "primary": [
+        0.791078,
+        0.333817,
+        0.596552
+      ],
+      "secondary": [
+        0.512487,
+        0.465944,
+        0.108061
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-star-nudge-320-4f002857.webp",
+          "width": 320,
+          "height": 428,
+          "bytes": 17204,
+          "sha256": "4f002857536dd25dda13f9557d8e4e4680eb40d1deb82d7f96d05b5c5688d97e"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-star-nudge-640-7371a832.webp",
+          "width": 640,
+          "height": 857,
+          "bytes": 35840,
+          "sha256": "7371a832145b1f0964727eb77852f49325af7c3ee0af99135d3b4f448c5510be"
+        }
+      }
+    },
+    "gladiator-to-the-top": {
+      "source": "https://content.prod.platform.mwapp.io/games/ttt-cover-3.png",
+      "sourceSha256": "ac1b6b86ba4bcf92f4de3be3f5001214f17869c997dac7265915118ec59841ad",
+      "sourceSize": {
+        "width": 348,
+        "height": 466,
+        "bytes": 258281
+      },
+      "primary": [
+        0.113013,
+        0.517288,
+        0.775743
+      ],
+      "secondary": [
+        0.514888,
+        0.465084,
+        0.109515
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-to-the-top-320-e5a59658.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 18412,
+          "sha256": "e5a59658d72bb192af0c3d44823f36fb72d478845bfd68bd5bfae3a099de7c68"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-to-the-top-640-2a21d3dc.webp",
+          "width": 640,
+          "height": 857,
+          "bytes": 39292,
+          "sha256": "2a21d3dce9ff9f8bb829b894d198759d12894934bed76951063fe61c4580482b"
+        }
+      }
+    },
+    "gladiator-all-about-the-fish": {
+      "source": "https://content.prod.platform.mwapp.io/games/all-about-the-fish.png",
+      "sourceSha256": "90118129a8712859d02b12a7e52db9b98b725ae245948ec7c91c875844153ffe",
+      "sourceSize": {
+        "width": 1116,
+        "height": 1496,
+        "bytes": 1565487
+      },
+      "primary": [
+        0.747337,
+        0.324946,
+        0.813223
+      ],
+      "secondary": [
+        0.726023,
+        0.387751,
+        0.253846
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-all-about-the-fish-320-5818c649.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 17146,
+          "sha256": "5818c649d41c7318b01cd2bd754b7370517e64d852abde8d1803fa00ff3b7a1e"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-all-about-the-fish-640-d4db5638.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 38110,
+          "sha256": "d4db5638dfb6de4c1b2bfba9918f5d740b961512aa6c35a7495fb51f57f82d1f"
+        }
+      }
+    },
+    "gladiator-disco-dazzle": {
+      "source": "https://content.prod.platform.mwapp.io/games/disco-dazzle.png",
+      "sourceSha256": "1ffabf51e5cfda47f4fb29cd1e83367cb4d744738666444ab1e8061f43615d51",
+      "sourceSize": {
+        "width": 1116,
+        "height": 1496,
+        "bytes": 1732793
+      },
+      "primary": [
+        0.754936,
+        0.316424,
+        0.875269
+      ],
+      "secondary": [
+        0.333881,
+        0.446076,
+        0.830788
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-disco-dazzle-320-96413cf6.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 18804,
+          "sha256": "96413cf610addaa3ca352811c11f51edb6e6685564ac6daa204b18645f07a1e7"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-disco-dazzle-640-9b4da641.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 49070,
+          "sha256": "9b4da6413f4958ad74106719444ea8b719d196fea9dd6e4c16fb065d53b74f32"
+        }
+      }
+    },
+    "gladiator-maneater": {
+      "source": "https://content.prod.platform.mwapp.io/games/maneater-icon-5.png",
+      "sourceSha256": "d899e36675d0526c7b47cb90dc73aeb064cc38ca9d163a9042623819d131854f",
+      "sourceSize": {
+        "width": 862,
+        "height": 1152,
+        "bytes": 1815256
+      },
+      "primary": [
+        0.554971,
+        0.384024,
+        0.794448
+      ],
+      "secondary": [
+        0.363831,
+        0.506206,
+        0.146963
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-maneater-320-d365af7b.webp",
+          "width": 320,
+          "height": 428,
+          "bytes": 17894,
+          "sha256": "d365af7b3f34c41bdae371b5f5a5f5cbf63dc9f3866cb662bea441fadc4c182f"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-maneater-640-af943109.webp",
+          "width": 640,
+          "height": 855,
+          "bytes": 41284,
+          "sha256": "af9431099db7f9e45f2b7ee13339a533c227a264b9d99503367adaeecc5908b9"
+        }
+      }
+    },
+    "gladiator-sweety-treaty": {
+      "source": "https://content.prod.platform.mwapp.io/games/sweety-treaty-prod.jpeg",
+      "sourceSha256": "a1c792d2aaa9520522b507c283e56a822c3f45b84b69420e4fb618d3f509a59b",
+      "sourceSize": {
+        "width": 423,
+        "height": 566,
+        "bytes": 161351
+      },
+      "primary": [
+        0.82738,
+        0.33007,
+        0.526777
+      ],
+      "secondary": [
+        0.543029,
+        0.451714,
+        0.159084
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/gladiator-sweety-treaty-320-5c8b709f.webp",
+          "width": 320,
+          "height": 428,
+          "bytes": 14780,
+          "sha256": "5c8b709fb8de8610b340627ce1e68793b068c1ca3ab37e8bfcba6252659251fc"
+        },
+        "640": {
+          "url": "/arena/games/gladiator-sweety-treaty-640-40a602ff.webp",
+          "width": 640,
+          "height": 856,
+          "bytes": 29568,
+          "sha256": "40a602ff6243abb0d1a768a2b4d6bf937b2f2a6d6aa9fd41a2381ba3b077794a"
+        }
+      }
+    },
+    "mw-plinko-100k": {
+      "source": "https://content.prod.platform.mwapp.io/games/plinko-world-cup-edition.jpg",
+      "sourceSha256": "5a1e1e67c68dcd864cf529e4e8edb7e18cf6d4303c75b0eaa9bf1790f40a79be",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 484331
+      },
+      "primary": [
+        0.084434,
+        0.582155,
+        0.217344
+      ],
+      "secondary": [
+        0.397143,
+        0.489859,
+        0.210803
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-plinko-100k-320-5c188d96.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 20954,
+          "sha256": "5c188d9653f6eb86e090175ed4d8800d08239a8028aec57fe4ce6bfa7b992b87"
+        },
+        "640": {
+          "url": "/arena/games/mw-plinko-100k-640-7fbbf6f2.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 54922,
+          "sha256": "7fbbf6f2e53cb8389d54729a2ae7443f5863a8c7f66053def1b669b5f8827fb3"
+        }
+      }
+    },
+    "mw-prime-dice": {
+      "source": "https://content.prod.platform.mwapp.io/games/PRIME-DICE-new.png",
+      "sourceSha256": "6c9e406680267220d0cc3003ccbcae95bab533c07fc6db7e4f71ec7f00c33cbc",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 703772
+      },
+      "primary": [
+        0.81402,
+        0.371445,
+        0.156258
+      ],
+      "secondary": [
+        0.114013,
+        0.540717,
+        0.540717
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-prime-dice-320-d5b200dc.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 12002,
+          "sha256": "d5b200dc31cad9d370c8e77d486f816962d585502aacf826458705aedf2ca155"
+        },
+        "640": {
+          "url": "/arena/games/mw-prime-dice-640-8ae36338.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 24864,
+          "sha256": "8ae36338705008f2fa7ae4f5948c52503cc78b312162027a86c6ff4519bc930d"
+        }
+      }
+    },
+    "mw-roulette-pro": {
+      "source": "https://content.prod.platform.mwapp.io/games/ROULETTE-PRO-new.png",
+      "sourceSha256": "263c62b0e0eafcafefa9731a3868bd4055f8574daa8610aba68d15d781432fed",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1014967
+      },
+      "primary": [
+        0.630075,
+        0.424608,
+        0.171276
+      ],
+      "secondary": [
+        0.264558,
+        0.534876,
+        0.155287
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-roulette-pro-320-22fd80a1.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 15362,
+          "sha256": "22fd80a1d06d329732208de1210697f272419b8743304d48dc331969883e5637"
+        },
+        "640": {
+          "url": "/arena/games/mw-roulette-pro-640-998d3717.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 36568,
+          "sha256": "998d3717316d2018a6872b695b1a8df5d1e800bd5c58f632ce9adaac5c5f02f8"
+        }
+      }
+    },
+    "mw-cases": {
+      "source": "https://content.prod.platform.mwapp.io/games/CASES-new.png",
+      "sourceSha256": "cc9827f04a2f92fafe5638d765c6e173b685dea954c771baca7be68815c19971",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 912181
+      },
+      "primary": [
+        0.176156,
+        0.498309,
+        0.777824
+      ],
+      "secondary": [
+        0.58917,
+        0.436928,
+        0.169684
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-cases-320-f08a539e.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 10478,
+          "sha256": "f08a539eb048425e999a774ec97104ee9aa98028bba59022783b6d76177cf634"
+        },
+        "640": {
+          "url": "/arena/games/mw-cases-640-13dcd66b.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 22326,
+          "sha256": "13dcd66bc6b0824f8d2ced24444ceb6d6d158670425261e2922a0ff06d36aa15"
+        }
+      }
+    },
+    "mw-bars": {
+      "source": "https://content.prod.platform.mwapp.io/games/BARS-new.png",
+      "sourceSha256": "a33ef9b44ebef0f7e2ecc57e14d5829a56a192e27e00b064b930e8e30e8aaa2d",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 971029
+      },
+      "primary": [
+        0.141144,
+        0.505752,
+        0.807184
+      ],
+      "secondary": [
+        0.600043,
+        0.433832,
+        0.16834
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-bars-320-70b96d79.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 13224,
+          "sha256": "70b96d7924f7728af321ef320fdf07de9bdbb85365e53fb0e778ee177afac044"
+        },
+        "640": {
+          "url": "/arena/games/mw-bars-640-d648195a.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 29524,
+          "sha256": "d648195a4e2eeda4533bf3f9a0bf7d9ea62f6fcddd7d8227d0c5600bd3b5d70b"
+        }
+      }
+    },
+    "mw-packs": {
+      "source": "https://content.prod.platform.mwapp.io/games/packs-new-1.png",
+      "sourceSha256": "05f438b29543c93c8e477a9f65721a96939dab0c43407d93719c8b3087f26838",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1117548
+      },
+      "primary": [
+        0.649583,
+        0.349443,
+        0.858405
+      ],
+      "secondary": [
+        0.261201,
+        0.471458,
+        0.793376
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-packs-320-9b438a45.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 17668,
+          "sha256": "9b438a453e5849ac4938929810c958d48b3cd00e2a88726c38011a6562bccb7d"
+        },
+        "640": {
+          "url": "/arena/games/mw-packs-640-2194cdbb.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 44104,
+          "sha256": "2194cdbb0426113ac2e4a03c41131cb0c771d9e6e9597201051872f44b6d144a"
+        }
+      }
+    },
+    "mw-flip": {
+      "source": "https://content.prod.platform.mwapp.io/games/coin-flip-new.png",
+      "sourceSha256": "5f162334f42a03a5c8a429ba49574987dc6599dc57d8d0ca742d32eb383e467d",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 573190
+      },
+      "primary": [
+        0.038115,
+        0.61382,
+        0.040068
+      ],
+      "secondary": [
+        0.586986,
+        0.447637,
+        0.070037
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-flip-320-e5352448.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 18344,
+          "sha256": "e53524487d823342619a527be72eb218ef48109c5361e7bd956aa4e2583bbe0e"
+        },
+        "640": {
+          "url": "/arena/games/mw-flip-640-23a95357.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 42456,
+          "sha256": "23a953578c2a0141ec8d3124a495a1954ab97402133d84f5472211381075f6ff"
+        }
+      }
+    },
+    "mw-darts": {
+      "source": "https://content.prod.platform.mwapp.io/games/darts-new.png",
+      "sourceSha256": "91545932ee9618863a7bc9c8dd2633bfbc33099ec25b9df44d1d3199b38c602b",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 528462
+      },
+      "primary": [
+        0.799819,
+        0.356403,
+        0.347079
+      ],
+      "secondary": [
+        0.114013,
+        0.540717,
+        0.540717
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-darts-320-40c4526c.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 14202,
+          "sha256": "40c4526caf32fdcf3fd67c8645d8bc2282435aa0d25dda4e5c436f8febf43b12"
+        },
+        "640": {
+          "url": "/arena/games/mw-darts-640-2e24fab3.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 34250,
+          "sha256": "2e24fab3edfb0120cf03f504d0dbd7f8906f49aab51d1845191e9dbe6e503a71"
+        }
+      }
+    },
+    "mw-snakes": {
+      "source": "https://content.prod.platform.mwapp.io/games/snakes-new.png",
+      "sourceSha256": "68cb2dbe8fa7dac640ec0293a22fe89ba99e3a4aca0181530ecce5ff7acd7754",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 574142
+      },
+      "primary": [
+        0.107532,
+        0.583292,
+        0.138062
+      ],
+      "secondary": [
+        0.212478,
+        0.492151,
+        0.73187
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-snakes-320-6bb8b1fa.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 16294,
+          "sha256": "6bb8b1fa823f5ebf90d2e8376055a95089ec486a91acc67548b56cdc7a2a4417"
+        },
+        "640": {
+          "url": "/arena/games/mw-snakes-640-46821ac5.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 37258,
+          "sha256": "46821ac5b9349e2b9c3d22ee566313f7faf2e7d3313fb54929b78266c0d69360"
+        }
+      }
+    },
+    "mw-pump": {
+      "source": "https://content.prod.platform.mwapp.io/games/pump-new.png",
+      "sourceSha256": "0c4278f14d35002a5a01da7b785999e9ba399a1b5c204fc39fc20e3ab9784934",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 422874
+      },
+      "primary": [
+        0.722836,
+        0.330395,
+        0.831398
+      ],
+      "secondary": [
+        0.962257,
+        0.282891,
+        0.596963
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-pump-320-a45950e2.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 8078,
+          "sha256": "a45950e2b2bde1a7c39d80528ec24c7bbab6c6797db9a3fbb115c6278a5ee827"
+        },
+        "640": {
+          "url": "/arena/games/mw-pump-640-e3391b66.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 16902,
+          "sha256": "e3391b66023a36e56284b1347d248fac86887ed95346a0c5c65733cebae299f3"
+        }
+      }
+    },
+    "mw-navigator": {
+      "source": "https://content.prod.platform.mwapp.io/games/navigator-new.png",
+      "sourceSha256": "9cbbc0b4a328b4db8d2e389aa8a11b46308730982f7695816da13e5dd8c25984",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 485901
+      },
+      "primary": [
+        0.168885,
+        0.501468,
+        0.767942
+      ],
+      "secondary": [
+        0.963752,
+        0.311286,
+        0.311286
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-navigator-320-befda1f4.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 12838,
+          "sha256": "befda1f46d1397f21fa75ba4d89eae782dc8a36200c63a0d1f80db53bd978acd"
+        },
+        "640": {
+          "url": "/arena/games/mw-navigator-640-c6044f17.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 29550,
+          "sha256": "c6044f17cc77c78bd6c61a50d2d020bdffac6ee8b9904709307091185ee82df8"
+        }
+      }
+    },
+    "mw-video-poker": {
+      "source": "https://content.prod.platform.mwapp.io/games/video-poker-new.png",
+      "sourceSha256": "69fa4831d11a8447b8d99710c11fa09e53be2cf723ac64222d92ea00493c3f40",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 458198
+      },
+      "primary": [
+        0.152797,
+        0.510245,
+        0.728363
+      ],
+      "secondary": [
+        0.963443,
+        0.305416,
+        0.37034
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-video-poker-320-4ea38dc2.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 11360,
+          "sha256": "4ea38dc2d25ae16aa667794337abf32a9ef199d645e52ff4689a593f380a013a"
+        },
+        "640": {
+          "url": "/arena/games/mw-video-poker-640-d51c36fe.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 25420,
+          "sha256": "d51c36fe399fe269ba6b4c2dd3dafe308e0a61cfefe6e7a98b1ff2b2a18f409a"
+        }
+      }
+    },
+    "mw-baccarat": {
+      "source": "https://content.prod.platform.mwapp.io/games/BACCARAT-new2.png",
+      "sourceSha256": "fd09f89cf1d69dc78ed2352d31ca2af37aed672a110f040dabc0d16def69e651",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 855385
+      },
+      "primary": [
+        0.778317,
+        0.352185,
+        0.452176
+      ],
+      "secondary": [
+        0.589753,
+        0.434796,
+        0.18909
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-baccarat-320-e4b8920e.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 16132,
+          "sha256": "e4b8920e6cf8f2b35b7813ab4d7d9649cac2e7c4a593599f31e5c648478713dd"
+        },
+        "640": {
+          "url": "/arena/games/mw-baccarat-640-13cf62e5.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 34230,
+          "sha256": "13cf62e5f32e839cbc606c55d9c5d04967430c69ecc89c2fbe4275a6d239a6db"
+        }
+      }
+    },
+    "mw-roulette": {
+      "source": "https://content.prod.platform.mwapp.io/games/ROULETTE-new.png",
+      "sourceSha256": "f6d61d1b7a7d435d677ca7aea0881dbf8d25f35ed4e9d3b5b5ceb52dd5ccded5",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1156189
+      },
+      "primary": [
+        0.803422,
+        0.352399,
+        0.376129
+      ],
+      "secondary": [
+        0.76043,
+        0.327238,
+        0.751965
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-roulette-320-cb329323.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 17802,
+          "sha256": "cb32932313c51b70cb75c2b85cea1a1205e2a32575d45bd617c3e179eafd63f6"
+        },
+        "640": {
+          "url": "/arena/games/mw-roulette-640-a50a2db2.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 46282,
+          "sha256": "a50a2db2325594b01b897a388f84ec4027de14067978cbfbcb655406772f5497"
+        }
+      }
+    },
+    "mw-blackjack": {
+      "source": "https://content.prod.platform.mwapp.io/games/blackjack-new2.png",
+      "sourceSha256": "7178e405e6a37209fb946c20ce75ae434ed084c859cf32f77a20f024e2f15ab6",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1114112
+      },
+      "primary": [
+        0.776194,
+        0.351133,
+        0.468845
+      ],
+      "secondary": [
+        0.585532,
+        0.437941,
+        0.170363
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-blackjack-320-97c792d8.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 14744,
+          "sha256": "97c792d8d379b099882145c35ca1c35836f52c1b00f7b4268332fa626c1ceaca"
+        },
+        "640": {
+          "url": "/arena/games/mw-blackjack-640-9b52433e.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 36388,
+          "sha256": "9b52433e7a7f8f983189f9095c1997c4fdc0d67060b7c2d41e7d0de370fc099e"
+        }
+      }
+    },
+    "mw-crash": {
+      "source": "https://content.prod.platform.mwapp.io/games/CRASH-new2.png",
+      "sourceSha256": "155b5b0cc81549e855dabee5dc59392e01982d55f5b1547a63c21a8e83173487",
+      "sourceSize": {
+        "width": 837,
+        "height": 1122,
+        "bytes": 1034804
+      },
+      "primary": [
+        0.217219,
+        0.485018,
+        0.788561
+      ],
+      "secondary": [
+        0.617103,
+        0.431169,
+        0.144483
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-crash-320-645a7acf.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 14310,
+          "sha256": "645a7acfbe0553ebd7ca806357a28d262b3f2be21b85288dd35596d1f7e73575"
+        },
+        "640": {
+          "url": "/arena/games/mw-crash-640-e4547161.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 34604,
+          "sha256": "e454716134313d276facf8ddd2603c4a35427fa58ac95938d4926494aa9d3ff9"
+        }
+      }
+    },
+    "mw-dragon-tower": {
+      "source": "https://content.prod.platform.mwapp.io/games/dragon-tower-new.png",
+      "sourceSha256": "6efc0e47f806a8b375e47bdc453eb3c6251928d593d9be01d4e28ffc69ade0c2",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 492756
+      },
+      "primary": [
+        0.900764,
+        0.354031,
+        0.073335
+      ],
+      "secondary": [
+        0.725149,
+        0.361306,
+        0.51838
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-dragon-tower-320-574ec9ca.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 14278,
+          "sha256": "574ec9ca0c8a6e66394ff7d9b3c3539e927352ba5c836514940061b0ea900c25"
+        },
+        "640": {
+          "url": "/arena/games/mw-dragon-tower-640-3a2d56ce.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 30726,
+          "sha256": "3a2d56ceffacb69818f355a0c0d8905f01d9a4cc4d5b537b387d42f6dea185f1"
+        }
+      }
+    },
+    "mw-diamonds": {
+      "source": "https://content.prod.platform.mwapp.io/games/diamonds-new-1.png",
+      "sourceSha256": "0279536ca76cfe2bd0d7be7ba35d003f5db3f9b6b967012eee67994a53452628",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 527032
+      },
+      "primary": [
+        0.826346,
+        0.310261,
+        0.726046
+      ],
+      "secondary": [
+        0.212478,
+        0.492151,
+        0.73187
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-diamonds-320-f36487b1.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 12602,
+          "sha256": "f36487b16b2adca73e063422761820471b1a53236e6d8b0bd260461dcce401d9"
+        },
+        "640": {
+          "url": "/arena/games/mw-diamonds-640-8b27804a.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 28196,
+          "sha256": "8b27804ae69168dde514d350ea603e75dedf30ede5d2665bbebfb57840c9cd13"
+        }
+      }
+    },
+    "mw-hilo": {
+      "source": "https://content.prod.platform.mwapp.io/games/hi-lo-new.png",
+      "sourceSha256": "4ed25ad0a6e4779ff9800209a4c05845df103ca03ac37aac2fb459cf9de0932f",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 359272
+      },
+      "primary": [
+        0.191446,
+        0.495692,
+        0.758716
+      ],
+      "secondary": [
+        0.831798,
+        0.328553,
+        0.528789
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-hilo-320-fcf659b4.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 8722,
+          "sha256": "fcf659b46ac83b751fab06ffa29c7f3989ed56e2fcabe4f28c12d85784e4ae38"
+        },
+        "640": {
+          "url": "/arena/games/mw-hilo-640-a692db08.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 19298,
+          "sha256": "a692db08ceec7ee75d397776ebdbff7a677c58122eaf2334a404140ff2434a56"
+        }
+      }
+    },
+    "mw-slide": {
+      "source": "https://content.prod.platform.mwapp.io/games/slides-new.png",
+      "sourceSha256": "d29066564638eb5fdf5bbba3beb7f94398eebf7f6d0869b39d46b21b59834d6a",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 409015
+      },
+      "primary": [
+        0.825538,
+        0.370298,
+        0.133707
+      ],
+      "secondary": [
+        0.129186,
+        0.528943,
+        0.612674
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-slide-320-25bf2077.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 8688,
+          "sha256": "25bf2077fdf61d165b3a23df55be2be79a014172d3cd708cabcba751f3f255e5"
+        },
+        "640": {
+          "url": "/arena/games/mw-slide-640-9333a626.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 18504,
+          "sha256": "9333a6265ac99026d77b3a016992c185a1905e28ae9469fb9696095229662a4f"
+        }
+      }
+    },
+    "mw-wheel": {
+      "source": "https://content.prod.platform.mwapp.io/games/wheel-new.png",
+      "sourceSha256": "cdcc1740793246a9f6a7767a8f9e0bcd581b2c68b0afc65df845618f58301e59",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 525633
+      },
+      "primary": [
+        0.656788,
+        0.417408,
+        0.163947
+      ],
+      "secondary": [
+        0.172509,
+        0.495323,
+        0.818137
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-wheel-320-6c980b18.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 13336,
+          "sha256": "6c980b18764efbe036d3a78ea7d246685ed454300815432f54b439e15de2ad47"
+        },
+        "640": {
+          "url": "/arena/games/mw-wheel-640-e340847b.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 30664,
+          "sha256": "e340847b008b450f72204cee56a78109e9e0c63ff60da71ddb5fdda743d2b5d9"
+        }
+      }
+    },
+    "mw-pepes-river-run": {
+      "source": "https://content.prod.platform.mwapp.io/games/pepes-river-run-new.png",
+      "sourceSha256": "2a12c868e3f1e963c6070b242e018fabdbf61c44358ce386666c02cc928e61e2",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 496858
+      },
+      "primary": [
+        0.056172,
+        0.601237,
+        0.111543
+      ],
+      "secondary": [
+        0.208416,
+        0.51443,
+        0.523138
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-pepes-river-run-320-00344558.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 13058,
+          "sha256": "00344558b283ec6371f62d5359ccd4a1bf865e94515007244ed95f9f0a5a1f5a"
+        },
+        "640": {
+          "url": "/arena/games/mw-pepes-river-run-640-7bf410f9.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 27586,
+          "sha256": "7bf410f999dc54c25681118b2779df5734dba247433d1c90d49cd0a38f350105"
+        }
+      }
+    },
+    "mw-keno": {
+      "source": "https://content.prod.platform.mwapp.io/games/keno-new.png",
+      "sourceSha256": "ae1236c1ab9bcb6635fe102fd834a1251957037bace9ab9ce237831399095f0b",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 538261
+      },
+      "primary": [
+        0.585028,
+        0.445784,
+        0.094163
+      ],
+      "secondary": [
+        0.409618,
+        0.409618,
+        0.968927
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-keno-320-dfae03bf.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 17040,
+          "sha256": "dfae03bffabab0a775bf1232723bc48a9bf383f0d7a72243943e56bbe6ce1700"
+        },
+        "640": {
+          "url": "/arena/games/mw-keno-640-91aa6ed8.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 37466,
+          "sha256": "91aa6ed8e1d0424871926fee9f8113892607d7451035cc1bcdbfdef4fba40937"
+        }
+      }
+    },
+    "mw-plinko": {
+      "source": "https://content.prod.platform.mwapp.io/games/plinko-new.png",
+      "sourceSha256": "a46545602e78385d6e2beb95b9e87fc640d1cdaa2ed3ac2689d924351af9daf4",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 461705
+      },
+      "primary": [
+        0.652763,
+        0.419506,
+        0.155016
+      ],
+      "secondary": [
+        0.205127,
+        0.556376,
+        0.117315
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-plinko-320-9b7abd4e.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 11074,
+          "sha256": "9b7abd4ec796406375f932364cd967f90d21831018406563ede3abc4c7826e85"
+        },
+        "640": {
+          "url": "/arena/games/mw-plinko-640-040e55c1.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 23200,
+          "sha256": "040e55c14b978c8ba1a361da7350e9725279704d4c64fc245310dcf6cde493ce"
+        }
+      }
+    },
+    "mw-mines": {
+      "source": "https://content.prod.platform.mwapp.io/games/mines-new.png",
+      "sourceSha256": "98e9b05afc68995501c6759041be694a1f769372c5832685908de12f87e39e55",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 535513
+      },
+      "primary": [
+        0.649868,
+        0.421503,
+        0.143751
+      ],
+      "secondary": [
+        0.720808,
+        0.351219,
+        0.631088
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-mines-320-5b44e712.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 12848,
+          "sha256": "5b44e71231f4b1e57e38934e4bdc3da3ef6e2ef6a462ac46d2c7b05504143a55"
+        },
+        "640": {
+          "url": "/arena/games/mw-mines-640-09cc4a30.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 28652,
+          "sha256": "09cc4a30015319242248312ea1d1e357823a3f3b3b5cfe6c9b072b7cc80cd398"
+        }
+      }
+    },
+    "mw-limbo": {
+      "source": "https://content.prod.platform.mwapp.io/games/limbo-new.png",
+      "sourceSha256": "834cc64d7a2e3f702d58c4d8d23f5cd673137fe78945ea03ea9b5affc2d37503",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 411172
+      },
+      "primary": [
+        0.178581,
+        0.495625,
+        0.797271
+      ],
+      "secondary": [
+        0.963752,
+        0.311286,
+        0.311286
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-limbo-320-34ac2ed3.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 10936,
+          "sha256": "34ac2ed38d8beffc7680fffc3ec627552d4056f77ad26e332eb0795e9dc48f28"
+        },
+        "640": {
+          "url": "/arena/games/mw-limbo-640-43b6c351.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 26060,
+          "sha256": "43b6c351b9c08e9366568625ef5fb6d98eabfa5fbe8d2abc21118a069806c9ab"
+        }
+      }
+    },
+    "mw-dice": {
+      "source": "https://content.prod.platform.mwapp.io/games/dice-new-1.png",
+      "sourceSha256": "da49e7b963292a8b69873b4c283c3cf4c650a765f16833e5d16d8f6590dc5619",
+      "sourceSize": {
+        "width": 558,
+        "height": 748,
+        "bytes": 397980
+      },
+      "primary": [
+        0.702687,
+        0.336112,
+        0.834088
+      ],
+      "secondary": [
+        0.39852,
+        0.435322,
+        0.746989
+      ],
+      "widths": {
+        "320": {
+          "url": "/arena/games/mw-dice-320-9d37670f.webp",
+          "width": 320,
+          "height": 429,
+          "bytes": 9984,
+          "sha256": "9d37670f17437760edc578875e9dbb017313887a7a39703e9bd745a8e89b3bbf"
+        },
+        "640": {
+          "url": "/arena/games/mw-dice-640-80750f5b.webp",
+          "width": 640,
+          "height": 858,
+          "bytes": 21094,
+          "sha256": "80750f5bb439e44f371444d170391375b241cf90f67cecb313192fd36f726a6e"
+        }
+      }
+    }
+  },
+  "contrastOrder": [
+    "gladiator-eyes-of-medusa",
+    "gladiator-star-nudge",
+    "thunder-tavern",
+    "gladiator-candy-cash-100k",
+    "gladiator-to-the-top",
+    "legend-of-tartarus",
+    "rise-of-cetus",
+    "gladiator-all-about-the-fish",
+    "gladiator-disco-dazzle",
+    "gladiator-maneater",
+    "gladiator-sweety-treaty"
+  ],
+  "manifestSha256": "809784bdf3cf07558bde036c0df04984dbf6a9e379eb3840792231d02bfdfb50"
+}

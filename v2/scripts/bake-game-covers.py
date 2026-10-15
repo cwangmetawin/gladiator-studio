@@ -83,24 +83,27 @@ def extract_theme(image):
     return {'primary': normalise(average(primary)), 'secondary': normalise(average(secondary))}
 
 
-def read_roster(path):
+def read_roster(path, names=('GLADIATOR_SLOTS', 'METAWIN_ORIGINALS')):
     text = Path(path).read_text()
     cdn = re.search(r"const IMG_CDN = '([^']+)'", text)
-    roster = re.search(r'export const GLADIATOR_SLOTS[^=]*=\s*\[(.*?)\n\];', text, re.S)
-    if not cdn or not roster:
-        raise ValueError('Cannot find IMG_CDN and GLADIATOR_SLOTS in gameData.ts')
+    if not cdn:
+        raise ValueError('Cannot find IMG_CDN in gameData.ts')
     entries = []
-    for row in re.findall(r'\{\s*id:.*?(?=\n\s*\{|$)', roster.group(1), re.S):
-        slug = re.search(r"\bslug:\s*'([^']+)'", row)
-        image = re.search(r"\bimage:\s*([`'])(.*?)\1", row)
-        if not slug or not image:
-            raise ValueError('Each curated slot must have a slug and image')
-        if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug.group(1)):
-            raise ValueError('Unsafe cover slug')
-        url = image.group(2).replace('${IMG_CDN}', cdn.group(1))
-        if not url.startswith('https://') or '${' in url:
-            raise ValueError('Unsupported cover URL expression')
-        entries.append({'slug': slug.group(1), 'image': url})
+    for name in names:
+        roster = re.search(r'export const ' + name + r'[^=]*=\s*\[(.*?)\n\];', text, re.S)
+        if not roster:
+            raise ValueError(f'Cannot find {name} in gameData.ts')
+        for row in re.findall(r'\{\s*id:.*?(?=\n\s*\{|$)', roster.group(1), re.S):
+            slug = re.search(r"\bslug:\s*'([^']+)'", row)
+            image = re.search(r"\bimage:\s*([`'])(.*?)\1", row)
+            if not image:
+                continue
+            if not slug or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug.group(1)):
+                raise ValueError('Unsafe or missing cover slug')
+            url = image.group(2).replace('${IMG_CDN}', cdn.group(1))
+            if not url.startswith('https://') or '${' in url:
+                raise ValueError('Unsupported cover URL expression')
+            entries.append({'slug': slug.group(1), 'image': url})
     if not entries or len({entry['slug'] for entry in entries}) != len(entries):
         raise ValueError('Empty or duplicate curated cover roster')
     return entries
@@ -147,9 +150,9 @@ def source_file(folder, slug):
     return paths[0] if paths else None
 
 
-def check_outputs(roster, output, sources):
+def check_outputs(roster, output, sources, manifest_path, contrast_slugs):
     try:
-        manifest = json.loads((output / 'manifest.json').read_bytes())
+        manifest = json.loads(manifest_path.read_bytes())
         signature = manifest.pop('manifestSha256', '')
         if signature != digest(encoded(manifest)):
             raise ValueError('Manifest content changed')
@@ -157,6 +160,9 @@ def check_outputs(roster, output, sources):
             raise ValueError('Baker or roster changed')
         if set(manifest['entries']) != {row['slug'] for row in roster}:
             raise ValueError('Cover roster changed')
+        if manifest['contrastOrder'] != contrast_order({slug: manifest['entries'][slug] for slug in contrast_slugs}):
+            raise ValueError('Featured contrast order changed')
+        expected_files = set()
         for row in roster:
             slug = row['slug']
             entry = manifest['entries'][slug]
@@ -164,23 +170,28 @@ def check_outputs(roster, output, sources):
             if entry['source'] != row['image'] or (original and digest(original.read_bytes()) != entry['sourceSha256']):
                 raise ValueError(f'Source changed: {slug}')
             for width in WIDTHS:
-                file = output / f'{slug}-{width}.webp'
                 size = entry['widths'][str(width)]
+                name = f"{slug}-{width}-{size['sha256'][:8]}.webp"
+                file = output / name
+                expected_files.add(name)
                 data = file.read_bytes()
                 with Image.open(BytesIO(data)) as image:
                     if (image.width, image.height) != (width, size['height']) or image.format != 'WEBP':
                         raise ValueError(f'Wrong dimensions: {file.name}')
                 if len(data) != size['bytes'] or digest(data) != size['sha256'] or size['url'] != f'/arena/games/{file.name}':
                     raise ValueError(f'Output changed: {file.name}')
+        if {path.name for path in output.glob('*.webp')} != expected_files or (output / 'manifest.json').exists():
+            raise ValueError('Stale public covers or manifest remain')
         return True
     except (OSError, KeyError, TypeError, json.JSONDecodeError) as error:
         raise ValueError(f'Missing or stale cover bake: {error}') from error
 
 
-def bake(roster, output, sources, check=False, allow_download=False):
-    output, sources = Path(output), Path(sources)
+def bake(roster, output, sources, check=False, allow_download=False, *, manifest_path, contrast_slugs=None):
+    output, sources, manifest_path = Path(output), Path(sources), Path(manifest_path)
+    contrast_slugs = [row['slug'] for row in roster] if contrast_slugs is None else contrast_slugs
     if check:
-        return check_outputs(roster, output, sources)
+        return check_outputs(roster, output, sources, manifest_path, contrast_slugs)
     output.mkdir(parents=True, exist_ok=True)
     sources.mkdir(parents=True, exist_ok=True)
     entries = {}
@@ -210,15 +221,22 @@ def bake(roster, output, sources, check=False, allow_download=False):
             buffer = BytesIO()
             resized.save(buffer, format='WEBP', quality=72, method=6, exact=True)
             content = buffer.getvalue()
-            name = f'{slug}-{width}.webp'
+            name = f'{slug}-{width}-{digest(content)[:8]}.webp'
             (output / name).write_bytes(content)
             entry['widths'][str(width)] = {'url': f'/arena/games/{name}', 'width': width, 'height': height,
                                           'bytes': len(content), 'sha256': digest(content)}
         entries[slug] = entry
+    # Only the slot roster supplies the hall's existing design order.
     manifest = {'version': 1, 'bakerSha256': digest(Path(__file__).read_bytes()), 'roster': roster,
-                'entries': entries, 'contrastOrder': contrast_order(entries)}
+                'entries': entries, 'contrastOrder': contrast_order({slug: entries[slug] for slug in contrast_slugs})}
     manifest['manifestSha256'] = digest(encoded(manifest))
-    (output / 'manifest.json').write_bytes(encoded(manifest))
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.write_bytes(encoded(manifest))
+    expected_files = {size['url'].rsplit('/', 1)[-1] for entry in entries.values() for size in entry['widths'].values()}
+    for path in output.glob('*.webp'):
+        if path.name not in expected_files:
+            path.unlink()
+    (output / 'manifest.json').unlink(missing_ok=True)
     return True
 
 
@@ -227,6 +245,7 @@ def main():
     parser.add_argument('--check', action='store_true', help='Offline: verify roster, baker and output hashes; never download')
     parser.add_argument('--source-dir', type=Path, help='Offline originals named <slug>.<extension>')
     parser.add_argument('--output-dir', type=Path, default=ROOT / 'public/arena/games')
+    parser.add_argument('--manifest-path', type=Path, default=ROOT / 'src/features/arena/gameCovers.json')
     parser.add_argument('--roster', type=Path, default=ROOT / 'src/api/gameData.ts')
     parser.add_argument('--refresh', action='store_true', help='Discard cached originals before downloading updated art')
     args = parser.parse_args()
@@ -240,7 +259,9 @@ def main():
                 original = source_file(sources, row['slug'])
                 if original:
                     original.unlink()
-        bake(roster, args.output_dir, sources, check=args.check, allow_download=args.source_dir is None)
+        contrast_slugs = [row['slug'] for row in read_roster(args.roster, ('GLADIATOR_SLOTS',))]
+        bake(roster, args.output_dir, sources, check=args.check, allow_download=args.source_dir is None,
+             manifest_path=args.manifest_path, contrast_slugs=contrast_slugs)
     except (ValueError, OSError) as error:
         print(f'Cover bake failed: {error}', file=sys.stderr)
         return 1

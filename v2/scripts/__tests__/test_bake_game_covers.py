@@ -46,9 +46,9 @@ class PaletteTests(unittest.TestCase):
 
 
 class BakeTests(unittest.TestCase):
-    def test_curated_parser_reads_every_slot_and_resolves_template_urls(self):
+    def test_curated_parser_reads_slots_and_originals_and_resolves_template_urls(self):
         roster = baker.read_roster(BAKER.parents[1] / 'src/api/gameData.ts')
-        self.assertEqual(len(roster), 11)
+        self.assertEqual(len(roster), 38)
         self.assertEqual(roster[0]['slug'], 'gladiator-eyes-of-medusa')
         self.assertTrue(all(row['image'].startswith('https://content.prod.platform.mwapp.io/games/') for row in roster))
 
@@ -56,38 +56,51 @@ class BakeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             sources, out = root / 'sources', root / 'output'
+            manifest_path = root / 'src/gameCovers.json'
             sources.mkdir()
             roster = [{'slug': 'test-slot', 'image': 'https://example.com/vertical.jpg'}]
             image = sources / 'test-slot.png'
             Image.new('RGB', (80, 110), (20, 150, 50)).save(image)
+            out.mkdir()
+            (out / 'test-slot-320.webp').write_bytes(b'old')
+            (out / 'test-slot-640-deadbeef.webp').write_bytes(b'stale')
+            (out / 'manifest.json').write_text('{}')
             with patch.object(baker, 'download', side_effect=AssertionError('network forbidden')):
-                first = baker.bake(roster, out, sources, check=False)
-                raw = (out / 'manifest.json').read_bytes()
-                self.assertEqual(baker.bake(roster, out, sources, check=False), first)
-                self.assertEqual((out / 'manifest.json').read_bytes(), raw)
-                self.assertTrue(baker.bake(roster, out, sources, check=True))
+                first = baker.bake(roster, out, sources, check=False, manifest_path=manifest_path)
+                raw = manifest_path.read_bytes()
+                self.assertEqual(baker.bake(roster, out, sources, check=False, manifest_path=manifest_path), first)
+                self.assertEqual(manifest_path.read_bytes(), raw)
+                self.assertTrue(baker.bake(roster, out, sources, check=True, manifest_path=manifest_path))
                 manifest = json.loads(raw)
+                self.assertFalse((out / 'manifest.json').exists())
+                self.assertEqual(len(list(out.iterdir())), 2)
+                (out / 'test-slot-320.webp').write_bytes(b'stale')
+                with self.assertRaises(ValueError):
+                    baker.bake(roster, out, sources, check=True, manifest_path=manifest_path)
+                baker.bake(roster, out, sources, manifest_path=manifest_path)
                 for width in [320, 640]:
-                    target = out / f'test-slot-{width}.webp'
+                    size = manifest['entries']['test-slot']['widths'][str(width)]
+                    target = out / size['url'].split('/')[-1]
+                    self.assertRegex(target.name, rf'^test-slot-{width}-[a-f0-9]{{8}}\.webp$')
+                    self.assertTrue(target.name.endswith(f"-{baker.digest(target.read_bytes())[:8]}.webp"))
                     with Image.open(target) as cover:
                         self.assertEqual(cover.width, width)
                     self.assertEqual(manifest['entries']['test-slot']['widths'][str(width)]['bytes'], target.stat().st_size)
-                (out / 'test-slot-320.webp').write_bytes(b'changed')
+                (out / manifest['entries']['test-slot']['widths']['320']['url'].split('/')[-1]).write_bytes(b'changed')
                 with self.assertRaises(ValueError):
-                    baker.bake(roster, out, sources, check=True)
-                baker.bake(roster, out, sources, check=False)
-                manifest_path = out / 'manifest.json'
+                    baker.bake(roster, out, sources, check=True, manifest_path=manifest_path)
+                baker.bake(roster, out, sources, check=False, manifest_path=manifest_path)
                 edited = json.loads(manifest_path.read_bytes())
                 edited['entries']['test-slot']['primary'] = [1, 0, 1]
                 manifest_path.write_text(json.dumps(edited))
                 with self.assertRaises(ValueError):
-                    baker.bake(roster, out, sources, check=True)
-                baker.bake(roster, out, sources, check=False)
+                    baker.bake(roster, out, sources, check=True, manifest_path=manifest_path)
+                baker.bake(roster, out, sources, check=False, manifest_path=manifest_path)
                 Image.new('RGB', (80, 110), (190, 40, 50)).save(image)
                 with self.assertRaises(ValueError):
-                    baker.bake(roster, out, sources, check=True)
+                    baker.bake(roster, out, sources, check=True, manifest_path=manifest_path)
                 with self.assertRaises(ValueError):
-                    baker.bake([*roster, {'slug': 'added', 'image': 'https://example.com/new.jpg'}], out, sources, check=True)
+                    baker.bake([*roster, {'slug': 'added', 'image': 'https://example.com/new.jpg'}], out, sources, check=True, manifest_path=manifest_path)
 
 
 if __name__ == '__main__':

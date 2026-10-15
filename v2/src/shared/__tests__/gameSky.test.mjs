@@ -8,6 +8,8 @@ import { skyModuleUrls } from './skyModuleUrls.mjs';
 import { motionModuleUrls } from './motionModuleUrls.mjs';
 import { sceneLoadingModuleUrls } from './sceneLoadingModuleUrls.mjs';
 import { sceneEffectsModuleUrls } from './sceneEffectsModuleUrls.mjs';
+import { createLoader } from './loadTs.mjs';
+
 
 const require = createRequire(new URL('../../../package.json', import.meta.url));
 const ts = require('typescript');

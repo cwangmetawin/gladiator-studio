@@ -1,12 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { createLoader } from '../../../shared/__tests__/loadTs.mjs';
 
 const { load } = createLoader();
 const { featuredCatalogue } = await load('features/partner/partnerCatalogue.ts');
-const { parseCoverManifest } = await load('features/arena/hallManifest.ts');
-const manifest = parseCoverManifest(JSON.parse(readFileSync(new URL('../../../../public/arena/games/manifest.json', import.meta.url), 'utf8')));
+const { COVER_MANIFEST: manifest } = await load('features/arena/hallManifest.ts');
 const [slug, baked] = Object.entries(manifest.entries)[0];
 const curated = Object.freeze([{ title: 'Example', slug, image: baked.source, category: 'slot', rtp: 99 }]);
 const featured = Object.freeze([{ title: ' EXAMPLE ', genre: 'Edited genre', rtp: '99.5%' }]);
@@ -18,8 +16,8 @@ test('featured titles keep every edited label, use live RTP, and prefer matching
   assert.equal(phone[0].title, ' EXAMPLE ');
   assert.equal(phone[0].genre, 'Edited genre');
   assert.equal(phone[0].rtp, '94.2%');
-  assert.equal(phone[0].cover.url, `/arena/games/${slug}-320.webp`);
-  assert.equal(desktop[0].cover.url, `/arena/games/${slug}-640.webp`);
+  assert.equal(phone[0].cover.url, baked.widths['320'].url);
+  assert.equal(desktop[0].cover.url, baked.widths['640'].url);
   assert.equal(featured[0].rtp, '99.5%');
 });
 

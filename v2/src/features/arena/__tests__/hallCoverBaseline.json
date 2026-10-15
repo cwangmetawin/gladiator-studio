@@ -1,439 +1,14 @@
 {
-  "version": 1,
-  "bakerSha256": "5d0077ea7890b71be10cd06ea10e0d1dda3c39a9d944e6b7e4632abe8e2bd285",
-  "roster": [
-    {
-      "slug": "gladiator-eyes-of-medusa",
-      "image": "https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg"
-    },
-    {
-      "slug": "gladiator-candy-cash-100k",
-      "image": "https://content.prod.platform.mwapp.io/games/candy-cash-new.jpg"
-    },
-    {
-      "slug": "thunder-tavern",
-      "image": "https://content.prod.platform.mwapp.io/games/thunder-tavern-vertical.jpg"
-    },
-    {
-      "slug": "rise-of-cetus",
-      "image": "https://content.prod.platform.mwapp.io/games/rise-of-cetus-new.jpg"
-    },
-    {
-      "slug": "legend-of-tartarus",
-      "image": "https://content.prod.platform.mwapp.io/games/legend-of-tartarus-new.jpg"
-    },
-    {
-      "slug": "gladiator-star-nudge",
-      "image": "https://content.prod.platform.mwapp.io/games/star-nudge.png"
-    },
-    {
-      "slug": "gladiator-to-the-top",
-      "image": "https://content.prod.platform.mwapp.io/games/ttt-cover-3.png"
-    },
-    {
-      "slug": "gladiator-all-about-the-fish",
-      "image": "https://content.prod.platform.mwapp.io/games/all-about-the-fish.png"
-    },
-    {
-      "slug": "gladiator-disco-dazzle",
-      "image": "https://content.prod.platform.mwapp.io/games/disco-dazzle.png"
-    },
-    {
-      "slug": "gladiator-maneater",
-      "image": "https://content.prod.platform.mwapp.io/games/maneater-icon-5.png"
-    },
-    {
-      "slug": "gladiator-sweety-treaty",
-      "image": "https://content.prod.platform.mwapp.io/games/sweety-treaty-prod.jpeg"
-    }
+  "featured": [
+    "gladiator-eyes-of-medusa",
+    "gladiator-candy-cash-100k",
+    "thunder-tavern",
+    "rise-of-cetus",
+    "legend-of-tartarus",
+    "gladiator-star-nudge",
+    "gladiator-to-the-top",
+    "gladiator-all-about-the-fish"
   ],
-  "entries": {
-    "gladiator-eyes-of-medusa": {
-      "source": "https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg",
-      "sourceSha256": "61de3e7826a6c91fa726f7f83defef5adaee03e4d702c4c1a351323b08343adf",
-      "sourceSize": {
-        "width": 837,
-        "height": 1122,
-        "bytes": 1033038
-      },
-      "primary": [
-        0.162881,
-        0.561034,
-        0.195563
-      ],
-      "secondary": [
-        0.558325,
-        0.446864,
-        0.162094
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-eyes-of-medusa-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 20738,
-          "sha256": "6c70f4763c5ec7c2aa31775f35b5abb43946eb93bcf2c5bdbd0b53c4220674b2"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-eyes-of-medusa-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 54186,
-          "sha256": "e89217df2f791f6cb71e68c94555632cae42b7c84fa0bbde4a84f85402506b7b"
-        }
-      }
-    },
-    "gladiator-candy-cash-100k": {
-      "source": "https://content.prod.platform.mwapp.io/games/candy-cash-new.jpg",
-      "sourceSha256": "40cb23707891808320c092a9e5c6f438ad567d4cd25cb022bf9c08707a2183c6",
-      "sourceSize": {
-        "width": 558,
-        "height": 748,
-        "bytes": 442156
-      },
-      "primary": [
-        0.927655,
-        0.297787,
-        0.551291
-      ],
-      "secondary": [
-        0.617304,
-        0.427858,
-        0.176694
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-candy-cash-100k-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 19198,
-          "sha256": "a3e1a58b6df8bc03a6764860f88d5696f9a7c6ed5eda2b21e56bfe53da21b2db"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-candy-cash-100k-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 45522,
-          "sha256": "15765fc0eb8017f926d5c077c6a1aca4f26b1b0ee20c48d4e956721013bad0bd"
-        }
-      }
-    },
-    "thunder-tavern": {
-      "source": "https://content.prod.platform.mwapp.io/games/thunder-tavern-vertical.jpg",
-      "sourceSha256": "eb60948aec1e56675862d515d9ee0e778fdfad3435847ab35965ce3cae7e3040",
-      "sourceSize": {
-        "width": 837,
-        "height": 1122,
-        "bytes": 1101901
-      },
-      "primary": [
-        0.1858,
-        0.509358,
-        0.639976
-      ],
-      "secondary": [
-        0.688285,
-        0.400306,
-        0.240606
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/thunder-tavern-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 20060,
-          "sha256": "3bc69a5130d2230009458cbda780811c4b7f14132eab02159903373dd40c570c"
-        },
-        "640": {
-          "url": "/arena/games/thunder-tavern-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 59158,
-          "sha256": "c59a116345f0a416ec710d9eb84e8a264e2679e435e2cb506afe242ceee4910e"
-        }
-      }
-    },
-    "rise-of-cetus": {
-      "source": "https://content.prod.platform.mwapp.io/games/rise-of-cetus-new.jpg",
-      "sourceSha256": "1092dee0f6d2c04a22c0ce812199354bac9cb3aab62da27126848fe5c241734b",
-      "sourceSize": {
-        "width": 837,
-        "height": 1122,
-        "bytes": 884693
-      },
-      "primary": [
-        0.093649,
-        0.531304,
-        0.693923
-      ],
-      "secondary": [
-        0.653229,
-        0.414133,
-        0.206867
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/rise-of-cetus-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 21640,
-          "sha256": "3ec9a8ad4e9faca56ea123e896b8a5bc47a955514b08d7dfb796f02e746b5d4b"
-        },
-        "640": {
-          "url": "/arena/games/rise-of-cetus-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 49744,
-          "sha256": "9b05c6ab2d9da3545e6d0d721c4745ae4a650602a2309a86273c7d031e382bc1"
-        }
-      }
-    },
-    "legend-of-tartarus": {
-      "source": "https://content.prod.platform.mwapp.io/games/legend-of-tartarus-new.jpg",
-      "sourceSha256": "b45af6522f9d1ab4f6d60c9b28b0cdecf07c5ef67f5f32fd8a9f8f88094bded2",
-      "sourceSize": {
-        "width": 837,
-        "height": 1122,
-        "bytes": 925172
-      },
-      "primary": [
-        0.822564,
-        0.350929,
-        0.334332
-      ],
-      "secondary": [
-        0.502225,
-        0.469213,
-        0.105897
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/legend-of-tartarus-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 21904,
-          "sha256": "924c655287d30bf717d52d1cd9a615bece8c1a41d3ed7404e95445490d4f595b"
-        },
-        "640": {
-          "url": "/arena/games/legend-of-tartarus-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 52602,
-          "sha256": "0ab068c608c0fd6e67715bd4989ebce8b1f0e93ce57829f2ea3d7c8ed462c9f3"
-        }
-      }
-    },
-    "gladiator-star-nudge": {
-      "source": "https://content.prod.platform.mwapp.io/games/star-nudge.png",
-      "sourceSha256": "a2421a131931c4d4c1ab21212169acecf89d6068c31b5e35a93da4517179321a",
-      "sourceSize": {
-        "width": 269,
-        "height": 360,
-        "bytes": 173575
-      },
-      "primary": [
-        0.791078,
-        0.333817,
-        0.596552
-      ],
-      "secondary": [
-        0.512487,
-        0.465944,
-        0.108061
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-star-nudge-320.webp",
-          "width": 320,
-          "height": 428,
-          "bytes": 17204,
-          "sha256": "4f002857536dd25dda13f9557d8e4e4680eb40d1deb82d7f96d05b5c5688d97e"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-star-nudge-640.webp",
-          "width": 640,
-          "height": 857,
-          "bytes": 35840,
-          "sha256": "7371a832145b1f0964727eb77852f49325af7c3ee0af99135d3b4f448c5510be"
-        }
-      }
-    },
-    "gladiator-to-the-top": {
-      "source": "https://content.prod.platform.mwapp.io/games/ttt-cover-3.png",
-      "sourceSha256": "ac1b6b86ba4bcf92f4de3be3f5001214f17869c997dac7265915118ec59841ad",
-      "sourceSize": {
-        "width": 348,
-        "height": 466,
-        "bytes": 258281
-      },
-      "primary": [
-        0.113013,
-        0.517288,
-        0.775743
-      ],
-      "secondary": [
-        0.514888,
-        0.465084,
-        0.109515
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-to-the-top-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 18412,
-          "sha256": "e5a59658d72bb192af0c3d44823f36fb72d478845bfd68bd5bfae3a099de7c68"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-to-the-top-640.webp",
-          "width": 640,
-          "height": 857,
-          "bytes": 39292,
-          "sha256": "2a21d3dce9ff9f8bb829b894d198759d12894934bed76951063fe61c4580482b"
-        }
-      }
-    },
-    "gladiator-all-about-the-fish": {
-      "source": "https://content.prod.platform.mwapp.io/games/all-about-the-fish.png",
-      "sourceSha256": "90118129a8712859d02b12a7e52db9b98b725ae245948ec7c91c875844153ffe",
-      "sourceSize": {
-        "width": 1116,
-        "height": 1496,
-        "bytes": 1565487
-      },
-      "primary": [
-        0.747337,
-        0.324946,
-        0.813223
-      ],
-      "secondary": [
-        0.726023,
-        0.387751,
-        0.253846
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-all-about-the-fish-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 17146,
-          "sha256": "5818c649d41c7318b01cd2bd754b7370517e64d852abde8d1803fa00ff3b7a1e"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-all-about-the-fish-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 38110,
-          "sha256": "d4db5638dfb6de4c1b2bfba9918f5d740b961512aa6c35a7495fb51f57f82d1f"
-        }
-      }
-    },
-    "gladiator-disco-dazzle": {
-      "source": "https://content.prod.platform.mwapp.io/games/disco-dazzle.png",
-      "sourceSha256": "1ffabf51e5cfda47f4fb29cd1e83367cb4d744738666444ab1e8061f43615d51",
-      "sourceSize": {
-        "width": 1116,
-        "height": 1496,
-        "bytes": 1732793
-      },
-      "primary": [
-        0.754936,
-        0.316424,
-        0.875269
-      ],
-      "secondary": [
-        0.333881,
-        0.446076,
-        0.830788
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-disco-dazzle-320.webp",
-          "width": 320,
-          "height": 429,
-          "bytes": 18804,
-          "sha256": "96413cf610addaa3ca352811c11f51edb6e6685564ac6daa204b18645f07a1e7"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-disco-dazzle-640.webp",
-          "width": 640,
-          "height": 858,
-          "bytes": 49070,
-          "sha256": "9b4da6413f4958ad74106719444ea8b719d196fea9dd6e4c16fb065d53b74f32"
-        }
-      }
-    },
-    "gladiator-maneater": {
-      "source": "https://content.prod.platform.mwapp.io/games/maneater-icon-5.png",
-      "sourceSha256": "d899e36675d0526c7b47cb90dc73aeb064cc38ca9d163a9042623819d131854f",
-      "sourceSize": {
-        "width": 862,
-        "height": 1152,
-        "bytes": 1815256
-      },
-      "primary": [
-        0.554971,
-        0.384024,
-        0.794448
-      ],
-      "secondary": [
-        0.363831,
-        0.506206,
-        0.146963
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-maneater-320.webp",
-          "width": 320,
-          "height": 428,
-          "bytes": 17894,
-          "sha256": "d365af7b3f34c41bdae371b5f5a5f5cbf63dc9f3866cb662bea441fadc4c182f"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-maneater-640.webp",
-          "width": 640,
-          "height": 855,
-          "bytes": 41284,
-          "sha256": "af9431099db7f9e45f2b7ee13339a533c227a264b9d99503367adaeecc5908b9"
-        }
-      }
-    },
-    "gladiator-sweety-treaty": {
-      "source": "https://content.prod.platform.mwapp.io/games/sweety-treaty-prod.jpeg",
-      "sourceSha256": "a1c792d2aaa9520522b507c283e56a822c3f45b84b69420e4fb618d3f509a59b",
-      "sourceSize": {
-        "width": 423,
-        "height": 566,
-        "bytes": 161351
-      },
-      "primary": [
-        0.82738,
-        0.33007,
-        0.526777
-      ],
-      "secondary": [
-        0.543029,
-        0.451714,
-        0.159084
-      ],
-      "widths": {
-        "320": {
-          "url": "/arena/games/gladiator-sweety-treaty-320.webp",
-          "width": 320,
-          "height": 428,
-          "bytes": 14780,
-          "sha256": "5c8b709fb8de8610b340627ce1e68793b068c1ca3ab37e8bfcba6252659251fc"
-        },
-        "640": {
-          "url": "/arena/games/gladiator-sweety-treaty-640.webp",
-          "width": 640,
-          "height": 856,
-          "bytes": 29568,
-          "sha256": "40a602ff6243abb0d1a768a2b4d6bf937b2f2a6d6aa9fd41a2381ba3b077794a"
-        }
-      }
-    }
-  },
   "contrastOrder": [
     "gladiator-eyes-of-medusa",
     "gladiator-star-nudge",
@@ -447,5 +22,303 @@
     "gladiator-maneater",
     "gladiator-sweety-treaty"
   ],
-  "manifestSha256": "0b889d2aae6ff23da2b083e1c1aba45b91b8398146cd6f5a2768d3d003601b09"
+  "entries": {
+    "gladiator-eyes-of-medusa": {
+      "source": "https://content.prod.platform.mwapp.io/games/eyes-of-medusa-vertical.jpg",
+      "primary": [
+        0.162881,
+        0.561034,
+        0.195563
+      ],
+      "secondary": [
+        0.558325,
+        0.446864,
+        0.162094
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 20738,
+          "sha256": "6c70f4763c5ec7c2aa31775f35b5abb43946eb93bcf2c5bdbd0b53c4220674b2"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 54186,
+          "sha256": "e89217df2f791f6cb71e68c94555632cae42b7c84fa0bbde4a84f85402506b7b"
+        }
+      }
+    },
+    "gladiator-candy-cash-100k": {
+      "source": "https://content.prod.platform.mwapp.io/games/candy-cash-new.jpg",
+      "primary": [
+        0.927655,
+        0.297787,
+        0.551291
+      ],
+      "secondary": [
+        0.617304,
+        0.427858,
+        0.176694
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 19198,
+          "sha256": "a3e1a58b6df8bc03a6764860f88d5696f9a7c6ed5eda2b21e56bfe53da21b2db"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 45522,
+          "sha256": "15765fc0eb8017f926d5c077c6a1aca4f26b1b0ee20c48d4e956721013bad0bd"
+        }
+      }
+    },
+    "thunder-tavern": {
+      "source": "https://content.prod.platform.mwapp.io/games/thunder-tavern-vertical.jpg",
+      "primary": [
+        0.1858,
+        0.509358,
+        0.639976
+      ],
+      "secondary": [
+        0.688285,
+        0.400306,
+        0.240606
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 20060,
+          "sha256": "3bc69a5130d2230009458cbda780811c4b7f14132eab02159903373dd40c570c"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 59158,
+          "sha256": "c59a116345f0a416ec710d9eb84e8a264e2679e435e2cb506afe242ceee4910e"
+        }
+      }
+    },
+    "rise-of-cetus": {
+      "source": "https://content.prod.platform.mwapp.io/games/rise-of-cetus-new.jpg",
+      "primary": [
+        0.093649,
+        0.531304,
+        0.693923
+      ],
+      "secondary": [
+        0.653229,
+        0.414133,
+        0.206867
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 21640,
+          "sha256": "3ec9a8ad4e9faca56ea123e896b8a5bc47a955514b08d7dfb796f02e746b5d4b"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 49744,
+          "sha256": "9b05c6ab2d9da3545e6d0d721c4745ae4a650602a2309a86273c7d031e382bc1"
+        }
+      }
+    },
+    "legend-of-tartarus": {
+      "source": "https://content.prod.platform.mwapp.io/games/legend-of-tartarus-new.jpg",
+      "primary": [
+        0.822564,
+        0.350929,
+        0.334332
+      ],
+      "secondary": [
+        0.502225,
+        0.469213,
+        0.105897
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 21904,
+          "sha256": "924c655287d30bf717d52d1cd9a615bece8c1a41d3ed7404e95445490d4f595b"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 52602,
+          "sha256": "0ab068c608c0fd6e67715bd4989ebce8b1f0e93ce57829f2ea3d7c8ed462c9f3"
+        }
+      }
+    },
+    "gladiator-star-nudge": {
+      "source": "https://content.prod.platform.mwapp.io/games/star-nudge.png",
+      "primary": [
+        0.791078,
+        0.333817,
+        0.596552
+      ],
+      "secondary": [
+        0.512487,
+        0.465944,
+        0.108061
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 428,
+          "bytes": 17204,
+          "sha256": "4f002857536dd25dda13f9557d8e4e4680eb40d1deb82d7f96d05b5c5688d97e"
+        },
+        "640": {
+          "width": 640,
+          "height": 857,
+          "bytes": 35840,
+          "sha256": "7371a832145b1f0964727eb77852f49325af7c3ee0af99135d3b4f448c5510be"
+        }
+      }
+    },
+    "gladiator-to-the-top": {
+      "source": "https://content.prod.platform.mwapp.io/games/ttt-cover-3.png",
+      "primary": [
+        0.113013,
+        0.517288,
+        0.775743
+      ],
+      "secondary": [
+        0.514888,
+        0.465084,
+        0.109515
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 18412,
+          "sha256": "e5a59658d72bb192af0c3d44823f36fb72d478845bfd68bd5bfae3a099de7c68"
+        },
+        "640": {
+          "width": 640,
+          "height": 857,
+          "bytes": 39292,
+          "sha256": "2a21d3dce9ff9f8bb829b894d198759d12894934bed76951063fe61c4580482b"
+        }
+      }
+    },
+    "gladiator-all-about-the-fish": {
+      "source": "https://content.prod.platform.mwapp.io/games/all-about-the-fish.png",
+      "primary": [
+        0.747337,
+        0.324946,
+        0.813223
+      ],
+      "secondary": [
+        0.726023,
+        0.387751,
+        0.253846
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 17146,
+          "sha256": "5818c649d41c7318b01cd2bd754b7370517e64d852abde8d1803fa00ff3b7a1e"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 38110,
+          "sha256": "d4db5638dfb6de4c1b2bfba9918f5d740b961512aa6c35a7495fb51f57f82d1f"
+        }
+      }
+    },
+    "gladiator-disco-dazzle": {
+      "source": "https://content.prod.platform.mwapp.io/games/disco-dazzle.png",
+      "primary": [
+        0.754936,
+        0.316424,
+        0.875269
+      ],
+      "secondary": [
+        0.333881,
+        0.446076,
+        0.830788
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 429,
+          "bytes": 18804,
+          "sha256": "96413cf610addaa3ca352811c11f51edb6e6685564ac6daa204b18645f07a1e7"
+        },
+        "640": {
+          "width": 640,
+          "height": 858,
+          "bytes": 49070,
+          "sha256": "9b4da6413f4958ad74106719444ea8b719d196fea9dd6e4c16fb065d53b74f32"
+        }
+      }
+    },
+    "gladiator-maneater": {
+      "source": "https://content.prod.platform.mwapp.io/games/maneater-icon-5.png",
+      "primary": [
+        0.554971,
+        0.384024,
+        0.794448
+      ],
+      "secondary": [
+        0.363831,
+        0.506206,
+        0.146963
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 428,
+          "bytes": 17894,
+          "sha256": "d365af7b3f34c41bdae371b5f5a5f5cbf63dc9f3866cb662bea441fadc4c182f"
+        },
+        "640": {
+          "width": 640,
+          "height": 855,
+          "bytes": 41284,
+          "sha256": "af9431099db7f9e45f2b7ee13339a533c227a264b9d99503367adaeecc5908b9"
+        }
+      }
+    },
+    "gladiator-sweety-treaty": {
+      "source": "https://content.prod.platform.mwapp.io/games/sweety-treaty-prod.jpeg",
+      "primary": [
+        0.82738,
+        0.33007,
+        0.526777
+      ],
+      "secondary": [
+        0.543029,
+        0.451714,
+        0.159084
+      ],
+      "widths": {
+        "320": {
+          "width": 320,
+          "height": 428,
+          "bytes": 14780,
+          "sha256": "5c8b709fb8de8610b340627ce1e68793b068c1ca3ab37e8bfcba6252659251fc"
+        },
+        "640": {
+          "width": 640,
+          "height": 856,
+          "bytes": 29568,
+          "sha256": "40a602ff6243abb0d1a768a2b4d6bf937b2f2a6d6aa9fd41a2381ba3b077794a"
+        }
+      }
+    }
+  }
 }
