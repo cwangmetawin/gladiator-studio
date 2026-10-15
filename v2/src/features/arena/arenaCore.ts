@@ -7,3 +7,4 @@ export { PBRMaterial } from '@babylonjs/core/Materials/PBR/pbrMaterial.js';
 export { CubeTexture } from '@babylonjs/core/Materials/Textures/cubeTexture.js';
 export { FreeCamera } from '@babylonjs/core/Cameras/freeCamera.js';
 export { ImageProcessingConfiguration } from '@babylonjs/core/Materials/imageProcessingConfiguration.js';
+export { RawTexture } from '@babylonjs/core/Materials/Textures/rawTexture.js';

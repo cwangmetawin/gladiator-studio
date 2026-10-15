@@ -1,4 +1,6 @@
-import { useLayoutEffect, useRef } from 'react';
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react';
+import { useMotionPreference } from '@/shared/motion/useMotionPreference';
+import { doorsVisible, journeyProgress } from '@/features/arena/journeyProgress';
 import { gameKey } from './gameIdentity';
 import { skyStore } from './skyStore';
 import { DESKTOP_DOOR_CAP, selectDoors, type DoorCandidate, type ScreenRect } from './doorSelection';
@@ -17,7 +19,11 @@ const COUNTS = Array.from({ length: STARS_PER_CONSTELLATION + 1 }, (_, i) => `${
 const OBSTACLES = '[data-sky-obstacle], .topbar, .shell-bar, .ticker';
 
 /** The scene publishes after projection; these six persistent buttons never need a RAF. */
-export function ConstellationDoors({ active, phone, games, onFocusGame }: ConstellationDoorsProps) {
+export function ConstellationDoors({ active: homeActive, phone, games, onFocusGame }: ConstellationDoorsProps) {
+  const reduced = useMotionPreference();
+  const firstScreen = useSyncExternalStore(journeyProgress.subscribe,
+    () => doorsVisible(journeyProgress.getSnapshot(), reduced), () => true);
+  const active = homeActive && firstScreen;
   const rootRef = useRef<HTMLElement>(null);
   useLayoutEffect(() => {
     const root = rootRef.current;

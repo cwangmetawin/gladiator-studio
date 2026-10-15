@@ -3,6 +3,7 @@
 import { CreateSphere } from '@babylonjs/core/Meshes/Builders/sphereBuilder.js';
 import { CreateTorus } from '@babylonjs/core/Meshes/Builders/torusBuilder.js';
 import { CreatePlane } from '@babylonjs/core/Meshes/Builders/planeBuilder.js';
+import { CreateLineSystem } from '@babylonjs/core/Meshes/Builders/linesBuilder.js';
 
 // Preserve registrations supplied by the barrel. Glow/Layer/DynamicTexture also
 // import their components/extensions themselves; keeping them explicit documents
@@ -44,7 +45,7 @@ export { ParticleSystem } from '@babylonjs/core/Particles/particleSystem.js';
 
 // These builders also register Mesh/VertexData's legacy factory methods. Avoid
 // meshBuilder.js, which would import every other procedural mesh builder too.
-export const MeshBuilder = { CreateSphere, CreateTorus, CreatePlane };
+export const MeshBuilder = { CreateSphere, CreateTorus, CreatePlane, CreateLineSystem };
 
 // Keep optional GPU measurement behind the same entry and out of normal requests.
 export async function loadGpuInstrumentation() {

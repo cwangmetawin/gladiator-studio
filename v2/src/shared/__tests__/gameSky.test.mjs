@@ -22,6 +22,9 @@ const moduleUrl = src => {
   return `data:text/javascript;base64,${Buffer.from(js).toString('base64')}`;
 };
 const urls = skyModuleUrls(moduleUrl, source, { mutateGroup: process.env.MUTATE_CONSTELLATION_GROUP === '1' });
+const arenaJourneyUrl = moduleUrl(source('../../features/arena/journeyProgress.ts'));
+// Motion preference has its own live-subscription test; these door tests isolate the normal-motion sky.
+const doorPreferenceUrl = moduleUrl('export const useMotionPreference = () => false;');
 const { GAME_PALETTE, gameHash, gameAccent, gameSkyPosition, CONSTELLATION_RADIUS } = await import(urls.identity);
 const { createConstellationStore, winBrightness, starOpacity, STARS_PER_CONSTELLATION,
   PHONE_STARS_PER_CONSTELLATION, MAX_CONSTELLATIONS, STAR_LIFETIME_MS, STAR_FADE_MS } = await import(urls.constellations);
@@ -575,6 +578,8 @@ test('the shipped catalogue opens with the requested centre card; doors are real
   assert.match(html, /data-active-index="2"/);
   assert.match(html, /class="deck-card is-centre"[^>]*aria-label="Play To The Top"/);
   const { ConstellationDoors } = await import(moduleUrl(source('../../features/starfield/ConstellationDoors.tsx')
+    .replace("from '@/shared/motion/useMotionPreference'", `from '${doorPreferenceUrl}'`)
+    .replace("from '@/features/arena/journeyProgress'", `from '${arenaJourneyUrl}'`)
     .replace("import './constellations.css';", '')
     .replace("from './gameIdentity'", `from '${urls.identity}'`)
     .replace("from './skyStore'", `from '${urls.store}'`)
@@ -728,9 +733,12 @@ test('projected DOM doors receive accessible names, activate the correct title, 
   const hooksUrl = moduleUrl(`
     export const root = { current: null }, layouts = [];
     export const useRef = () => root, useLayoutEffect = fn => layouts.push(fn);
+    export const useSyncExternalStore = (_subscribe, getSnapshot) => getSnapshot();
   `);
   const { root, layouts } = await import(hooksUrl);
   const { ConstellationDoors } = await import(moduleUrl(source('../../features/starfield/ConstellationDoors.tsx')
+    .replace("from '@/shared/motion/useMotionPreference'", `from '${doorPreferenceUrl}'`)
+    .replace("from '@/features/arena/journeyProgress'", `from '${arenaJourneyUrl}'`)
     .replace("from 'react'", `from '${hooksUrl}'`)
     .replace("import './constellations.css';", '')
     .replace("from './gameIdentity'", `from '${urls.identity}'`)
@@ -795,6 +803,13 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     const measured = reads;
     for (let i = 0; i < 10; i++) skyStore.publishFrame();
     assert.equal(reads, measured, 'projection updates never force layout');
+    const { journeyProgress } = await import(arenaJourneyUrl);
+    journeyProgress.publish(1.9);
+    const inArena = ConstellationDoors({ active: true, phone: false, games: catalogue, onFocusGame() {} });
+    assert.equal(inArena.props.hidden, true, 'home is active but its sky doors do not follow the visitor into the arena');
+    journeyProgress.publish(0);
+    const returned = ConstellationDoors({ active: true, phone: false, games: catalogue, onFocusGame() {} });
+    assert.equal(returned.props.hidden, false, 'native scrolling back restores the existing door layer');
   } finally {
     cleanup?.(); skyStore.setReady(false);
     for (const [name, value] of Object.entries(saved)) {

@@ -26,7 +26,8 @@ test('the lazy Babylon entry registers builders, layers, particles, picking and 
     const material = new B.StandardMaterial('earth', scene);
     material.emissiveFresnelParameters = new B.FresnelParameters();
     for (const [name, builder] of Object.entries(B.MeshBuilder)) {
-      const mesh = builder(name, {}, scene);
+      const options = name === 'CreateLineSystem' ? { lines: [[B.Vector3.Zero(), new B.Vector3(1, 1, 1)]] } : {};
+      const mesh = builder(name, options, scene);
       mesh.material = material;
       assert.ok(mesh.getTotalVertices() > 0, `${name} must create geometry`);
     }
