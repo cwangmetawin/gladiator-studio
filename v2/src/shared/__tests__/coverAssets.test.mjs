@@ -49,24 +49,17 @@ test('the expanded bake preserves the original hall selection, contrast order, p
   }
 });
 
-test('Netlify caches only asset bundles and baked WebP paths immutably; every existing setting is preserved', () => {
-  const text = readFileSync(new URL('netlify.toml', root), 'utf8');
-  const blocks = text.match(/\[\[headers\]\][\s\S]*?(?=\n\[\[|$(?![\s\S]))/g) ?? [];
-  assert.equal(blocks.length, 2);
-  assert.deepEqual(blocks.map(block => block.match(/for = "([^"]+)"/)[1]).sort(), ['/arena/games/*.webp', '/assets/*']);
-  for (const block of blocks) {
-    assert.match(block, /Cache-Control = "public, max-age=31536000, immutable"/);
-    assert.equal(block.trim().split('\n').length, 4, 'no additional headers');
+test('Netlify caches only hashed bundles and baked covers immutably, through public/_headers', () => {
+  // The site's Netlify build reads public/_redirects and public/_headers; it never read v2/netlify.toml's headers
+  // (its deploy check said "No header rules processed"), so the rules live next to _redirects.
+  const headers = readFileSync(new URL('public/_headers', root), 'utf8');
+  assert.equal(headers.trim(), [
+    '/assets/*', '  Cache-Control: public, max-age=31536000, immutable',
+    '/arena/games/*', '  Cache-Control: public, max-age=31536000, immutable',
+  ].join('\n'));
+  // Immutable is only safe because every file in that folder carries its content hash.
+  for (const file of readdirSync(new URL('public/arena/games/', root))) {
+    assert.match(file, /^[a-z0-9]+(?:-[a-z0-9]+)*-(?:320|640)-[0-9a-f]{8}\.webp$/, `${file} must be a hashed cover`);
   }
-  assert.equal(text.replace(/\n\[\[headers\]\][\s\S]*/, '').trim(), `[build]
-  command = "npm run build"
-  publish = "dist"
-
-[build.environment]
-  NODE_VERSION = "20"
-
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200`);
+  assert.doesNotMatch(readFileSync(new URL('netlify.toml', root), 'utf8'), /\[\[headers\]\]/);
 });
