@@ -118,7 +118,8 @@ test('the Client Area radius guard catches corner-only rules and utility classes
 });
 
 test('Client Area uses the arena title scale, a static backdrop and bounded instant reduced motion', () => {
-  const css = files.find(file => file.path === 'features/arena-page/arenaPage.css').text;
+  const css = files.filter(file => ['features/arena-page/arenaPage.css', 'features/arena-page/editorialBody.css'].includes(file.path))
+    .map(file => file.text).join('\n');
   assert.match(css, /\.partner__title\s*\{[^}]*font-family:\s*'Saira Title'/s);
   assert.match(css, /font-size:\s*clamp\(96px,/);
   assert.match(css, /font-size:\s*clamp\(44px,/);

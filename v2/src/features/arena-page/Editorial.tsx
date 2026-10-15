@@ -3,6 +3,7 @@ import { useMotionPreference } from '@/shared/motion/useMotionPreference';
 import { createRevealLifecycle } from './editorialLifecycle';
 import { decodeFrame, formatCount, valueAtProgress } from './editorialMotion';
 import { HeadlineWords } from './HeadlineWords';
+import './editorialBody.css';
 
 interface ChapterProps {
   readonly id: string;
@@ -10,6 +11,7 @@ interface ChapterProps {
   readonly kicker: string;
   readonly title: string;
   readonly deck?: string;
+  readonly titleCompanion?: ReactNode;
   readonly children: ReactNode;
   readonly className?: string;
 }
@@ -65,7 +67,11 @@ function ChapterRuntime(props: ChapterProps) {
   return <ChapterMarkup {...props} nodeRef={ref} kickerRef={kickerRef} />;
 }
 
-function ChapterMarkup({ id, number, kicker, title, deck, children, className = '', nodeRef, kickerRef }: ChapterProps & { readonly nodeRef?: RefObject<HTMLElement | null>; readonly kickerRef?: RefObject<HTMLSpanElement | null> }) {
+function ChapterMarkup({ id, number, kicker, title, deck, titleCompanion, children, className = '', nodeRef, kickerRef }: ChapterProps & { readonly nodeRef?: RefObject<HTMLElement | null>; readonly kickerRef?: RefObject<HTMLSpanElement | null> }) {
+  const identity = <>
+    <h2 id={`${id}-title`} className="editorial-chapter__title" aria-label={title}><EditorialWords text={title} /></h2>
+    {deck && <p className="editorial-chapter__deck">{deck}</p>}
+  </>;
   return <section id={id} ref={nodeRef} className={`editorial-chapter ${className}`} aria-labelledby={`${id}-title`}>
     <div className="editorial-chapter__rail">
       <span className="editorial-chapter__number" aria-hidden="true">{number}</span>
@@ -73,8 +79,7 @@ function ChapterMarkup({ id, number, kicker, title, deck, children, className = 
     </div>
     <div className="editorial-chapter__content">
       <div className="editorial-chapter__hairline" aria-hidden="true" />
-      <h2 id={`${id}-title`} className="editorial-chapter__title" aria-label={title}><EditorialWords text={title} /></h2>
-      {deck && <p className="editorial-chapter__deck">{deck}</p>}
+      {titleCompanion ? <div className="editorial-chapter__heading">{titleCompanion}<div className="editorial-chapter__identity">{identity}</div></div> : identity}
       <div className="editorial-chapter__body">{children}</div>
     </div>
   </section>;
@@ -179,7 +184,7 @@ function CounterMarkup({ value, decimals = 0, suffix = '', label, nodeRef, value
 }) {
   const final = formatCount(value, decimals, suffix);
   return <span ref={nodeRef} className="editorial-counter" aria-label={label ? `${final} ${label}` : final}>
-    <span ref={valueRef} className="editorial-counter__value" style={{ minWidth: `${final.length}ch` }} aria-hidden="true">{final}</span>
+    <span ref={valueRef} className="editorial-counter__value" style={{ minWidth: `min(${final.length}ch, 100%)` }} aria-hidden="true">{final}</span>
     {label && <span className="editorial-counter__label" aria-hidden="true">{label}</span>}
   </span>;
 }

@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs';
 import { createLoader } from './loadTs.mjs';
 import { moduleUrl } from './sourceModule.mjs';
 import { createHarness, harnessHooksUrl, findAll } from './hookHarness.mjs';
+import { colourChannels, compositeShade, contrastRatio, cssRules, editorialCss, shadeAlpha } from './editorialCssGuard.mjs';
 
 const require = createRequire(import.meta.url), React = require('react');
 const data = text => `data:text/javascript;base64,${Buffer.from(text).toString('base64')}`;
@@ -118,20 +119,15 @@ test('the real shell renders live transparent scenery, reveals on arrival, focus
   h.unmount(); store.request(null);
 });
 
-test('live content keeps a bounded contrast shade and removes the opaque first-screen fill', () => {
-  const css = source('features/arena-page/arenaPage.css');
+test('live content keeps one translucent body shade and removes the opaque first-screen fill', () => {
+  const css = editorialCss();
   assert.match(css, /\[data-scene='live'\][^{]*\{[^}]*background:\s*transparent/s);
-  assert.match(css, /\[data-scene='live'\] \.partner__shade[^}]*rgba\(5, 6, 9, 0\.8[0-9]/s);
+  assert.ok(cssRules(css).some(({ selectors, declarations }) => /\.arena-page(?:\[data-arena-page\])? \.partner__shade$/.test(selectors) && /display:\s*none/.test(declarations)), 'the old static shade cannot double-layer the body');
   assert.match(css, /\[data-flight='flying'\][\s\S]*visibility:\s*hidden/);
   assert.match(css, /\[data-flight='settled'\][\s\S]*partner-body-in/);
   const liveRule = css.match(/\.arena-page\[data-scene='live'\] \{([^}]+)\}/)?.[1] ?? '';
   const muted = liveRule.match(/--color-ice-400:\s*#([\da-f]{6})/i)?.[1] ?? '8294ac';
-  const alpha = Number(css.match(/\[data-scene='live'\] \.partner__shade[^}]*rgba\(5, 6, 9, ([\d.]+)\)/)?.[1]);
-  const luminance = rgb => rgb.map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-    .reduce((sum, value, i) => sum + value * [0.2126, 0.7152, 0.0722][i], 0);
-  const foreground = muted.match(/../g).map(hex => parseInt(hex, 16));
-  const background = [5, 6, 9].map(v => v * alpha + 255 * (1 - alpha));
-  const contrast = (luminance(foreground) + 0.05) / (luminance(background) + 0.05);
+  const contrast = contrastRatio(colourChannels(muted), compositeShade([255, 255, 255], shadeAlpha(css)));
   assert.ok(contrast >= 4.5, `the dimmest copy over a white scene must pass 4.5:1, got ${contrast.toFixed(2)}`);
 });
 

@@ -16,11 +16,13 @@ interface ArenaPageContentProps {
 export function ArenaPageContent({ titleId, eyebrow, title, lede, children, bodyOnly = false, headlineReady = true }: ArenaPageContentProps) {
   if (bodyOnly) return <>{children}</>;
   return <main className="partner__stage">
-    <section className="partner__hero">
-      <div className="partner__identity"><p className="partner__eyebrow">{eyebrow}</p><FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} /></div>
-      <h1 id={titleId} className="partner__title" tabIndex={-1}><HeadlineWords text={title} ready={headlineReady} /></h1>
-      <p className="partner__lede">{lede}</p>
-    </section>
-    {children}
+    <div className="partner__body">
+      <section className="partner__hero">
+        <div className="partner__identity"><p className="partner__eyebrow">{eyebrow}</p><FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} /></div>
+        <h1 id={titleId} className="partner__title" tabIndex={-1}><HeadlineWords text={title} ready={headlineReady} /></h1>
+        <p className="partner__lede">{lede}</p>
+      </section>
+      {children}
+    </div>
   </main>;
 }

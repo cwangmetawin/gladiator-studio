@@ -62,7 +62,6 @@
 .partner__copy-label { animation: partner-copy-in 200ms cubic-bezier(.2,.8,.2,1) both; }
 @keyframes partner-copy-in { from { opacity: 0.6; transform: translateY(3px); } to { opacity: 1; transform: translateY(0); } }
 .partner__game { position: relative; padding-block: 36px; border-top: 1px solid var(--partner-rule); }
-.partner__stage .partner__game h3 { font: 800 clamp(28px, 3.2vw, 48px)/1 'Saira Title', var(--font-display); letter-spacing: -0.02em; text-transform: uppercase; }
 .partner__gamefacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; gap: 28px; margin: 28px 0; }
 .partner__gamefacts dt { margin-bottom: 10px; font: 11px/1.6 var(--font-mono); letter-spacing: 0.16em; color: var(--color-ice-200); text-transform: uppercase; }
 .partner__gamefacts dd { margin: 0; font-size: var(--page-body-size, 18px); color: var(--color-ice-50); }

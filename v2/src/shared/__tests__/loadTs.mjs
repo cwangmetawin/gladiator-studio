@@ -14,6 +14,7 @@ const require = createRequire(new URL('../../../package.json', import.meta.url))
 const ts = require('typescript');
 const SRC = fileURLToPath(new URL('../../', import.meta.url));
 const CANDIDATES = ['', '.ts', '.tsx', '/index.ts', '/index.tsx'];
+const EMPTY_STYLESHEET_URL = 'data:text/javascript,export%20%7B%7D';
 
 function resolveSource(specifier, fromFile) {
   const base = specifier.startsWith('@/') ? resolve(SRC, specifier.slice(2)) : resolve(dirname(fromFile), specifier);
@@ -34,6 +35,8 @@ export function createLoader(stubs = {}) {
     } }).outputText;
     const linked = js.replace(/(from\s+|import\s*\(\s*|import\s+)(['"])([^'"]+)\2/g, (match, lead, quote, specifier) => {
       if (stubs[specifier]) return `${lead}${quote}${stubs[specifier]}${quote}`;
+      // Node verifies component logic; Vite owns stylesheet loading in the real lazy chunks.
+      if (specifier.endsWith('.css')) return `${lead}${quote}${EMPTY_STYLESHEET_URL}${quote}`;
       if (!specifier.startsWith('.') && !specifier.startsWith('@/')) {
         if (specifier.startsWith('@babylonjs/') || /^react(?:\/jsx-runtime)?$/.test(specifier)) {
           return `${lead}${quote}${pathToFileURL(require.resolve(specifier)).href}${quote}`;

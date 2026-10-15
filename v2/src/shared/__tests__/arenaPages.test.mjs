@@ -25,7 +25,7 @@ const infra = {
   '@/shared/constants/urls': data('export const CONTACT = { email: "cwang@metawin.inc", phone: "+44 20 0000 0000", location: "London" };'),
   '@/lib/supabase': data('export const supabase = { functions: { invoke: (...args) => globalThis.__enquiry(...args) } };'),
   './liveCatalogue': data('export const lookupGame = () => undefined;'),
-  '@/features/arena/topBar.css': data(''), './arenaPage.css': data(''), './partner.css': data(''),
+  '@/features/arena/topBar.css': data(''), './arenaPage.css': data(''), './partner.css': data(''), './teamDossier.css': data(''),
 };
 for (const name of ['about', 'team', 'journey', 'careers', 'partner']) infra[`@/api/${name}Default.json`] = data(`export default ${JSON.stringify(json(name))};`);
 const feed = { events: [], isConnected: false, eventsPerSecond: 0, totalAmount: 0,

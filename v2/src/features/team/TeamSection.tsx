@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { ARENA_PAGE_COPY } from '@/features/arena-page/pageCopy';
 import { ArenaPageContent } from '@/features/arena-page/ArenaPageContent';
 import { EditorialChapter, EditorialCounter, EditorialIndex } from '@/features/arena-page/Editorial';
@@ -6,6 +7,7 @@ import { useStudioStats } from '@/shared/content/StudioStats';
 import { lines, paras, safeHref, safeImageSrc } from '@/shared/utils/text';
 import { withStudioMarkets } from '@/shared/utils/studioText';
 import teamDefault from '@/api/teamDefault.json';
+import './teamDossier.css';
 
 interface Person {
   readonly name: string;
@@ -33,17 +35,22 @@ function openCareers() {
 }
 
 function Profile({ person, index, markets }: { readonly person: Person; readonly index: number; readonly markets: number }) {
+  const [failedPhoto, setFailedPhoto] = useState<string | null>(null);
   const photo = safeImageSrc(person.image);
+  const hasPhoto = Boolean(photo && photo !== failedPhoto);
   const expertise = lines(person.expertise).map(text => withStudioMarkets(text, { markets }));
   const highlights = lines(person.missions).map(text => withStudioMarkets(text, { markets }));
   const socials = [{ href: person.linkedin, label: 'LinkedIn profile' }, { href: person.email, label: 'Send email' }, { href: person.github, label: 'GitHub organisation' }].filter(row => row.href);
   return <EditorialChapter id={`team-person-${index + 1}`} number={String(index + 1).padStart(2, '0')}
-    kicker={index === 0 ? 'Leadership' : 'Profile'} title={person.name || 'Unnamed'} deck={person.role} className="editorial-dossier">
+    kicker={index === 0 ? 'Leadership' : 'Profile'} title={person.name || 'Unnamed'} deck={person.role}
+    className={`editorial-dossier editorial-dossier--${hasPhoto ? 'photo' : 'monogram'}`}
+    titleCompanion={!hasPhoto ? <figure className="editorial-dossier__image editorial-dossier__image--monogram">
+      <span className="editorial-dossier__initials" aria-hidden="true">{person.initials}</span>
+    </figure> : undefined}>
     <div className="editorial-dossier__layout">
-      <figure className="editorial-dossier__image">
-        {photo ? <img className="editorial-dossier__portrait" src={photo} alt={person.name} loading="lazy" onError={event => { event.currentTarget.hidden = true; }} />
-          : <span className="editorial-dossier__initials" aria-hidden="true">{person.initials}</span>}
-      </figure>
+      {hasPhoto && <figure className="editorial-dossier__image">
+        <img className="editorial-dossier__portrait" src={photo} alt={person.name} loading="lazy" onError={() => setFailedPhoto(photo)} />
+      </figure>}
       <div className="editorial-dossier__copy">
         {person.callsign && <p className="arena-page__meta">{person.callsign}</p>}
         <p className="arena-page__meta">{[person.location, person.experience, person.company].filter(Boolean).join(' · ')}</p>

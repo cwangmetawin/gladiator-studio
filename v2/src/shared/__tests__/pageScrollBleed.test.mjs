@@ -1,25 +1,25 @@
-// The feathered copy shade (phase 5 M3, round 3) hangs a blurred ::after layer
-// --page-copy-bleed (32 px) beyond every line of page copy. Inside the page's
-// scroll box that bleed made the scrollable width 16 px wider than a phone
-// screen, so every arena page could be dragged sideways. The page content box
-// clips it horizontally with overflow-x: clip, which (unlike hidden) also keeps
-// the bleed out of the scroll box's scrollable width.
+// The body backdrop extends beyond the text so its feather reaches full strength
+// before the first glyph. The page stage must clip that plane out of scrollable
+// width, while the scroll container retains normal vertical scrolling.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { cssRules, editorialCss } from './editorialCssGuard.mjs';
 
-const css = readFileSync(new URL('../../features/arena-page/arenaPage.css', import.meta.url), 'utf8');
-const rule = (selector) => {
-  const at = css.indexOf(`${selector} {`);
-  assert.ok(at >= 0, `${selector} rule not found`);
-  return css.slice(at, css.indexOf('}', at));
+const css = editorialCss();
+const rule = selector => {
+  const found = cssRules(css).find(entry => entry.selectors === selector);
+  assert.ok(found, `${selector} rule not found`);
+  return found.declarations;
 };
 
-test('the copy shade still bleeds beyond the text', () => {
-  assert.match(css, /--page-copy-bleed:\s*32px/);
+test('the single body backdrop extends beyond both page gutters without per-element copy bleed', () => {
+  const backdrop = cssRules(css).find(({ selectors, declarations }) => /\.partner__body::before$/.test(selectors) && /\bbackground\s*:/.test(declarations));
+  assert.ok(backdrop);
+  assert.match(backdrop.declarations, /inset-inline:\s*calc\(-1\s*\*\s*\(var\(--partner-pad\)\s*\+\s*var\(--page-body-outset\)\)\)/);
+  assert.doesNotMatch(css, /var\(--page-copy-bleed\)/);
 });
 
-test('the page content box clips that bleed and the scroll box still scrolls vertically', () => {
+test('the page content box clips the backdrop and the scroll box still scrolls vertically', () => {
   assert.match(rule('.partner__stage'), /overflow-x:\s*clip/);
   assert.match(rule('.partner__scroll'), /overflow-y:\s*auto/);
 });

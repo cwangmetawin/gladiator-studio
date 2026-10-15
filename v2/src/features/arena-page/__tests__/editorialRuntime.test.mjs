@@ -13,6 +13,7 @@ const hooks = data(`export * from '${pathToFileURL(require.resolve('react')).hre
 const { urlOf } = createLoader();
 const source = readFileSync(new URL('../Editorial.tsx', import.meta.url), 'utf8');
 const runtime = await import(moduleUrl(source
+  .replace(/^import\s+['"]\.\/editorialBody\.css['"];?\s*$/mu, '')
   .replace("from 'react'", `from '${hooks}'`)
   .replace("from '@/shared/motion/useMotionPreference'", `from '${data('export const useMotionPreference = () => globalThis.__editorialReduced === true;')}'`)
   .replace("from './editorialLifecycle'", `from '${urlOf('features/arena-page/editorialLifecycle.ts')}'`)
