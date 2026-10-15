@@ -1,11 +1,13 @@
 'use client';
 
 import { memo, useEffect, useRef } from 'react';
+import { cursorState } from './cursorState';
 import './cursor-fx.css';
 
 // Custom contextual cursor (desktop, fine-pointer, motion-on only). A lerp-followed
 // ring that expands and shows a label when over any element carrying [data-cursor]
-// — e.g. PLAY over a game card, OPEN over a hub node. The native cursor is hidden
+// — e.g. PLAY over a game card, OPEN over a hub node — and shrinks to a dot over plain
+// buttons and links, so it never sits on their labels. The native cursor is hidden
 // only while this is active so there's always a clear pointer fallback otherwise.
 // Memoised: CursorFX takes no props, so memo stops it re-rendering when the app
 // re-renders (e.g. live-feed ticks) — otherwise React would reset the div's
@@ -28,15 +30,19 @@ function CursorFXImpl() {
     let mx = window.innerWidth / 2, my = window.innerHeight / 2;
     let cx = mx, cy = my;
     let curLabel = '';
+    let curPoint = false;
     let visible = false;
 
     const syncLabel = (target: Element | null) => {
-      const el = target?.closest?.('[data-cursor]') as HTMLElement | null | undefined;
-      const lbl = el?.dataset.cursor ?? '';
+      const { label: lbl, point } = cursorState(target);
       if (lbl !== curLabel) {
         curLabel = lbl;
         label.textContent = lbl;
         ring.classList.toggle('is-active', lbl.length > 0);
+      }
+      if (point !== curPoint) {
+        curPoint = point;
+        ring.classList.toggle('is-point', point);
       }
     };
     const onMove = (e: MouseEvent) => {
@@ -68,9 +74,10 @@ function CursorFXImpl() {
       window.removeEventListener('mousedown', onDown);
       window.removeEventListener('mouseup', onUp);
       document.body.classList.remove('has-cursor-fx');
-      ring.classList.remove('is-visible', 'is-active', 'is-down');
+      ring.classList.remove('is-visible', 'is-active', 'is-down', 'is-point');
       label.textContent = '';
       curLabel = '';
+      curPoint = false;
       visible = false;
     };
 

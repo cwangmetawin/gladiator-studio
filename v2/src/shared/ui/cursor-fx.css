@@ -44,6 +44,15 @@
   backdrop-filter: blur(2px);
 }
 
+/* Over a plain button or link: a small dot at the pointer, clear of the control's own label. */
+.cursor-fx.is-point {
+  width: 6px;
+  height: 6px;
+  background: rgba(79, 195, 247, 0.95);
+  border-color: rgba(79, 195, 247, 0.95);
+  box-shadow: 0 0 8px rgba(79, 195, 247, 0.6);
+}
+
 .cursor-fx__label {
   font-family: var(--font-mono);
   font-size: 9px;
