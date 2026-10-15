@@ -406,27 +406,33 @@ export function App() {
     fetchGameData().then(setGameData);
   }, []);
 
+  // The ring and catalogue share the same player. A ring demo opens directly,
+  // while a desktop catalogue demo retains its existing black-hole transition.
+  const handlePlayGame = useCallback((game: { title: string; link: string }) => {
+    cancelPendingPlay();
+    if (isMobile || transitionStore.getSnapshot().target === 'none') {
+      setPlayingGame(game);
+      return;
+    }
+    sceneEvents.emitBlackhole(true);
+    playTimerRef.current = window.setTimeout(() => {
+      playTimerRef.current = null;
+      setPlayingGame(game);
+    }, 1800);
+  }, [isMobile, cancelPendingPlay]);
+
   // Play-game events from GameCard
   useEffect(() => {
     const handler = (e: CustomEvent<{ title: string; link: string }>) => {
       if (activePanel !== 'games' || transitionStore.getSnapshot().target !== 'games') return;
-      cancelPendingPlay();
-      if (isMobile) {
-        setPlayingGame(e.detail);
-        return;
-      }
-      sceneEvents.emitBlackhole(true);
-      playTimerRef.current = window.setTimeout(() => {
-        playTimerRef.current = null;
-        setPlayingGame(e.detail);
-      }, 1800);
+      handlePlayGame(e.detail);
     };
     window.addEventListener('play-game' as string, handler as EventListener);
     return () => {
       window.removeEventListener('play-game' as string, handler as EventListener);
       cancelPendingPlay();
     };
-  }, [activePanel, isMobile, cancelPendingPlay]);
+  }, [activePanel, handlePlayGame, cancelPendingPlay]);
 
   // Open-panel events from Hero buttons
   useEffect(() => {
@@ -530,7 +536,7 @@ export function App() {
         >
           <Suspense fallback={null}>
             <ArenaJourney panelSide={activeSide} active={transition.hubVisible} target={transition.target}
-              scrollLocked={transition.phase !== 'idle' || drawerOpen || playingGame !== null || clientArea !== 'closed'} />
+              scrollLocked={transition.phase !== 'idle' || drawerOpen || playingGame !== null || clientArea !== 'closed'} onPlayGame={handlePlayGame} />
           </Suspense>
         </motion.div>
       </main>
