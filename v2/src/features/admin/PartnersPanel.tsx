@@ -147,7 +147,7 @@ export function PartnersPanel() {
   return (
     <div className="partner-admin">
       <section className="card partner-admin-section" aria-labelledby={`${prefix}-heading`}>
-        <div className="toolbar"><h2 id={`${prefix}-heading`}>Partners</h2><span className="count-pill">{partners.length} accounts</span><button className="btn btn--primary" type="button" disabled={busy || newOpen} onClick={() => setNewOpen(true)}>New partner</button></div>
+        <div className="toolbar"><h2 id={`${prefix}-heading`}>Partners</h2><span className="count-pill">{partners.length} {partners.length === 1 ? 'account' : 'accounts'}</span><button className="btn btn--primary" type="button" disabled={busy || newOpen} onClick={() => setNewOpen(true)}>New partner</button></div>
         <p className="hint">Open partner accounts, manage their test credentials, and publish shared integration resources.</p>
         {newOpen && <form className="partner-admin-editor" onSubmit={(event) => { void create(event); }}>
           <h3>New partner</h3>

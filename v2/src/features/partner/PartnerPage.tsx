@@ -34,6 +34,8 @@ export function PartnerPage({ content: c, titleId, auth }: PartnerPageProps) {
   useEffect(() => {
     if (!focusAfterAuth.current || status === 'loading' || status === 'unknown') return;
     focusAfterAuth.current = false;
+    // The new state starts at the top, not at the old sign-in form's scroll position.
+    heading.current?.closest('.partner__scroll')?.scrollTo({ top: 0, behavior: 'instant' });
     heading.current?.focus({ preventScroll: true });
   }, [status]);
 
@@ -62,7 +64,7 @@ export function PartnerPage({ content: c, titleId, auth }: PartnerPageProps) {
       <h1 ref={heading} id={titleId} className="partner__title" tabIndex={-1}>{title}</h1>
       {status === 'signedout' && c.lede && <p className="partner__lede">{c.lede}</p>}
       {preview && <p className="partner__preview" role="status">Admin preview — you are viewing the partner portal as an administrator.</p>}
-      {signedIn && <div className="partner__account"><p>{company || auth?.session?.user.email || 'Signed in'}</p>
+      {signedIn && <div className="partner__account"><p>Signed in as {auth?.session?.user.email || company || 'partner'}</p>
         <button className="partner__button" type="button" onClick={signOut} disabled={busy}>{busy ? 'Signing out…' : 'Sign out'}</button></div>}
       {actionError && <p className="partner__error" role="alert">{actionError}</p>}
       {status === 'loading' && <p className="partner__load-status" role="status">Checking partner access…</p>}

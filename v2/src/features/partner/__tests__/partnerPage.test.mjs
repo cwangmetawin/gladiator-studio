@@ -51,7 +51,7 @@ test('portal headings distinguish partner, admin preview, no access and retryabl
 test('sign-in is busy, surfaces errors, clears its password and focuses the next committed state heading', async () => {
   const focuses = [], calls = []; let rejectLogin;
   const { PartnerPage: HookPage } = await createLoader({ ...stubs, react: harnessHooksUrl(moduleUrl) }).load('features/partner/PartnerPage.tsx');
-  const h = createHarness(HookPage, { attach: type => type === 'h1' ? { focus: () => focuses.push('heading') } : {} });
+  const h = createHarness(HookPage, { attach: type => type === 'h1' ? { focus: () => focuses.push('heading'), closest: () => ({ scrollTo: ({ top }) => focuses.push(`scroll:${top}`) }) } : {} });
   let login = new Promise((_yes, reject) => { rejectLogin = reject; });
   const state = auth({ signIn: (...args) => { calls.push(args); return login; } });
   const props = { content: { ...content, contactEmail: '' }, titleId: 'partner-title', auth: state };
@@ -71,7 +71,7 @@ test('sign-in is busy, surfaces errors, clears its password and focuses the next
   h.update({ ...props, auth: { ...state, status: 'loading', session: { user: { id: 'a' } } } });
   assert.equal(focuses.length, 0);
   h.update({ ...props, auth: { ...state, status: 'partner', session: { user: { id: 'a' } }, partner: { company: 'Example Partner' } } });
-  assert.equal(focuses.length, 1);
+  assert.deepEqual(focuses, ['scroll:0', 'heading'], 'the page returns to the top, then focuses the headline');
   h.unmount();
 });
 
@@ -79,13 +79,13 @@ test('sign-out keeps the open page mounted, reports failure and focuses the sign
   const focuses = []; let fail = true;
   const { PartnerPage: HookPage } = await createLoader({ ...stubs, react: harnessHooksUrl(moduleUrl) }).load('features/partner/PartnerPage.tsx');
   const state = auth({ status: 'noaccess', session: { user: { id: 'a' } }, signOut: async () => { if (fail) throw new Error('Offline'); } });
-  const h = createHarness(HookPage, { attach: type => type === 'h1' ? { focus: () => focuses.push('heading') } : {} });
+  const h = createHarness(HookPage, { attach: type => type === 'h1' ? { focus: () => focuses.push('heading'), closest: () => ({ scrollTo: ({ top }) => focuses.push(`scroll:${top}`) }) } : {} });
   h.mount({ content, titleId: 'partner-title', auth: state });
   const button = () => findAll(h.output, node => node.type === 'button' && textOf(node) === 'Sign out')[0];
   await button().props.onClick(); h.act(() => {});
   assert.equal(textOf(findAll(h.output, node => node.props.role === 'alert')[0]), 'Offline');
   fail = false; await button().props.onClick(); h.act(() => {});
   h.update({ content: { ...content, contactEmail: '' }, titleId: 'partner-title', auth: auth() });
-  assert.equal(focuses.length, 1);
+  assert.deepEqual(focuses, ['scroll:0', 'heading'], 'the page returns to the top, then focuses the headline');
   h.unmount();
 });
