@@ -250,6 +250,53 @@ begin
   r := r || jsonb_build_object('disabling_cuts_existing_session', n = 0);
   execute 'reset role';
 
+  -- ---- activation: flag and login ban change together, service role only --
+  perform public.admin_set_partner_active(pr2, false);
+  select count(*) into n from public.partners p join auth.users u on u.id = p.user_id
+    where p.id = pr2 and not p.active and u.banned_until > now() + interval '50 years';
+  r := r || jsonb_build_object('disable_sets_flag_and_ban_together', n = 1);
+  perform public.admin_set_partner_active(pr2, true);
+  select count(*) into n from public.partners p join auth.users u on u.id = p.user_id
+    where p.id = pr2 and p.active and u.banned_until is null;
+  r := r || jsonb_build_object('enable_lifts_ban_and_flag_together', n = 1);
+  begin
+    perform public.admin_set_partner_active(gen_random_uuid(), false);
+    r := r || jsonb_build_object('activation_unknown_partner_refused', false);
+  exception when no_data_found then
+    r := r || jsonb_build_object('activation_unknown_partner_refused', true);
+  end;
+  -- a partners row pointing at an admin cannot exist (trigger); build one anyway
+  -- to prove the activation function refuses it on its own
+  execute 'alter table public.partners disable trigger partners_not_admin';
+  insert into public.partners(user_id, login_email, company, contact_email) values (admin_id, 'rls-admin@test.invalid', 'Admin Co', 'rls-admin@test.invalid') returning id into pr3;
+  execute 'alter table public.partners enable trigger partners_not_admin';
+  begin
+    perform public.admin_set_partner_active(pr3, false);
+    r := r || jsonb_build_object('activation_refuses_admin_login', false);
+  exception when check_violation then
+    r := r || jsonb_build_object('activation_refuses_admin_login', true);
+  end;
+  select count(*) into n from auth.users where id = admin_id and banned_until is null;
+  r := r || jsonb_build_object('admin_login_never_banned', n = 1);
+  foreach t in array array['anon', admin_id::text] loop
+    perform set_config('request.jwt.claims', case when t = 'anon' then '{"role":"anon"}'
+      else json_build_object('sub', t, 'role', 'authenticated')::text end, true);
+    execute format('set local role %I', case when t = 'anon' then 'anon' else 'authenticated' end);
+    begin
+      perform public.admin_set_partner_active(pr2, false);
+      r := r || jsonb_build_object('activation_denied_to_' || case when t = 'anon' then 'anon' else 'signed_in_admin' end, false);
+    exception when insufficient_privilege then
+      r := r || jsonb_build_object('activation_denied_to_' || case when t = 'anon' then 'anon' else 'signed_in_admin' end, true);
+    end;
+    begin
+      update storage.buckets set public = true where id = 'partner-files';
+    exception when insufficient_privilege then null;
+    end;
+    execute 'reset role';
+  end loop;
+  select count(*) into n from storage.buckets where id = 'partner-files' and not public;
+  r := r || jsonb_build_object('bucket_stays_private', n = 1);
+
   raise exception 'PARTNER_RLS_RESULT %', r::text;
 end
 $$;

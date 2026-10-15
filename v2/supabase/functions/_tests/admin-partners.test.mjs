@@ -7,7 +7,7 @@
 //   MUTATE_ADMIN_GUARD   the caller's admin check
 //   MUTATE_TARGET_GUARD  "never change an admin login"
 //   MUTATE_LOOKUP_ERROR  "a failed target lookup refuses"
-//   MUTATE_DISABLE_ORDER disable cuts data before it bans
+//   MUTATE_RPC_CHECK     setActive checks what the database confirmed
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -26,7 +26,7 @@ const MUTATIONS = {
   MUTATE_ADMIN_GUARD: ["if (!adminRow) return fail(403, 'Not authorized.');", ''],
   MUTATE_TARGET_GUARD: ["if (targetAdmin) throw new HttpError(403, 'Admin logins cannot be changed here.');", ''],
   MUTATE_LOOKUP_ERROR: ["if (adminErr) throw new HttpError(500, 'Could not check the login.');", ''],
-  MUTATE_DISABLE_ORDER: ['else { await flag(); await ban(); }', 'else { await ban(); await flag(); }'],
+  MUTATE_RPC_CHECK: ["if (data !== active) throw new HttpError(500, 'Could not update the partner.');", ''],
 };
 
 function loadHandler(state) {
@@ -111,6 +111,10 @@ function loadHandler(state) {
       },
     },
     from,
+    rpc: async (name, args) => {
+      state.log.push(['rpc', name, args]);
+      return state.rpcResult ?? { data: args.p_active, error: null };
+    },
   });
   new Function('Deno', 'createClient', js)(Deno, createClient);
   return handler;
@@ -126,7 +130,7 @@ const create = { action: 'create', company: 'Acme Gaming', email: 'Ops@Acme.test
 const reset = { action: 'reset', partnerId: PARTNER_ID };
 const disable = { action: 'setActive', partnerId: PARTNER_ID, active: false };
 const enable = { action: 'setActive', partnerId: PARTNER_ID, active: true };
-const AUTH_OPS = ['createUser', 'updateUserById', 'deleteUser'];
+const AUTH_OPS = ['createUser', 'updateUserById', 'deleteUser', 'rpc'];
 const touchedAuth = (state) => state.log.some(([op]) => AUTH_OPS.includes(op));
 const touchedAnything = (state) => state.log.some(([op]) => [...AUTH_OPS, 'upsert', 'insert', 'update'].includes(op));
 const steps = (state) => state.log.map(([op, what]) => `${op}:${typeof what === 'string' ? what : ''}`);
@@ -281,29 +285,31 @@ test('reset of an unknown partner gets 404', async () => {
   assert.equal(touchedAuth(state), false);
 });
 
-test('disable cuts access before banning; enable lifts the ban before restoring access', async () => {
-  const off = newState();
-  assert.equal((await loadHandler(off)(post('valid-session', disable))).status, 200);
-  assert.deepEqual(off.log.map(([op]) => op), ['update', 'updateUserById']);
-  assert.equal(off.log[0][2].active, false);
-  assert.equal(off.log[1][1], PARTNER_USER);
-  assert.equal(off.log[1][2].ban_duration, '876000h');
-
-  const on = newState();
-  assert.equal((await loadHandler(on)(post('valid-session', enable))).status, 200);
-  assert.deepEqual(on.log.map(([op]) => op), ['updateUserById', 'update']);
-  assert.equal(on.log[0][2].ban_duration, 'none');
-  assert.equal(on.log[1][2].active, true);
+test('setActive changes the flag and the login ban in one database call', async () => {
+  for (const body of [disable, enable]) {
+    const state = newState();
+    const res = await loadHandler(state)(post('valid-session', body));
+    assert.equal(res.status, 200, String(body.active));
+    assert.deepEqual(await res.json(), { ok: true, partnerId: PARTNER_ID, active: body.active });
+    const writes = state.log.filter(([op]) => [...AUTH_OPS, 'update'].includes(op));
+    assert.equal(writes.length, 1, 'exactly one write');
+    assert.equal(writes[0][0], 'rpc');
+    assert.equal(writes[0][1], 'admin_set_partner_active');
+    assert.equal(writes[0][2].p_partner_id, PARTNER_ID);
+    assert.equal(writes[0][2].p_active, body.active);
+  }
 });
 
-test('a failed ban reports an error but leaves the data cut; a failed unban leaves the partner disabled', async () => {
-  const off = newState({ failBan: true });
-  const resOff = await loadHandler(off)(post('valid-session', disable));
-  assert.equal(resOff.status, 502);
-  assert.ok(off.log.some(([op, , v]) => op === 'update' && v.active === false), 'data must already be cut');
-
-  const on = newState({ failBan: true });
-  const resOn = await loadHandler(on)(post('valid-session', enable));
-  assert.equal(resOn.status, 502);
-  assert.equal(on.log.some(([op]) => op === 'update'), false, 'access must not be restored while the ban stands');
+test('setActive reports what the database refused or did not confirm', async () => {
+  const cases = [
+    [{ data: null, error: { code: 'P0002', message: 'Partner not found.' } }, 404],
+    [{ data: null, error: { code: '23514', message: 'admin' } }, 403],
+    [{ data: null, error: { code: '57014', message: 'timeout' } }, 500],
+    [{ data: true, error: null }, 500],
+  ];
+  for (const [rpcResult, status] of cases) {
+    const res = await loadHandler(newState({ rpcResult }))(post('valid-session', disable));
+    assert.equal(res.status, status, JSON.stringify(rpcResult));
+    assert.equal((await res.json()).ok, false);
+  }
 });

@@ -3,7 +3,8 @@
 -- Postgres before anything is applied to production. Mirrors production as
 -- queried on 2026-10-15: role names and RLS bypass, schema USAGE grants (the API
 -- roles have none on `private`), table grants, auth.uid(), storage.foldername(),
--- the private helpers and the two auth.users triggers, and the existing policies
+-- the private helpers and the two auth.users triggers, RLS on storage.buckets
+-- with no policies, auth.users.banned_until, and the existing policies
 -- on admins, admin_emails and the `uploads` bucket.
 create role anon nologin noinherit;
 create role authenticated nologin noinherit;
@@ -29,6 +30,7 @@ create table auth.users (
   role text,
   raw_app_meta_data jsonb default '{}'::jsonb,
   raw_user_meta_data jsonb default '{}'::jsonb,
+  banned_until timestamptz,
   created_at timestamptz default now()
 );
 
@@ -50,6 +52,8 @@ create table storage.objects (
   updated_at timestamptz default now()
 );
 alter table storage.objects enable row level security;
+-- Production: RLS on storage.buckets with no policies, so API roles cannot change a bucket.
+alter table storage.buckets enable row level security;
 grant all on storage.buckets, storage.objects to anon, authenticated, service_role;
 
 create function storage.foldername(name text) returns text[] language plpgsql immutable as $$

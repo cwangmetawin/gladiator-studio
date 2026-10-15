@@ -5,7 +5,8 @@
 --   anon               nothing.
 --   active partner     its own partners row and credentials; every doc and file.
 --   disabled partner   no new reads at all (partners.active = false is checked on
---                      every query); its login is also banned by admin-partners.
+--                      every query), and its login is banned in the same
+--                      transaction (public.admin_set_partner_active).
 --                      A download link it already holds keeps working until it
 --                      expires (the portal issues them for 60 s).
 --   admin              everything; edits credentials, docs and files. Only the
@@ -117,6 +118,37 @@ revoke all on function private.current_partner_id() from public, anon;
 revoke all on function private.is_active_partner() from public, anon;
 grant execute on function private.current_partner_id() to authenticated, service_role;
 grant execute on function private.is_active_partner() to authenticated, service_role;
+
+-- Disable/enable in one transaction, so the flag and the login ban always agree,
+-- even when two calls race (the partner row is locked). The ban is GoTrue's own
+-- auth.users.banned_until, which it checks on sign-in and on every token refresh.
+-- Only the service role (admin-partners) may call it.
+create or replace function public.admin_set_partner_active(p_partner_id uuid, p_active boolean)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_user uuid;
+begin
+  if p_partner_id is null or p_active is null then
+    raise exception 'A partner id and an active flag are required.' using errcode = 'null_value_not_allowed';
+  end if;
+  select p.user_id into v_user from public.partners p where p.id = p_partner_id for update;
+  if not found then
+    raise exception 'Partner not found.' using errcode = 'no_data_found';
+  end if;
+  if exists (select 1 from public.admins a where a.user_id = v_user) then
+    raise exception 'A partner login cannot be an administrator.' using errcode = 'check_violation';
+  end if;
+  update public.partners set active = p_active where id = p_partner_id;
+  update auth.users set banned_until = case when p_active then null else now() + interval '100 years' end
+    where id = v_user;
+  return p_active;
+end; $$;
+revoke all on function public.admin_set_partner_active(uuid, boolean) from public, anon, authenticated;
+grant execute on function public.admin_set_partner_active(uuid, boolean) to service_role;
 
 -- ---- policies ---------------------------------------------------------------
 create policy partners_read on public.partners for select to authenticated

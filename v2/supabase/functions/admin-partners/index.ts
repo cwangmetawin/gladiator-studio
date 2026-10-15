@@ -12,8 +12,8 @@
 //   { action: 'reset', partnerId }
 //       → sets a new generated password; returns it once.
 //   { action: 'setActive', partnerId, active }
-//       → disable: partners.active = false (data stops at once), then bans the login;
-//         enable: lifts the ban, then partners.active = true.
+//       → public.admin_set_partner_active: partners.active and the login ban
+//         (auth.users.banned_until) change together in one locked transaction.
 //
 // Sign-up gate: private.enforce_admin_signup admits a non-admin email only when
 // the insert carries the secret one-time nonce stored in public.partner_signup_allow
@@ -37,7 +37,6 @@ const PASSWORD_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz2345
 const PASSWORD_GROUPS = 4;
 const PASSWORD_GROUP_LENGTH = 5;
 const ALLOW_TTL_MS = 5 * 60 * 1000;
-const BAN_FOREVER = '876000h';
 
 class HttpError extends Error {
   constructor(readonly status: number, message: string) { super(message); }
@@ -168,21 +167,16 @@ async function setActive(sb: Sb, payload: Record<string, unknown>): Promise<Resp
   const partnerId = partnerIdOf(payload);
   if (typeof payload.active !== 'boolean') throw new HttpError(422, 'active must be true or false.');
   const active = payload.active;
-  const userId = await partnerLogin(sb, partnerId);
-  const flag = async () => {
-    const { error } = await sb.from('partners').update({ active }).eq('id', partnerId);
-    if (error) throw new HttpError(500, 'Could not update the partner.');
-  };
-  const ban = async () => {
-    const { error } = await sb.auth.admin.updateUserById(userId, { ban_duration: active ? 'none' : BAN_FOREVER });
-    if (error) {
-      throw new HttpError(502, active
-        ? 'Could not lift the login block; the partner is still disabled.'
-        : 'Access is removed, but the login could not be blocked. Try again.');
-    }
-  };
-  // Order keeps the safe side: data is cut before the ban, and restored only after it lifts.
-  if (active) { await ban(); await flag(); } else { await flag(); await ban(); }
+  await partnerLogin(sb, partnerId);
+  // One locked transaction sets partners.active and the login ban together, so
+  // they agree even when two admins act at once or a step fails.
+  const { data, error } = await sb.rpc('admin_set_partner_active', { p_partner_id: partnerId, p_active: active });
+  if (error) {
+    if (error.code === 'P0002') throw new HttpError(404, 'Partner not found.');
+    if (error.code === '23514') throw new HttpError(403, 'Admin logins cannot be changed here.');
+    throw new HttpError(500, 'Could not update the partner.');
+  }
+  if (data !== active) throw new HttpError(500, 'Could not update the partner.');
   return ok({ partnerId, active });
 }
 
