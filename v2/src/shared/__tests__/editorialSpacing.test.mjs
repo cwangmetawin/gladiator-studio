@@ -57,3 +57,14 @@ test('the direct email fits a 320 px phone and can only break after the @', () =
   const narrow = pageCss.match(/@media \(max-width: 380px\) \{[^}]*\.arena-page__direct-email \{[^}]*font-size:\s*clamp\(24px,\s*8vw,\s*32px\)/);
   assert.ok(narrow, '17 characters of Saira at 32 px overflow the 288 px column of a 320 px phone');
 });
+
+test('chapter index labels break between words, never inside one', () => {
+  // The index sits in the 12th grid column (about 88 px at 1440), narrower than "CERTIFICATES".
+  const links = rulesFor('.editorial-index a').map(r => r.declarations).join(';');
+  assert.doesNotMatch(links, /overflow-wrap:\s*anywhere/);
+  assert.match(links, /overflow-wrap:\s*break-word/, 'a pathological admin label may still break rather than overflow');
+  const desktop = rulesFor('.editorial-index').map(r => r.declarations).find(d => /grid-column:\s*12/.test(d)) ?? '';
+  assert.match(desktop, /width:\s*max-content/);
+  assert.match(desktop, /justify-self:\s*start/, 'its left edge stays at column 12, clear of the content in column 11');
+  assert.match(desktop, /max-width:\s*calc\(100% \+ var\(--partner-pad\) - 16px\)/, 'it grows into the gutter, 16 px from the edge');
+});

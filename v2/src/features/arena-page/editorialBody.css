@@ -84,7 +84,7 @@
 .editorial-chapter__content > p { margin-block: 0 24px; }
 .editorial-chapter__content > h3 { margin-top: 40px; }
 .editorial-index { display: none; }
-.editorial-index a { display: block; padding: 8px 0; color: var(--page-meta-colour); font: 11px/1.5 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; overflow-wrap: anywhere; }
+.editorial-index a { display: block; padding: 8px 0; color: var(--page-meta-colour); font: 11px/1.5 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none; overflow-wrap: break-word; }
 .editorial-index a[aria-current='true'] { color: var(--color-ice-50); text-decoration: underline; text-underline-offset: 6px; }
 .editorial-index a:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 3px; }
 .editorial-index__number { margin-right: 8px; font-variant-numeric: tabular-nums; }
@@ -186,7 +186,8 @@
 .editorial-chapter:nth-of-type(even) .editorial-chapter__content { grid-column: 4/11; }
 .editorial-chapter--catalogue .editorial-chapter__content { grid-column: 4/12; }
 .editorial-chapter--catalogue .arena-page__games { grid-template-columns: repeat(3,minmax(0,1fr)); }
-.editorial-index { display: block; position: sticky; top: 24px; z-index: 5; height: 0; width: 100%; max-width: 128px; justify-self: end; align-self: start; grid-column: 12; }
+/* The index starts at column 12 and may grow into the right gutter, never left over the chapter content. */
+.editorial-index { display: block; position: sticky; top: 24px; z-index: 5; height: 0; width: max-content; max-width: calc(100% + var(--partner-pad) - 16px); justify-self: start; align-self: start; grid-column: 12; }
 .editorial-pullquote { position: relative; width: calc(100% + 16vw); margin-left: -16vw !important; }
 }
 @media (max-width: 767px) {
