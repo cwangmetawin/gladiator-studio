@@ -20,7 +20,7 @@ import '@babylonjs/core/PostProcesses/passPostProcess.js';
 export { Engine } from '@babylonjs/core/Engines/engine.js';
 export { Scene } from '@babylonjs/core/scene.js';
 export { ArcRotateCamera } from '@babylonjs/core/Cameras/arcRotateCamera.js';
-export { Vector3, Matrix } from '@babylonjs/core/Maths/math.vector.js';
+export { Vector2, Vector3, Matrix } from '@babylonjs/core/Maths/math.vector.js';
 export { Color3, Color4 } from '@babylonjs/core/Maths/math.color.js';
 export { Constants } from '@babylonjs/core/Engines/constants.js';
 export { HemisphericLight } from '@babylonjs/core/Lights/hemisphericLight.js';

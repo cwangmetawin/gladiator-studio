@@ -26,7 +26,7 @@ export function createHallScene(B: BabylonModule, A: ArenaModule, scene: Scene, 
       attributes: ['position', 'normal'], samplers: ['uCover'], needAlphaBlending: true,
       uniforms: ['world', 'viewProjection', 'cameraPosition', 'uSize', 'uTheme', 'uSecondary', 'uBright', 'uBlur', 'uAlpha', 'uReflect', 'uTime'],
     });
-    material.setFloats('uSize', [width, CARD_HEIGHT]);
+    material.setVector2('uSize', new B.Vector2(width, CARD_HEIGHT));
     material.setFloat('uReflect', Number(reflect));
     material.backFaceCulling = !reflect;
     material.disableDepthWrite = reflect;
