@@ -24,14 +24,21 @@ void main() {
   gl_FragColor = color;
 }`;
 
-/** Compile detached, after the shared render loop starts. No pass is even allocated on a phone. */
+/**
+ * Compile detached, after the shared render loop starts. No pass is even allocated on a phone.
+ * The shader is registered by name, as scenePostProcess does, so Babylon converts it for WebGL2: passed as a
+ * 'source:' string it kept 'varying' in a #version 300 es fragment and failed to compile. The pass is created
+ * only once the arena scene is ready: Scene.isReady waits for every effect on the engine, so a pass that could
+ * not compile would otherwise hold the whole scene in 'loading'.
+ */
 export function createDiveFlash(B: BabylonModule, scene: Scene, phone: boolean) {
   let pass: InstanceType<BabylonModule['PostProcess']> | null = null, attached = false, strength = 0;
   const camera = scene.activeCamera!;
   return {
-    update(screens: number, reduced: boolean, home: boolean, opaqueNight: boolean): number {
-      if (!phone && !reduced && !pass) {
-        pass = new B.PostProcess('arenaCrossing', `source:${FRAGMENT}`, ['uFlash', 'uTexel'], null,
+    update(screens: number, reduced: boolean, home: boolean, opaqueNight: boolean, sceneReady: boolean): number {
+      if (!phone && !reduced && !pass && sceneReady) {
+        B.Effect.ShadersStore.arenaCrossingFragmentShader = FRAGMENT;
+        pass = new B.PostProcess('arenaCrossing', 'arenaCrossing', ['uFlash', 'uTexel'], null,
           1, null, B.Texture.BILINEAR_SAMPLINGMODE, scene.getEngine());
         pass.onApply = effect => {
           effect.setFloat('uFlash', strength);

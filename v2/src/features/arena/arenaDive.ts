@@ -27,7 +27,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
 
   return {
     meshes: world.meshes,
-    step(framing: Framing, fov: number, dt: number, visibility: number, time: number, home: boolean) {
+    step(framing: Framing, fov: number, dt: number, visibility: number, time: number, home: boolean, sceneReady: boolean) {
       const reduced = reducedMotion(), target = cameraScreens(journeyProgress.getSnapshot(), reduced);
       displayed = reduced ? target : smoothScreens(displayed, target, dt);
       if (!frame || frame.distance !== framing.distance || frame.offsetX !== framing.offsetX || frame.offsetY !== framing.offsetY || frame.fov !== fov) {
@@ -42,7 +42,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
       const fade = smoothstep(0.5, 0.8, p) * visibility;
       const night = smoothstep(0.38, 0.63, p) * visibility;
       world.update({ fade, night, time: reduced ? 0 : time, camera });
-      const crossing = flash.update(displayed, reduced, home, night === 1);
+      const crossing = flash.update(displayed, reduced, home, night === 1, sceneReady);
       return {
         screens: displayed,
         presence: 1 - smoothstep(0.08, 0.5, p),

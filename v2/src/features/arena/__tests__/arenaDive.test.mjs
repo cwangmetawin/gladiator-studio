@@ -23,7 +23,7 @@ function rig(phone = true) {
     scene, camera, dive, engine,
     reduce: value => { reduced = value; },
     staticRequests: () => staticRequests,
-    step: (dt = 0, visibility = 1, time = 0, home = true) => dive.step(frame, 0.62, dt, visibility, time, home),
+    step: (dt = 0, visibility = 1, time = 0, home = true) => dive.step(frame, 0.62, dt, visibility, time, home, true),
     dispose: () => { dive.dispose(); scene.dispose(); engine.dispose(); journeyProgress.publish(0); },
   };
 }
@@ -81,22 +81,53 @@ test('the desktop post pass warms detached, attaches only when compiled over an 
     isReady() { return ready; }
     dispose() { disposed++; }
   }
-  const stub = { PostProcess, Texture: { BILINEAR_SAMPLINGMODE: 2 } };
+  const stub = { PostProcess, Texture: { BILINEAR_SAMPLINGMODE: 2 }, Effect: { ShadersStore: {} } };
   const scene = { activeCamera: camera, getEngine: () => ({}) };
   const phone = createDiveFlash(stub, scene, true);
-  phone.update(0.621, false, true, true); phone.dispose();
+  phone.update(0.621, false, true, true, true); phone.dispose();
   assert.equal(made, 0);
   const desktop = createDiveFlash(stub, scene, false);
-  desktop.update(0, false, true, false);
+  desktop.update(0, false, true, false, true);
   assert.equal(made, 1); assert.equal(attached, 0);
-  desktop.update(0.621, false, true, true); assert.equal(attached, 0, 'a pending shader cannot black out the scene');
+  desktop.update(0.621, false, true, true, true); assert.equal(attached, 0, 'a pending shader cannot black out the scene');
   ready = true;
-  desktop.update(0.621, false, true, false); assert.equal(attached, 0);
-  desktop.update(0.621, false, true, true); assert.equal(attached, 1);
-  desktop.update(0.9, false, true, true); assert.equal(attached, 0);
-  desktop.update(0.621, false, true, true);
-  desktop.update(0.621, false, false, true); assert.equal(attached, 0);
-  desktop.update(0.621, false, true, true);
-  desktop.update(0.621, true, true, true); assert.equal(attached, 0);
+  desktop.update(0.621, false, true, false, true); assert.equal(attached, 0);
+  desktop.update(0.621, false, true, true, true); assert.equal(attached, 1);
+  desktop.update(0.9, false, true, true, true); assert.equal(attached, 0);
+  desktop.update(0.621, false, true, true, true);
+  desktop.update(0.621, false, false, true, true); assert.equal(attached, 0);
+  desktop.update(0.621, false, true, true, true);
+  desktop.update(0.621, true, true, true, true); assert.equal(attached, 0);
   desktop.dispose(); assert.equal(disposed, 1);
+});
+
+test('the crossing pass registers its shader by name (Babylon converts it for WebGL2), never as a raw source string', () => {
+  // Why: 'source:' + GLSL skipped Babylon's WebGL2 conversion, the effect failed to compile ('varying' in a
+  // #version 300 es fragment) and the whole arena scene never became ready on desktop.
+  const calls = [];
+  class PostProcess { constructor(name, fragment) { calls.push({ name, fragment }); } isReady() { return false; } dispose() {} }
+  const stub = { PostProcess, Texture: { BILINEAR_SAMPLINGMODE: 2 }, Effect: { ShadersStore: {} } };
+  const scene = { activeCamera: { attachPostProcess() {}, detachPostProcess() {} }, getEngine: () => ({}) };
+  const flash = createDiveFlash(stub, scene, false);
+  flash.update(0, false, true, false, true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].fragment, calls[0].name, 'the pass names a ShadersStore entry');
+  assert.doesNotMatch(String(calls[0].fragment), /^source:/);
+  assert.match(stub.Effect.ShadersStore[`${calls[0].name}FragmentShader`] ?? '', /gl_FragColor/);
+  flash.dispose();
+});
+
+test('no crossing pass exists before the arena scene is ready, so a broken effect can never hold the scene in loading', () => {
+  // Why: Scene.isReady waits for every effect on the engine; a pass that cannot compile kept executeWhenReady
+  // from ever firing. The pass is optional polish, so it is created only once the scene is ready.
+  let made = 0;
+  class PostProcess { constructor() { made++; } isReady() { return false; } dispose() {} }
+  const stub = { PostProcess, Texture: { BILINEAR_SAMPLINGMODE: 2 }, Effect: { ShadersStore: {} } };
+  const scene = { activeCamera: { attachPostProcess() {}, detachPostProcess() {} }, getEngine: () => ({}) };
+  const flash = createDiveFlash(stub, scene, false);
+  flash.update(0.621, false, true, true, false);
+  assert.equal(made, 0, 'not before the scene is ready');
+  flash.update(0.621, false, true, true, true);
+  assert.equal(made, 1, 'created once it is');
+  flash.dispose();
 });

@@ -207,7 +207,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     // framing: from the gate's rectangle to the slot over the glide (not at all when there was no gate or with reduced motion)
     const gliding = reduced || gateFraming === null || journeyProgress.getSnapshot() > 0 ? 1 : seconds < 0 ? 0 : glide(seconds);
     const framing = gateFraming !== null && gliding < 1 ? blendFraming(gateFraming, slotFraming, gliding) : slotFraming;
-    const journey = dive.step(framing, fov, dt, visibility, clock, hub);
+    const journey = dive.step(framing, fov, dt, visibility, clock, hub, ready);
     nodes.root.setEnabled(!hidden && journey.emblemVisible);
     if (hidden && grade === 0) return; // nothing of the arena scene shows: draw nothing
 
