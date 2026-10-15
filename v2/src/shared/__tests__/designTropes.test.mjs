@@ -5,7 +5,7 @@
 // MUTATE_SIDE_STRIPE=1 adds a stripe back to the constellation door (red).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -47,6 +47,9 @@ if (process.env.MUTATE_SIDE_STRIPE === '1') {
   assert.ok(door, 'side-stripe mutation target not found');
   door.text += '\n.constellation { border-left: 2px solid var(--constellation-accent); }\n';
 }
+if (process.env.MUTATE_CLIENT_RADIUS === '1') {
+  files.find(file => file.path === 'features/partner/partner.css').text += '\n.partner__faq article { border-radius: 8px; }\n';
+}
 
 test('no coloured side stripes on cards or list items', () => {
   assert.deepEqual(sideStripes(files), []);
@@ -70,4 +73,59 @@ test('the stripe check catches each form and allows hairlines and brackets', () 
     '<div className="border-l border-white/10">',
   ];
   fine.forEach(line => assert.deepEqual(sideStripes([{ path: 'x', text: line }]), [], line));
+});
+
+test('Client Area cannot regain the Earth, warp, telemetry, sci-fi chrome or card primitives', () => {
+  for (const name of ['PartnerEarth.tsx', 'WarpTransition.tsx']) {
+    assert.equal(existsSync(join(SRC, 'features/partner', name)), false, name);
+  }
+  const partner = files.filter(file => file.path.startsWith('features/partner/'));
+  assert.ok(partner.length > 0);
+  for (const file of partner) {
+    assert.doesNotMatch(file.text, /PartnerEarth|WarpTransition|PARTNER UPLINK|DISENGAGE|STEP_|telemetry|warpStart/i, file.path);
+    assert.doesNotMatch(file.text, /<canvas|@babylonjs|requestAnimationFrame|className=["'][^"']*\b(?:card|glass|btn)\b|\b(?:Check|ShieldCheck)\b/, file.path);
+  }
+  assert.doesNotMatch(files.find(file => file.path === 'app/App.tsx').text, /WarpTransition|createWarpSounds|arriveClientArea|'transitioning'/);
+});
+
+function roundedBlocks(text) {
+  const css = /border(?:-(?:top-left|top-right|bottom-left|bottom-right|start-start|start-end|end-start|end-end))?-radius\s*:\s*([^;}\n]+)/g;
+  const inline = /border(?:TopLeft|TopRight|BottomLeft|BottomRight|StartStart|StartEnd|EndStart|EndEnd)?Radius\s*:\s*([^;}\n]+)/g;
+  return [...[...text.matchAll(css), ...text.matchAll(inline)].map(match => match[1].trim().replace(/["',]/g, '')),
+    ...[...text.matchAll(/\brounded(?:-[^\s"'<>}]*)?/g)].map(match => match[0]).filter(value => value !== 'rounded-none')]
+    .filter(value => !/^(?:0(?:px)?|[123](?:\.\d+)?px)$/.test(value));
+}
+
+test('Client Area has square blocks, including the shared sound button and ticker covers', () => {
+  const partner = files.filter(file => file.path.startsWith('features/partner/'));
+  for (const file of partner) assert.deepEqual(roundedBlocks(file.text), [], file.path);
+  const css = partner.find(file => file.path.endsWith('partner.css')).text;
+  assert.match(css, /\.partner \.icon-btn[^}]*border-radius:\s*0/s);
+  assert.match(css, /\.partner \.ticker__thumb[^}]*border-radius:\s*0/s);
+  for (const bad of ['border-radius: 4px;', 'borderRadius: 8,', 'border-radius: var(--radius-sm);', 'border-radius: 50%;']) {
+    assert.equal(roundedBlocks(bad).length, 1, bad);
+  }
+});
+
+test('the Client Area radius guard catches corner-only rules and utility classes as well as shorthand', () => {
+  for (const bad of ['border-top-left-radius: 8px;', 'border-start-end-radius: 4px;',
+    'borderTopLeftRadius: 4,', 'borderStartEndRadius: "8px",', 'className="rounded-lg"', 'className="rounded-[4px]"']) {
+    assert.equal(roundedBlocks(bad).length, 1, bad);
+  }
+  for (const fine of ['border-radius: 0;', 'border-top-left-radius: 2px;', 'borderRadius: 0,', 'className="rounded-none"']) {
+    assert.deepEqual(roundedBlocks(fine), [], fine);
+  }
+});
+
+test('Client Area uses the arena title scale, a static backdrop and bounded instant reduced motion', () => {
+  const css = files.find(file => file.path === 'features/partner/partner.css').text;
+  assert.match(css, /\.partner__title\s*\{[^}]*font-family:\s*'Saira Title'/s);
+  assert.match(css, /font-size:\s*clamp\(96px,/);
+  assert.match(css, /font-size:\s*clamp\(44px,/);
+  assert.match(css, /overflow-wrap:\s*anywhere/);
+  assert.match(css, /overscroll-behavior:\s*contain/);
+  assert.match(css, /prefers-reduced-motion:\s*reduce[^]*animation:\s*none/);
+  assert.doesNotMatch(css, /animation[^;]*\b(?:infinite|[1-9]\d{3}ms|[1-9]s)\b/);
+  const area = files.find(file => file.path === 'features/partner/PartnerDialog.tsx')?.text ?? '';
+  for (const pattern of [/role="dialog"/, /aria-modal="true"/, /aria-labelledby=\{titleId\}/, /useDialogFocus/, /onEscape: onClose/, /returnFocusRef/, /client-backdrop\.svg/]) assert.match(area, pattern);
 });

@@ -43,7 +43,6 @@ export const CUE_NOTES = Object.freeze({
   alert: cue([NOTES.D7, NOTES.G7]),
   bigWin: cue([NOTES.G5, NOTES.Bb5, NOTES.D6, NOTES.G6]),
   sectionSwitch: cue([NOTES.D5, NOTES.A5]),
-  warpStart: cue([], [], true),
   warpArrival: cue([NOTES.A5, NOTES.D6]),
   catalogueFocus: cue([NOTES.D6]),
   ignite: cue([NOTES.D3, NOTES.D4, NOTES.F4, NOTES.A4, NOTES.D5]),

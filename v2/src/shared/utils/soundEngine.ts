@@ -121,7 +121,6 @@ export const soundEngine = Object.freeze({
   alert: () => play('alert'),
   bigWin: () => play('bigWin'),
   sectionSwitch: () => play('sectionSwitch'),
-  warpStart: () => play('warpStart'),
   warpArrival: () => play('warpArrival'),
   catalogueFocus: () => play('catalogueFocus'),
   ignite: () => play('ignite'),

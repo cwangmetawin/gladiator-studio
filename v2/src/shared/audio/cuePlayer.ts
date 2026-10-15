@@ -45,7 +45,6 @@ export function playCue(ac: AudioContext, master: GainNode, cue: EffectCue, nois
     case 'alert': sequence(0.05, 0.25, 0.05); break;
     case 'bigWin': sequence(0.1, 0.25, 0.06); break;
     case 'sectionSwitch': sequence(0.055, 0.08, 0.045); break;
-    case 'warpStart': noise(0.32, 0.09); break;
     case 'warpArrival': sequence(0.07, 0.15, 0.05); break;
     case 'catalogueFocus': tone(CUE_NOTES.catalogueFocus.tones[0]!, 0.035, 0.035); break;
     case 'ignite':

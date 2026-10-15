@@ -12,7 +12,6 @@ import { useGameSky } from '@/features/starfield/useGameSky';
 import { isSceneCovered } from '@/features/starfield/renderLoop';
 import { useFeederSocket } from '@/features/live-feed/useFeederSocket';
 import { sceneEvents } from '@/shared/utils/sceneEvents';
-import { WarpTransition } from '@/features/partner/WarpTransition';
 import { AgeGateLayer } from '@/shared/components/AgeGate';
 import { useAgeGate } from '@/shared/components/ageGateState';
 import { soundEngine } from '@/shared/utils/soundEngine';
@@ -20,7 +19,10 @@ import { preloadScene, scheduleScenePreload } from '@/shared/utils/preloadScene'
 import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 import { homeReveal } from '@/shared/brand/homeReveal';
 import { NAV_ITEMS } from '@/features/arena/navItems';
-import { bindTransitionSounds, createWarpSounds } from '@/shared/audio/transitionSound';
+import { bindTransitionSounds } from '@/shared/audio/transitionSound';
+import { useClientArea } from '@/features/partner/useClientArea';
+import { PartnerPending } from '@/features/partner/PartnerPending';
+import { PartnerDialog } from '@/features/partner/PartnerDialog';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { FilmGrain } from '@/shared/ui/FilmGrain';
@@ -40,7 +42,8 @@ const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => (
 const JourneySection = lazy(() => import('@/features/journey/JourneySection').then(m => ({ default: m.JourneySection })));
 const CareersSection = lazy(() => import('@/features/careers/CareersSection').then(m => ({ default: m.CareersSection })));
 const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
-const PartnerArea = lazy(() => import('@/features/partner/PartnerArea').then(m => ({ default: m.PartnerArea })));
+const loadPartnerArea = () => import('@/features/partner/PartnerArea');
+const PartnerArea = lazy(() => loadPartnerArea().then(m => ({ default: m.PartnerArea })));
 // The first screen (3D emblem's page, headline, top bar) loads after the age gate answers, so none of it is in the gate's bundle.
 const ArenaJourney = lazy(() => import('@/features/arena/home').then(m => ({ default: m.ArenaJourney })));
 const TopBar = lazy(() => import('@/features/arena/home').then(m => ({ default: m.TopBar })));
@@ -129,7 +132,7 @@ interface MobileDrawerProps {
   readonly activePanel: PanelId;
   readonly onActivate: (id: PanelId) => void;
   /** The top bar hides its Client Area button on phones — this is the mobile route in. */
-  readonly onClientArea: () => void;
+  readonly onClientArea: (opener: HTMLButtonElement) => void;
   readonly motionMode: MotionMode;
 }
 
@@ -201,7 +204,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, 
                 type="button"
                 className="btn btn--primary"
                 style={{ width: '100%', justifyContent: 'center' }}
-                onClick={() => { onClose(); onClientArea(); }}
+                onClick={event => onClientArea(event.currentTarget)}
               >
                 Client Area
                 <ExternalLink size={12} aria-hidden="true" />
@@ -325,8 +328,7 @@ export function App() {
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [playingGame, setPlayingGame] = useState<{ title: string; link: string } | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [clientArea, setClientArea] = useState<'closed' | 'transitioning' | 'open'>('closed');
-  const warpSounds = useMemo(() => createWarpSounds(soundEngine), []);
+  const { clientArea, clientOpenerRef, openClientArea, closeClientArea } = useClientArea();
   const sceneReady = useSyncExternalStore(sceneReadiness.subscribe, sceneReadiness.getSnapshot, sceneReadiness.getSnapshot);
   const isMobile = useIsMobile();
   const transition = useTransition(isMobile);
@@ -345,6 +347,10 @@ export function App() {
   useEffect(() => bindTransitionSounds(transitionStore, soundEngine), []);
   useEffect(() => scheduleScenePreload(), []);
   useEffect(() => { if (verified) preloadScene(); }, [verified]);
+  useEffect(() => {
+    // Warm the small editorial page after the gate; a failed speculative load can retry on open.
+    if (released) void loadPartnerArea().catch(() => {});
+  }, [released]);
   const handleVerify = useCallback(() => {
     preloadScene();
     soundEngine.unlock();
@@ -352,16 +358,6 @@ export function App() {
     verify();
   }, [verify]);
   useEffect(() => { if (released) soundEngine.startAmbient(); }, [released]);
-  const openClientArea = useCallback(() => {
-    if (warpSounds.start()) setClientArea('transitioning');
-  }, [warpSounds]);
-  const arriveClientArea = useCallback(() => {
-    if (warpSounds.arrive()) setClientArea('open');
-  }, [warpSounds]);
-  const closeClientArea = useCallback(() => {
-    warpSounds.cancel();
-    setClientArea('closed');
-  }, [warpSounds]);
   useLayoutEffect(() => {
     // Mobile menu visibility is restored in this commit, after dialog cleanup.
     if (transition.phase === 'idle' && previousPhase.current !== 'idle') {
@@ -371,8 +367,7 @@ export function App() {
   }, [transition.phase]);
 
   const feed = useFeederSocket();
-  const { events, isConnected, totalAmount, gladiatorCount, originalCount } = feed;
-  const totalEvents = gladiatorCount + originalCount;
+  const { events, isConnected } = feed;
 
   const cancelPendingPlay = useCallback(() => {
     if (playTimerRef.current === null) return;
@@ -453,13 +448,14 @@ export function App() {
       if (e.key !== 'Escape' || e.defaultPrevented) return;
       e.preventDefault();
       cancelPendingPlay();
-      if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
+      if (clientArea !== 'closed') closeClientArea();
+      else if (playingGame) { sceneEvents.emitBlackhole(false); setPlayingGame(null); }
       else if (transitionStore.getSnapshot().target !== 'none') transitionStore.request('none');
       else if (drawerOpen) setDrawerOpen(false);
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [playingGame, drawerOpen, cancelPendingPlay]);
+  }, [playingGame, drawerOpen, clientArea, closeClientArea, cancelPendingPlay]);
 
   const handleActivate = useCallback((id: PanelId) => {
     cancelPendingPlay();
@@ -601,7 +597,7 @@ export function App() {
             onClose={() => setDrawerOpen(false)}
             activePanel={transition.target}
             onActivate={handleActivate}
-            onClientArea={() => { transitionStore.request('none'); openClientArea(); }}
+            onClientArea={openClientArea}
           />
         </>
       ) : (
@@ -622,22 +618,17 @@ export function App() {
         )}
       </AnimatePresence>
 
-      {/* Client Area — the Earth-return cinematic runs ALONE (only its own WebGL
-          context + the homepage's), then hands off to the orbit console. Mounting
-          PartnerArea/PartnerEarth only when 'open' avoids a 3rd GPU context that
-          would corrupt the transition. */}
-      {/* The warp is Canvas (no WebGL) so PartnerArea can mount BENEATH it during the
-          transition — the Earth loads while the warp plays, and the warp fades to
-          reveal the console directly (no homepage flash-through). */}
-      <AnimatePresence>
-        {clientArea !== 'closed' && (
-          <Suspense key="partner-area" fallback={null}>
-            <PartnerArea onClose={closeClientArea} events={events} isConnected={isConnected} totalEvents={totalEvents} totalAmount={totalAmount} />
-          </Suspense>
-        )}
-      </AnimatePresence>
-      {clientArea === 'transitioning' && (
-        <WarpTransition onComplete={arriveClientArea} />
+      {/* The drawer stays mounted below the modal so its Client Area trigger can receive focus on close. */}
+      {clientArea !== 'closed' && (
+        <PartnerDialog onClose={closeClientArea} returnFocusRef={clientOpenerRef} events={events} isConnected={isConnected}>
+          {titleId => (
+            <ErrorBoundary fallback={<PartnerPending titleId={titleId} failed />}>
+              <Suspense fallback={<PartnerPending titleId={titleId} />}>
+                <PartnerArea titleId={titleId} />
+              </Suspense>
+            </ErrorBoundary>
+          )}
+        </PartnerDialog>
       )}
       </>}
       </div>
