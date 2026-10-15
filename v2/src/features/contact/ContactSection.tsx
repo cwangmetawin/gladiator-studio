@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { ARENA_PAGE_COPY } from '@/features/arena-page/pageCopy';
 import { ArenaPageContent } from '@/features/arena-page/ArenaPageContent';
+import { EditorialChapter, EditorialIndex } from '@/features/arena-page/Editorial';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { CONTACT } from '@/shared/constants/urls';
 import { useSection } from '@/shared/content/SiteContentContext';
@@ -171,87 +171,87 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
 
   return (
     <ArenaPageContent titleId={titleId} bodyOnly={bodyOnly} {...ARENA_PAGE_COPY.contact}>
+      <EditorialIndex chapters={[{ id: 'contact-direct', label: 'Direct' }, { id: 'contact-enquiry', label: 'Enquiry' }]} />
 
-      {/* Partner types */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {PARTNER_TYPES.map((p) => (
-            <div key={p.label} className="arena-page__row" style={{ padding: '0.85rem 1rem' }}>
-              <span className="arena-page__meta" style={{ marginBottom: '0.3rem' }}>{p.label}</span>
-              <p className="body-text" style={{ fontSize: 'var(--text-xs)' }}>{withCatalogueCounts(p.description, s)}</p>
+      <EditorialChapter id="contact-direct" number="01" kicker="Direct" title="Start a conversation" deck="One team. A direct line.">
+        <a className="arena-page__direct-email" href={`mailto:${email}`}>{email}</a>
+        <dl className="arena-page__contact-channels">
+          {channels.filter((c) => c.label !== 'Email').map((c) => (
+            <div key={c.label} className="arena-page__ledger-row">
+              <dt className="arena-page__meta">{c.label}</dt>
+              <dd>{c.href ? <a href={c.href}>{c.value}</a> : c.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <div className="arena-page__contact-partners">
+          {PARTNER_TYPES.map((p, index) => (
+            <div key={p.label} className="arena-page__ledger-row">
+              <span className="arena-page__ledger-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+              <div>
+                <h3 className="arena-page__contact-partner-title">{p.label}</h3>
+                <p className="body-text">{withCatalogueCounts(p.description, s)}</p>
+              </div>
             </div>
           ))}
         </div>
+      </EditorialChapter>
 
-      {/* Direct channels */}
-      {/* 2×2 in the desktop panel, one column on phones (never a 3 + 1 orphan). */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 210px), 1fr))', gap: 8 }}>
-        {channels.map((c) => (
-          <div key={c.label} className="arena-page__row" style={{ padding: '0.7rem 0.85rem' }}>
-            <span className="field-label" style={{ marginBottom: '0.25rem' }}>{c.label}</span>
-            {c.href ? (
-              <a href={c.href} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ice-200)', wordBreak: 'break-word', textDecoration: 'none', borderBottom: '1px solid var(--color-line)' }}>{c.value}</a>
-            ) : (
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-ice-200)', wordBreak: 'break-word' }}>{c.value}</span>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Enquiry form */}
-      <div className="arena-page__section arena-page__contact-form" style={{ padding: '1.1rem 1.25rem' }}>
-        <span className="arena-page__meta">Send an enquiry</span>
-        <AnimatePresence mode="wait">
+      <EditorialChapter id="contact-enquiry" number="02" kicker="Enquiry" title="Tell us what you need" className="arena-page__contact-form">
           {status === 'success' ? (
-            <motion.div key="ok" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }} aria-live="polite"
-              style={{ fontFamily: 'var(--font-body)', fontSize: 13, color: 'var(--color-text-soft)', padding: '12px 0', textAlign: 'center', lineHeight: 1.6 }}>
+            <div key="ok" aria-live="polite"
+              className="arena-page__contact-success">
               Enquiry received — we’ll reply within one business day. You can also email{' '}
-              <a href={`mailto:${email}`} style={{ color: 'var(--color-ice-200)' }}>{email}</a> directly.
-              <button type="button" onClick={() => setStatus('idle')}
-                style={{ display: 'block', margin: '12px auto 0', fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-ice-200)', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+              <a href={`mailto:${email}`}>{email}</a> directly.
+              <button type="button" className="arena-page__action" onClick={() => setStatus('idle')}>
                 Send another
               </button>
-            </motion.div>
+            </div>
           ) : (
-            <motion.form key="form" initial={false} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onSubmit={handleSubmit} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+            <form key="form"
+              onSubmit={handleSubmit} noValidate className="arena-page__enquiry-fields">
               <input type="text" name="website" value={website} onChange={(e) => setWebsite(e.target.value)}
                 aria-hidden="true" tabIndex={-1} autoComplete="off"
                 style={{ position: 'absolute', left: -10000, width: 1, height: 1, overflow: 'hidden' }} />
-              <div>
-                <label htmlFor="contact-name" className="field-label">Name</label>
+              <div className={`arena-page__floating-field${fields.name ? ' is-filled' : ''}`}>
                 <input id="contact-name" className="field" type="text" name="name" value={fields.name} onChange={(e) => update('name', e.target.value)}
-                  placeholder="e.g. Alex Mercer…" autoComplete="name" maxLength={200} disabled={status === 'submitting'} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} />
+                  placeholder=" " autoComplete="name" maxLength={200} disabled={status === 'submitting'} aria-invalid={!!errors.name} aria-describedby={errors.name ? 'err-name' : undefined} />
+                <label htmlFor="contact-name" className="field-label">Name</label>
+                <span className="arena-page__field-line" aria-hidden="true" />
                 <FieldError id="err-name" msg={errors.name} />
               </div>
 
-              <div>
-                <label htmlFor="contact-company" className="field-label">Company</label>
+              <div className={`arena-page__floating-field${fields.company ? ' is-filled' : ''}`}>
                 <input id="contact-company" className="field" type="text" name="company" value={fields.company} onChange={(e) => update('company', e.target.value)}
-                  placeholder="e.g. Apex Gaming…" autoComplete="organization" maxLength={200} disabled={status === 'submitting'} />
+                  placeholder=" " autoComplete="organization" maxLength={200} disabled={status === 'submitting'} />
+                <label htmlFor="contact-company" className="field-label">Company</label>
+                <span className="arena-page__field-line" aria-hidden="true" />
               </div>
 
-              <div>
-                <label htmlFor="contact-email" className="field-label">Work email</label>
+              <div className={`arena-page__floating-field${fields.email ? ' is-filled' : ''}`}>
                 <input id="contact-email" className="field" type="email" inputMode="email" spellCheck={false} name="email" value={fields.email} onChange={(e) => update('email', e.target.value)}
-                  placeholder="you@company.com" autoComplete="email" maxLength={320} disabled={status === 'submitting'} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                  placeholder=" " autoComplete="email" maxLength={320} disabled={status === 'submitting'} aria-invalid={!!errors.email} aria-describedby={errors.email ? 'err-email' : undefined} />
+                <label htmlFor="contact-email" className="field-label">Work email</label>
+                <span className="arena-page__field-line" aria-hidden="true" />
                 <FieldError id="err-email" msg={errors.email} />
               </div>
 
-              <div>
-                <label htmlFor="contact-enquiryType" className="field-label">Enquiry type</label>
+              <div className="arena-page__floating-field is-filled">
                 <select id="contact-enquiryType" className="field" name="enquiryType" value={fields.enquiryType} onChange={(e) => update('enquiryType', e.target.value as EnquiryType)}
                   disabled={status === 'submitting'} aria-invalid={!!errors.enquiryType} aria-describedby={errors.enquiryType ? 'err-enquiry' : undefined}>
                   <option value="" disabled>Select one…</option>
                   {ENQUIRY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
+                <label htmlFor="contact-enquiryType" className="field-label">Enquiry type</label>
+                <span className="arena-page__field-line" aria-hidden="true" />
                 <FieldError id="err-enquiry" msg={errors.enquiryType} />
               </div>
 
-              <div>
-                <label htmlFor="contact-message" className="field-label">Message</label>
+              <div className={`arena-page__floating-field arena-page__floating-field--wide${fields.message ? ' is-filled' : ''}`}>
                 <textarea id="contact-message" className="field" name="message" value={fields.message} onChange={(e) => update('message', e.target.value)}
-                  placeholder="Tell us about your platform, player base, or what you need from a content partner…" rows={4} maxLength={5000} disabled={status === 'submitting'}
+                  placeholder=" " rows={4} maxLength={5000} disabled={status === 'submitting'}
                   aria-invalid={!!errors.message} aria-describedby={[errors.message && 'err-message', fields.message.length > 4000 && 'contact-message-count'].filter(Boolean).join(' ') || undefined} />
+                <label htmlFor="contact-message" className="field-label">Message</label>
+                <span className="arena-page__field-line" aria-hidden="true" />
                 <FieldError id="err-message" msg={errors.message} />
                 {fields.message.length > 4000 && (
                   <span id="contact-message-count" className="readout" aria-live="polite" style={{ display: 'block', marginTop: 4 }}>
@@ -268,9 +268,9 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
 
               {(status === 'mailto' || (status === 'error' && canUseMailto)) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <p role="status" className="body-text" style={{ fontSize: 13 }}>
+                  <p role="status" className="body-text">
                     {status === 'mailto' ? 'Your email app should have opened — if not, copy your message.' : 'You can send your saved message using your email app.'}{' '}
-                    Email <a href={`mailto:${email}`} style={{ color: 'var(--color-ice-200)', overflowWrap: 'anywhere' }}>{email}</a>.
+                    Email <a href={`mailto:${email}`} style={{ overflowWrap: 'anywhere' }}>{email}</a>.
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     <button type="button" className="arena-page__action" onClick={openMailto} style={{ flex: '1 1 140px' }}>
@@ -279,7 +279,7 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
                     <button type="button" className="arena-page__action" onClick={copyMessage} style={{ flex: '1 1 140px' }}>Copy message</button>
                   </div>
                   {copyStatus !== 'idle' && (
-                    <p role="status" className="body-text" style={{ fontSize: 13 }}>
+                    <p role="status" className="body-text">
                       {copyStatus === 'copied' ? 'Message copied, including the studio address.' : 'Couldn’t copy — select and copy your message from the form above.'}
                     </p>
                   )}
@@ -292,12 +292,11 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
                     <span className="animate-spin" aria-hidden="true" style={{ width: 14, height: 14, border: '2px solid var(--color-line)', borderTopColor: 'var(--color-ice-200)' }} />
                     Sending…
                   </>
-                ) : 'Send Enquiry'}
+                ) : <><span>Send Enquiry</span><span className="arena-page__action-arrow" aria-hidden="true">↗</span></>}
               </button>
-            </motion.form>
+            </form>
           )}
-        </AnimatePresence>
-      </div>
+      </EditorialChapter>
     </ArenaPageContent>
   );
 }

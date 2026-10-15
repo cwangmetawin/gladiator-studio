@@ -19,9 +19,9 @@ const contrast = (a, b) => (luminance(a) + 0.05) / (luminance(b) + 0.05);
 test('the landed shade is bounded to the text column, leaving most of the viewport untouched', () => {
   const width = Number(liveShade.match(/width:\s*min\(([\d.]+)%/)?.[1] ?? 100) / 100;
   const height = Number(liveShade.match(/height:\s*([\d.]+)%/)?.[1] ?? 100) / 100;
-  // Even without CSS mask support its rectangle occupies < 42%; the soft mask reduces this further.
+  // Its unmasked rectangle occupies < 42%; local copy scrims protect every text edge.
   assert.ok(width * height <= 0.42, `shade rectangle covers ${(width * height * 100).toFixed(1)}% of viewport`);
-  assert.match(liveShade, /mask-image:\s*radial-gradient/);
+  assert.doesNotMatch(liveShade, /mask-image:\s*radial-gradient/);
   assert.match(css, /--page-copy-shade:\s*rgba\(5, 6, 9, 0\.8[4-9]\)/);
   assert.match(css, /:is\(p, h2, h3\)[^{]*\{[^}]*background:\s*var\(--page-copy-shade\)/s);
 });

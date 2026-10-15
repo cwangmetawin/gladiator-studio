@@ -12,6 +12,7 @@ const content = JSON.parse(readFileSync(new URL('../../../api/partnerDefault.jso
 const data = text => `data:text/javascript;base64,${Buffer.from(text).toString('base64')}`;
 const stubs = { 'lucide-react': pathToFileURL(require.resolve('lucide-react')).href,
   './PortalSections': data('export const PortalSections = () => null;'),
+  '@/features/arena-page/usePageBodyReady': data('export const usePageBodyReady = () => true;'),
   './usePartnerAuth': data('export const partnerError = (error, fallback) => error?.message || fallback;') };
 const { PartnerPage } = await createLoader(stubs).load('features/partner/PartnerPage.tsx');
 const render = patch => renderToStaticMarkup(React.createElement(PartnerPage, { content, titleId: 'partner-title', ...patch }));
@@ -42,7 +43,7 @@ test('signed-out portal uses only edited hero copy, steel emblem and an accessib
 test('portal headings distinguish partner, admin preview, no access and retryable access errors', () => {
   assert.match(render({ auth: auth({ status: 'partner', session: { user: { id: 'a' } }, partner: { company: 'Example Partner' } }) }), /Example Partner/);
   assert.match(render({ auth: auth({ status: 'preview', session: { user: { id: 'a' } } }) }), /Admin preview/);
-  assert.match(render({ auth: auth({ status: 'noaccess', session: { user: { id: 'a' } } }) }), /This account has no partner access/);
+  assert.match(render({ auth: auth({ status: 'noaccess', session: { user: { id: 'a' } } }) }), /This login has no partner access\. If you think it should, contact us\./);
   assert.match(render({ auth: auth({ status: 'error', error: 'Network unavailable' }) }), /role="alert"[^>]*>Network unavailable/);
   assert.match(render({ auth: auth({ status: 'error', error: 'Network unavailable' }) }), />Retry</);
   assert.doesNotMatch(render({ auth: auth({ status: 'loading', session: { user: { id: 'a' } } }) }), /<form/);

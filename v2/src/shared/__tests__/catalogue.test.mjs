@@ -108,18 +108,13 @@ async function aboutRenderer(content = {}) {
     .replace("from './SiteContentContext'", `from '${sectionUrl}'`));
   const { CatalogueStatsProvider, useStudioStats, useCatalogueGames } = await import(statsUrl);
   const { createLoader } = await import('./loadTs.mjs');
-  const { urlOf } = createLoader();
-  const arenaUrl = urlOf('features/arena-page/ArenaPageContent.tsx');
-  const copyUrl = urlOf('features/arena-page/pageCopy.ts');
-  const aboutUrl = moduleUrl(source('../../features/about/AboutSection.tsx')
-    .replace("from '@/features/arena-page/pageCopy'", `from '${copyUrl}'`)
-    .replace("from '@/features/arena-page/ArenaPageContent'", `from '${arenaUrl}'`)
-    .replace("from '@/shared/content/SiteContentContext'", `from '${sectionUrl}'`)
-    .replace("from '@/shared/content/StudioStats'", `from '${statsUrl}'`)
-    .replace("from '@/shared/utils/catalogueText'", `from '${countUrl}'`)
-    .replace("from '@/shared/utils/text'", `from '${moduleUrl(source('../utils/text.ts'))}'`)
-    .replace("from '@/api/aboutDefault.json'", `from '${moduleUrl(`export default ${source('../../api/aboutDefault.json')}`)}'`));
-  const { AboutSection } = await import(aboutUrl);
+  // Follow the shared editorial graph while keeping this provider and catalogue fixture authoritative.
+  const { load } = createLoader({
+    '@/shared/content/SiteContentContext': sectionUrl,
+    '@/shared/content/StudioStats': statsUrl,
+    '@/shared/utils/catalogueText': countUrl,
+  });
+  const { AboutSection } = await load('features/about/AboutSection.tsx');
   return {
     render: (catalogue) => renderToStaticMarkup(React.createElement(CatalogueStatsProvider, { catalogue }, React.createElement(AboutSection, { titleId: 'about-title' }))),
     stats: (catalogue) => {
@@ -134,8 +129,8 @@ async function aboutRenderer(content = {}) {
 test('About Games metric and copy use published rows despite a stale content metric', async () => {
   const { render } = await aboutRenderer({ about: { metrics: [{ label: 'Games', value: 34 }] } });
   const html = render({ slotGames: Array.from({ length: 12 }, () => ({})), miniGames: Array.from({ length: 31 }, () => ({})) });
-  assert.match(html.match(/library of \d+ titles/)?.[0], /library of 43 titles/);
-  assert.match(html, /<dt>Games<\/dt><dd>43<\/dd>/);
+  assert.match(html, /Operators and aggregators get 43 battle-tested titles/);
+  assert.match(html, /class="editorial-counter" aria-label="43 Games"><span class="editorial-counter__value"[^>]*aria-hidden="true">43<\/span>/);
   assert.match(html, /all 12 Gladiator slots and 31 MetaWin Originals/);
   const visibleText = html.replace(/<svg\b[^]*?<\/svg>/g, '').replace(/<[^>]*>/g, '');
   assert.doesNotMatch(visibleText, /\b34\b|\{\{/);
@@ -154,8 +149,7 @@ test('an authoritative empty catalogue stays empty and a stale content Max RTP i
   const empty = { slotGames: [], miniGames: [] };
   assert.equal(stats(empty).games, 0);
   assert.equal(stats(empty).rtp, 97);
-  assert.match(render(empty).match(/library of \d+ titles/)?.[0], /library of 0 titles/);
+  assert.match(render(empty), /Operators and aggregators get 0 battle-tested titles/);
   const live = { slotGames: [{ title: 'A', rtp: 94 }], miniGames: [{ title: 'B', rtp: 99.5 }] };
   assert.equal(stats(live).rtp, 99.5);
 });
-

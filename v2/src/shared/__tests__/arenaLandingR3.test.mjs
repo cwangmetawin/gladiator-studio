@@ -14,13 +14,24 @@ const { colosseumLines, ARENA_CENTER } = await load('features/arena/colosseumGeo
 const { createPageGateMeshes } = await load('features/arena/pageGateMeshes.ts');
 const { createPageFlightController } = await load('features/arena/pageFlightController.ts');
 const { createPageTransitionStore } = await load('features/arena-page/pageTransitionStore.ts');
-const css = readFileSync(new URL('../../features/arena-page/arenaPage.css', import.meta.url), 'utf8');
+let css = readFileSync(new URL('../../features/arena-page/arenaPage.css', import.meta.url), 'utf8');
+if (process.env.MUTATE_M5_LEDE_RESERVE === '1') {
+  css = css.replace(/min-height:\s*calc\(var\(--page-deck-size\)\s*\*\s*4\.05\);?\s*/, '');
+}
 const topbar = readFileSync(new URL('../../features/arena/topBar.css', import.meta.url), 'utf8');
 const metrics = JSON.parse(readFileSync(new URL('./sairaTitleMetrics.json', import.meta.url), 'utf8'));
 assert.equal(createHash('sha256').update(readFileSync(new URL(`../../../${metrics.font}`, import.meta.url))).digest('hex'), metrics.sha256,
   'headline metrics must match the real preloaded Saira Title file');
 const { ARENA_PAGE_COPY } = await load('features/arena-page/pageCopy.ts');
 const partnerCopy = JSON.parse(readFileSync(new URL('../../api/partnerDefault.json', import.meta.url), 'utf8'));
+
+test('the editorial hero reserves three actual deck lines before computing title clearance', () => {
+  const lede = css.match(/\.partner__stage \.partner__lede\s*\{([^}]+)\}/)?.[1] ?? '';
+  assert.match(lede, /min-height:\s*calc\(var\(--page-deck-size\)\s*\*\s*4\.05\)/);
+  assert.match(lede, /line-height:\s*1\.35/);
+  assert.match(css, /--page-deck-size:\s*clamp\(20px,\s*1\.9vw,\s*30px\)/);
+  assert.match(css, /@media\s*\(max-width:\s*767px\)[^]*?--page-deck-size:\s*18px/);
+});
 
 function layoutBounds(width, height, page) {
   const rule = selector => css.slice(css.indexOf(`${selector} {`) + selector.length + 2).split('}')[0];
@@ -33,14 +44,15 @@ function layoutBounds(width, height, page) {
   const available = width - inset * 2 - 16; // Reserve the widest stable scrollbar gutter.
   const emblem = phone ? Math.min(available * 0.55, 240) : Math.min(360, Math.max(180, width * 0.25));
   const maxEmblem = phone ? Math.min((width - inset * 2) * 0.55, 240) : emblem;
-  const title = rule('.partner__title'), copy = partner ? partnerCopy : ARENA_PAGE_COPY[page];
+  const title = rule('.partner__title'), lede = rule('.partner__stage .partner__lede');
+  const copy = partner ? partnerCopy : ARENA_PAGE_COPY[page];
   assert.match(title, /max-width: 1280px/);
   assert.match(title, /font-size: clamp\(96px, 8.6vw, 148px\)/);
-  assert.match(css, /\.partner__title \{ font-size: clamp\(44px, 11.5vw, 80px\); line-height: 1.02; margin-block: 32px 24px/);
+  assert.match(css, /\.partner__title \{ font-size: clamp\(44px, 11.5vw, 80px\); line-height: 0.9; margin-block: 32px 24px/);
   assert.match(css, /\.partner__hero \{ padding-block: 36px 40px/);
   assert.match(css, /\.partner__hero\s*\{[^}]*justify-content: center/s);
   assert.match(css, /\.partner__identity[^}]*justify-content: space-between/);
-  assert.match(title, /line-height: 0.98/); assert.match(title, /letter-spacing: -0.03em/);
+  assert.match(title, /line-height: 0.9/); assert.match(title, /letter-spacing: -0.03em/);
   const size = phone ? Math.min(80, Math.max(44, width * 0.115)) : Math.min(148, Math.max(96, width * 0.086));
   const measure = text => [...text].reduce((sum, char) => sum + metrics.advances[char] / metrics.unitsPerEm * size - size * 0.03, 0);
   let lines = 1, line = '';
@@ -49,16 +61,22 @@ function layoutBounds(width, height, page) {
     const next = line ? `${line} ${word}` : word;
     if (line && measure(next) > Math.min(1280, available) * 0.96) { lines++; line = word; } else line = next;
   }
-  const titleHeight = lines * size * (phone ? 1.02 : 0.98), identity = maxEmblem * 237 / 935;
-  const before = phone ? 32 : 28, after = 24, ledeMin = (phone ? 16 : Math.min(20, Math.max(16, width * 0.015))) * 1.8;
+  const lineHeight = Number(title.match(/line-height:\s*([\d.]+)/)?.[1]);
+  const deckClamp = rule('.partner').match(/--page-deck-size:\s*clamp\((\d+)px,\s*([\d.]+)vw,\s*(\d+)px\)/);
+  assert.ok(deckClamp, 'the model consumes the actual desktop deck scale');
+  const deckSize = phone ? 18 : Math.min(Number(deckClamp[3]), Math.max(Number(deckClamp[1]), width * Number(deckClamp[2]) / 100));
+  const deckMinimum = Number(lede.match(/min-height:\s*calc\(var\(--page-deck-size\)\s*\*\s*([\d.]+)\)/)?.[1]);
+  assert.equal(deckMinimum, 4.05, 'three 1.35-line-height deck lines are reserved by actual CSS');
+  const titleHeight = lines * size * lineHeight, identity = maxEmblem * 237 / 935;
+  const before = phone ? 32 : 28, after = 24, ledeMin = deckSize * deckMinimum;
   const heroHeight = Math.max(height - 94, top + (phone ? 40 : top) + identity + before + titleHeight + after + ledeMin);
   // Actual CSS h1 inline box + a conservative block envelope from the flex layout and real
-  // font advances. At least one lede line is present; more lines / partner stats move h1 up.
+  // font advances. Three deck lines are reserved in CSS; more lines / partner stats move h1 up.
   const titleY = 56 + top + emblem * 237 / 935 + before;
   const titleBottom = Math.max(bar + heroHeight / 2 + (identity + before + titleHeight - after - ledeMin) / 2,
     bar + top + identity + before + titleHeight);
   const emblemBottom = Math.max(bar + top + identity,
-    bar + (height - 94) / 2 + (identity - before - size * (phone ? 1.02 : 0.98) - after - ledeMin) / 2);
+    bar + (height - 94) / 2 + (identity - before - size * lineHeight - after - ledeMin) / 2);
   const reveal = Number(css.match(/@keyframes partner-title-in \{ from \{ opacity: 0; transform: translateY\(([\d.]+)px\)/)?.[1]);
   assert.ok(Number.isFinite(reveal), 'include the actual title reveal transform in the protected box');
   return {

@@ -9,5 +9,6 @@ export function withCatalogueCounts(text: string, counts: CatalogueCounts): stri
     .replace(/(?:\{\{slots\}\}|\b\d+) Gladiator slots?\b/gi, () =>
       `${counts.slots} Gladiator ${counts.slots === 1 ? 'slot' : 'slots'}`)
     .replace(/(?:\{\{originals\}\}|\b\d+) MetaWin Originals?\b/gi, () =>
-      `${counts.originals} MetaWin ${counts.originals === 1 ? 'Original' : 'Originals'}`);
+      `${counts.originals} MetaWin ${counts.originals === 1 ? 'Original' : 'Originals'}`)
+    .replace(/\{\{(games|slots|originals)\}\}/g, (_match, key: keyof CatalogueCounts) => String(counts[key]));
 }

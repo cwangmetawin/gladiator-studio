@@ -32,8 +32,8 @@ const render = patch => {
 test('all four sections use an accessible section nav, plain-text docs and stored game values', () => {
   const html = render();
   assert.match(html, /aria-label="Partner sections"/);
-  assert.equal((html.match(/aria-current="location"/g) ?? []).length, 1);
-  for (const title of ['Integration docs', 'Test credentials', 'Game assets', 'Game info &amp; certificates']) assert.ok(html.includes(title), title);
+  assert.equal((html.match(/aria-current="true"/g) ?? []).length, 1);
+  for (const title of ['Integration docs', 'Sandbox keys', 'Game assets', 'Games &amp; certificates']) assert.ok(html.includes(title), title);
   assert.match(html, /&lt;script&gt;unsafe\(\)&lt;\/script&gt;/);
   assert.doesNotMatch(html, /<script>/);
   for (const text of ['Second paragraph', '95.75', 'HIGH', '2026-10-15', 'Published game', 'legacy-game']) assert.ok(html.includes(text), text);
@@ -73,14 +73,15 @@ test('reveal, username/key copy, polite feedback and on-demand downloads exercis
     .replace("from './usePortalData'", `from '${dataUrl}'`)
     .replace("from './portalStorage'", `from '${storageUrl}'`)
     .replace("from './portalHelpers'", `from '${createLoader().urlOf('features/partner/portalHelpers.ts')}'`)
+    .replace("from '@/features/arena-page/Editorial'", `from '${createLoader().urlOf('features/arena-page/Editorial.tsx')}'`)
+    .replace("from '@/features/arena-page/DecodedKey'", `from '${createLoader().urlOf('features/arena-page/DecodedKey.tsx')}'`)
     .replace("from '@/shared/utils/text'", `from '${createLoader().urlOf('shared/utils/text.ts')}'`);
   const hookedModule = await import(moduleUrl(hooked));
   const harness = createHarness(hookedModule.PortalSections);
   try {
     harness.mount(props);
-    const gamesNav = findAll(harness.output, node => node.type === 'a' && node.props.href === '#partner-games')[0];
-    harness.act(() => gamesNav.props.onClick());
-    assert.equal(findAll(harness.output, node => node.type === 'a' && node.props['aria-current'] === 'location')[0].props.href, '#partner-games');
+    const index = findAll(harness.output, node => node.type?.name === 'EditorialIndex')[0];
+    assert.equal(index.props.chapters.map(chapter => chapter.id).join(','), 'partner-docs,partner-credentials,partner-assets,partner-games');
     const buttons = () => findAll(harness.output, node => node.type === 'button');
     harness.act(() => buttons().find(button => textOf(button) === 'Reveal').props.onClick());
     assert.equal(textOf(harness.output).includes('secret-key'), true);

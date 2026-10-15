@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { ErrorBoundary } from '@/shared/components/ErrorBoundary';
 import { useStudioStats } from '@/shared/content/StudioStats';
+import { withStudioMarkets } from '@/shared/utils/studioText';
 import { withCatalogueCounts } from '@/shared/utils/catalogueText';
 import type { Game } from '@/shared/types/game';
 import type { FeederState } from '@/features/live-feed/useFeederSocket';
@@ -32,7 +33,7 @@ interface ArenaSectionAreaProps {
 export function ArenaSectionArea({ page, titleId, games, loading, focusGame, onPlayGame, feed }: ArenaSectionAreaProps) {
   const stats = useStudioStats(), copy = ARENA_PAGE_COPY[page];
   const bodyReady = usePageBodyReady(page);
-  return <ArenaPageContent titleId={titleId} {...copy} lede={withCatalogueCounts(copy.lede, stats)}>
+  return <ArenaPageContent titleId={titleId} {...copy} headlineReady={bodyReady} lede={withStudioMarkets(withCatalogueCounts(copy.lede, stats), stats)}>
     {bodyReady ? <ErrorBoundary key={page} fallback={<p className="arena-page__section" role="status">Details could not be loaded. Please reload to try again.</p>}>
       <Suspense fallback={<p className="arena-page__section" role="status">Loading details…</p>}>
         {page === 'games' && <GamesPage titleId={titleId} bodyOnly games={games} loading={loading} focusGame={focusGame} onPlayGame={onPlayGame} />}
