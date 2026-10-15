@@ -107,3 +107,31 @@ test('the small second screen reads the current catalogue count, has no game ima
     assert.match(hidden, /aria-hidden="true"/);
   } finally { delete globalThis.__journeyStats; }
 });
+
+test('locking the journey keeps the visitor where they were, with the body overflow the viewport really uses', () => {
+  // Why (controller's browser check): the lock set overflow on <html>. The site's body has overflow-x hidden,
+  // so with <html> left visible the body's overflow is what the viewport scrolls by; giving <html> its own
+  // overflow moved the scroller and reset the position to 0. A panel opened in the arena put the visitor back
+  // on the first screen. This fake follows that rule: any non-visible overflow on <html> resets scrollY.
+  const original = { window: globalThis.window, document: globalThis.document, getComputedStyle: globalThis.getComputedStyle };
+  const html = { style: { overflowY: '' } }, body = { style: { overflowY: '' } };
+  const host = {
+    _y: 1710, scrollTo(_, y) { this._y = y; },
+    get scrollY() { return html.style.overflowY && html.style.overflowY !== 'visible' ? 0 : this._y; },
+  };
+  globalThis.window = host;
+  globalThis.document = { documentElement: html, body };
+  globalThis.getComputedStyle = node => ({ overflowY: node.style.overflowY || 'visible' });
+  host.getComputedStyle = globalThis.getComputedStyle;
+  try {
+    const unlock = lockJourneyScroll();
+    assert.equal(host.scrollY, 1710, 'still in the arena while the panel is open');
+    assert.equal(body.style.overflowY, 'hidden', 'the body, whose overflow the viewport uses, is locked');
+    assert.equal(html.style.overflowY, '', '<html> keeps its overflow, so the scroller does not change');
+    unlock();
+    assert.equal(host.scrollY, 1710, 'still in the arena after the panel closes');
+    assert.equal(body.style.overflowY, '');
+  } finally {
+    globalThis.window = original.window; globalThis.document = original.document; globalThis.getComputedStyle = original.getComputedStyle;
+  }
+});

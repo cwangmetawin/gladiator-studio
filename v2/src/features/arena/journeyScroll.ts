@@ -44,9 +44,24 @@ export function bindJourneyScroll(root: HTMLElement): () => void {
   };
 }
 
-/** Fixed dialogs keep their own scrolling. Hiding document overflow preserves the home position and the opener. */
+/**
+ * The element whose overflow the viewport scrolls by. While <html> is overflow-visible the body's overflow
+ * propagates to the viewport (the site's body sets overflow-x hidden), so the body is the one to lock: giving
+ * <html> its own overflow moves the scroller and resets the position to 0.
+ */
+function viewportScroller(): HTMLElement {
+  const root = document.documentElement, body = document.body;
+  const rootOverflow = (typeof getComputedStyle === 'function' ? getComputedStyle(root).overflowY : root.style.overflowY) || 'visible';
+  return rootOverflow === 'visible' && body ? body : root;
+}
+
+/** Fixed dialogs keep their own scrolling. Locking the viewport's scroller preserves the home position and the opener. */
 export function lockJourneyScroll(): () => void {
-  const style = document.documentElement.style, previous = style.overflowY;
+  const target = viewportScroller(), style = target.style, previous = style.overflowY, y = window.scrollY;
   style.overflowY = 'hidden';
-  return () => { style.overflowY = previous; };
+  if (window.scrollY !== y) window.scrollTo(0, y);
+  return () => {
+    style.overflowY = previous;
+    if (window.scrollY !== y) window.scrollTo(0, y);
+  };
 }
