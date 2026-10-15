@@ -49,12 +49,12 @@ test('the real catalogue filters the whole roster, focuses late/repeated request
     h.act(() => filter('Originals').props.onClick());
     h.update({ ...props, focusGame: { title: 'alpha', request: 1 } });
     assert.deepEqual(focus.slice(-2), [['scroll', 'alpha', { behavior: 'instant', block: 'center', inline: 'nearest' }], ['focus', 'alpha', { preventScroll: true }]]);
-    const widths = Object.fromEntries([320, 640].map(width => [width, { url: `/arena/games/alpha-${width}.webp`, width, height: width * 1.5, bytes: 10 }]));
+    const widths = Object.fromEntries([320, 640].map(width => [width, { url: `/arena/games/alpha-${width}-0123abcd.webp`, width, height: width * 1.5, bytes: 10 }]));
     globalThis.__covers = { ready: true, manifest: parseCoverManifest({ version: 1, entries: { alpha: { source: games[0].image, primary: [0.1, 0.2, 0.3], secondary: [0.2, 0.3, 0.4], widths } } }) };
     h.update({ ...props, loading: false, focusGame: { title: 'alpha', request: 1 } });
-    let image = findAll(h.output, n => n.type === 'img')[0]; assert.equal(image.props.src, '/arena/games/alpha-640.webp');
+    let image = findAll(h.output, n => n.type === 'img')[0]; assert.equal(image.props.src, '/arena/games/alpha-640-0123abcd.webp');
     globalThis.__phone = true; h.act(() => {});
-    image = findAll(h.output, n => n.type === 'img')[0]; assert.equal(image.props.src, '/arena/games/alpha-320.webp');
+    image = findAll(h.output, n => n.type === 'img')[0]; assert.equal(image.props.src, '/arena/games/alpha-320-0123abcd.webp');
     const broken = { dataset: {}, hidden: false };
     image.props.onError({ currentTarget: broken }); assert.equal(broken.src, games[0].image);
     image.props.onError({ currentTarget: broken }); assert.equal(broken.hidden, true);

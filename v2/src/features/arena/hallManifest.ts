@@ -1,5 +1,6 @@
 import type { Game } from '@/shared/types/game';
 import { CARD_ASPECT, type RGB } from './hallLayout';
+import bakedCovers from './gameCovers.json';
 
 export const STEEL_THEME: { readonly primary: RGB; readonly secondary: RGB } = Object.freeze({
   primary: Object.freeze([0.36, 0.50, 0.62] as const), secondary: Object.freeze([0.53, 0.59, 0.63] as const),
@@ -26,11 +27,12 @@ const rgb = (value: unknown): value is RGB => Array.isArray(value) && value.leng
   && value.every(c => typeof c === 'number' && Number.isFinite(c) && c >= 0 && c <= 1);
 
 function coverSize(value: unknown, slug: string, width: number): value is CoverSize {
-  return record(value) && value.url === `/arena/games/${slug}-${width}.webp` && value.width === width
+  return record(value) && typeof value.url === 'string'
+    && new RegExp(`^/arena/games/${slug}-${width}-[a-f0-9]{8}\\.webp$`).test(value.url) && value.width === width
     && Number.isInteger(value.height) && Number(value.height) > 0 && Number.isInteger(value.bytes) && Number(value.bytes) > 0;
 }
 
-/** Treat the optional public file as untrusted input. A bad entry never disables other games. */
+/** Validate baked data at the module boundary. A bad entry never disables other games. */
 export function parseCoverManifest(value: unknown): CoverManifest | null {
   if (!record(value) || value.version !== 1 || !record(value.entries)) return null;
   const entries: Record<string, BakedCover> = Object.create(null);
@@ -43,6 +45,8 @@ export function parseCoverManifest(value: unknown): CoverManifest | null {
   }
   return { entries };
 }
+
+export const COVER_MANIFEST: CoverManifest = parseCoverManifest(bakedCovers) ?? { entries: {} };
 
 export function coverForGame(game: Pick<Game, 'image' | 'slug'>, manifest: CoverManifest | null, phone: boolean): HallCover {
   const entry = game.slug ? manifest?.entries[game.slug] : undefined;
