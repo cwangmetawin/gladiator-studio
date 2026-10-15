@@ -11,6 +11,9 @@
   --page-chapter-size: clamp(36px, 4.4vw, 72px);
   --page-deck-size: clamp(20px, 1.9vw, 30px);
   --page-body-size: clamp(17px, 1.25vw, 18px);
+  /* The body face's longest lines fit about 1.6 characters per ch (measured in Chromium):
+     40ch keeps every line at or under 66 characters. */
+  --page-measure: 40ch;
   --page-meta-size: 11px;
   --partner-pad: clamp(16px, 4.2vw, 64px);
   --partner-rule: rgba(174, 198, 218, 0.22);
@@ -67,7 +70,7 @@
 }
 /* Clip decorative backdrop bleed without adding horizontal scrollable width. */
 .partner__stage { min-width: 0; padding-inline: var(--partner-pad); overflow-x: clip; }
-.partner__stage p { max-width: 62ch; color: var(--page-body-colour); font-size: var(--page-body-size); line-height: 1.65; }
+.partner__stage p { max-width: var(--page-measure); color: var(--page-body-colour); font-size: var(--page-body-size); line-height: 1.65; }
 .partner__stage h2, .partner__stage h3 { text-wrap: balance; }
 .partner__stage a { color: inherit; }
 .partner__stage a:focus-visible, .partner__bar button:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 4px; }
@@ -172,7 +175,7 @@
 .arena-page__nav a:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 3px; }
 .arena-page__section { border-top: 1px solid var(--partner-rule); padding-block: clamp(36px, 5vw, 72px); }
 .arena-page__section h2 { margin: 0 0 28px; font: 800 var(--page-chapter-size)/0.95 'Saira Title', var(--font-display); text-transform: uppercase; }
-.arena-page__section p { max-width: 72ch; }
+.arena-page__section p { max-width: var(--page-measure); }
 @media (max-width: 1180px) {
 .arena-page--section .partner__bar { gap: 16px; }
 .arena-page__nav ul { gap: 4px 12px; }

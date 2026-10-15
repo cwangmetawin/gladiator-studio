@@ -35,7 +35,7 @@
 .arena-page[data-scene='live'] :is(.partner__access, .arena-page__action):hover { background: transparent; color: var(--color-ice-50); }
 .arena-page__rows, .arena-page__dots { list-style: none; margin: 0; padding: 0; }
 .arena-page__rows > li, .arena-page__row { border-top: 1px solid var(--partner-rule); padding-block: 28px; min-width: 0; }
-.arena-page__dots li { padding-left: 18px; position: relative; color: var(--page-list-colour); font-size: var(--page-body-size); line-height: 1.65; overflow-wrap: anywhere; }
+.arena-page__dots li { max-width: var(--page-measure); padding-left: 18px; position: relative; color: var(--page-list-colour); font-size: var(--page-body-size); line-height: 1.65; overflow-wrap: anywhere; }
 .arena-page__dots li::before { content: '·'; position: absolute; left: 0; }
 .arena-page__meta { color: var(--page-meta-colour); font: var(--page-meta-size)/1.8 var(--font-mono); letter-spacing: 0.22em; text-transform: uppercase; overflow-wrap: anywhere; }
 .arena-page__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; margin-top: 24px; }
@@ -51,7 +51,7 @@
 .arena-page__number { font: 800 32px/1 'Saira Title', var(--font-display); color: var(--color-ice-400); }
 .arena-page__details summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-family: var(--font-mono); }
 .arena-page__details[open] summary { margin-bottom: 20px; }
-.arena-page__contact-form { max-width: 760px; }
+.arena-page__contact-form form { max-width: 760px; }
 .arena-page .field { border-radius: 0; background: rgba(5, 6, 9, 0.85); }
 .arena-page .field-label { color: var(--color-ice-200); }
 .arena-page .field:focus { border-color: var(--color-ice-200); box-shadow: none; }
@@ -71,7 +71,7 @@
 .arena-page__columns { grid-template-columns: minmax(0, 1fr); }
 .arena-page__games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 16px; }
 }
-.partner__stage .arena-page__meta { line-height: 1.8; }
+.partner__stage .arena-page__meta { max-width: none; line-height: 1.8; }
 .editorial-chapter { position: relative; isolation: isolate; min-width: 0; padding-block: clamp(56px, 7vw, 112px); scroll-margin-top: 28px; }
 .editorial-chapter::after { content: ''; position: absolute; top: 0; inset-inline: 0; height: 1px; background: var(--partner-rule); transform-origin: left; }
 .editorial-chapter__rail { min-width: 0; }
@@ -126,7 +126,7 @@
 .arena-page__action:is(:hover, :focus-visible) :is(svg, .arena-page__action-arrow) { transform: translateX(4px); }
 .arena-page__action:disabled, .partner__button:disabled { color: var(--color-ice-200); opacity: 1; }
 .partner__stage .arena-page__game-title { font: 800 clamp(26px, 2.5vw, 40px)/1.05 'Saira Title', var(--font-display); text-transform: uppercase; }
-.arena-page__game-meta { display: flex; flex-wrap: wrap; gap: 0 16px; }
+.arena-page__game-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-block: 8px 12px; }
 .arena-page__filter-chip { font-size: 11px; letter-spacing: 0.18em; }
 .arena-page__games > li { transition: transform 240ms var(--ease-out-expo); }
 .arena-page__positions { margin-top: 32px; }
@@ -150,7 +150,8 @@
 .arena-page__contact-channels { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 28px; margin-block: 32px; }
 .arena-page__contact-channels dd { margin: 12px 0 0; overflow-wrap: anywhere; }
 .arena-page__contact-partners { padding: 0; margin-block: 36px; list-style: none; }
-.partner__stage .arena-page__contact-partner-title { font: 800 28px/1.1 'Saira Title', var(--font-display); }
+.arena-page__contact-partners > .arena-page__ledger-row { display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: baseline; gap: 20px; padding-block: 24px; border-top: 1px solid var(--partner-rule); }
+.partner__body .arena-page__contact-partners .arena-page__contact-partner-title { margin-block: 0 12px; }
 .arena-page__ledger-number { font: 800 24px/1 'Saira Title', var(--font-display); font-variant-numeric: tabular-nums; }
 .arena-page__enquiry-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 28px; margin-top: 36px; }
 .arena-page__floating-field { position: relative; min-width: 0; }
@@ -228,7 +229,7 @@
 @media (prefers-reduced-motion: reduce) {
 .arena-page__floating-field:is(.is-filled, :focus-within) .field-label { top: 8px; transform: none; }
 }
-.arena-page__action:not(:has(svg, .arena-page__action-arrow))::after { content: '→'; position: static; display: inline-block; background: none; filter: none; transition: transform 220ms var(--ease-out-expo); }
+.arena-page__action:not(:has(svg, .arena-page__action-arrow))::after { content: '→'; content: '→' / ''; position: static; display: inline-block; background: none; filter: none; transition: transform 220ms var(--ease-out-expo); }
 .arena-page[data-scene='live'] .arena-page__action:not(:has(svg, .arena-page__action-arrow))::after { position: static; inset: auto; z-index: auto; background: none; filter: none; }
 .arena-page__action:not(:has(svg, .arena-page__action-arrow)):is(:hover,:focus-visible)::after { transform: translateX(4px); }
 .arena-page__position summary, .arena-page__feed li { position: relative; }

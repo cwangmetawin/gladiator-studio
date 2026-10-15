@@ -11,7 +11,7 @@
   cursor: pointer;
 }
 .partner__button::before { content: ''; position: absolute; inset: 0; z-index: -1; background: rgba(198, 210, 226, 0.14); transform: scaleX(0); transform-origin: left; transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
-.partner__button::after { content: '→'; display: inline-block; transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
+.partner__button::after { content: '→'; content: '→' / ''; display: inline-block; transition: transform 280ms cubic-bezier(.2,.8,.2,1); }
 .partner__button:is(:hover, :focus-visible):not(:disabled) { color: var(--color-ice-50); background: #050609; }
 .partner__button:is(:hover, :focus-visible):not(:disabled)::before { transform: scaleX(1); }
 .partner__button:is(:hover, :focus-visible):not(:disabled)::after { transform: translateX(3px); }
@@ -41,7 +41,7 @@
 .partner__stage .partner__loading, .partner__stage .partner__empty { font-size: var(--page-body-size, 18px); color: var(--color-ice-200); }
 .partner__document { margin-bottom: 40px; }
 .partner__document + .partner__document { padding-top: 32px; border-top: 1px solid var(--partner-rule); }
-.partner__document p { white-space: pre-wrap; margin: 0 0 20px; max-width: 62ch; font-size: var(--page-body-size, 18px); line-height: 1.65; color: var(--color-ice-200); user-select: text; -webkit-user-select: text; }
+.partner__document p { white-space: pre-wrap; margin: 0 0 20px; max-width: var(--page-measure, 40ch); font-size: var(--page-body-size, 18px); line-height: 1.65; color: var(--color-ice-200); user-select: text; -webkit-user-select: text; }
 .partner__files, .partner__credentials { margin: 0; padding: 0; list-style: none; }
 .partner__file { position: relative; display: grid; grid-template-columns: minmax(56px, auto) minmax(0, 1fr) auto; align-items: center; gap: 24px; padding-block: 24px; border-bottom: 1px solid var(--partner-rule); color: var(--color-ice-200); }
 .partner__file::before, .partner__game::before { content: ''; position: absolute; inset: 0 0 auto; height: 1px; background: var(--color-ice-50); transform: scaleX(0); transform-origin: left; transition: transform 280ms cubic-bezier(.2,.8,.2,1); }

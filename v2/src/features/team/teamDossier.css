@@ -3,6 +3,9 @@
 .editorial-dossier__image { min-width: 0; margin: 0; }
 .editorial-dossier__portrait { display: block; width: 100%; aspect-ratio: 4/5; max-height: 520px; object-fit: cover; filter: grayscale(1) sepia(0.16) hue-rotate(165deg) saturate(0.5) contrast(1.12); }
 .editorial-dossier__copy { min-width: 0; }
+.editorial-dossier__copy > p { margin: 0 0 24px; }
+.editorial-dossier__copy > .arena-page__meta { margin-bottom: 0; }
+.editorial-dossier__copy > .arena-page__meta + p:not(.arena-page__meta) { margin-top: 28px; }
 .editorial-dossier--monogram .editorial-chapter__heading { display: grid; grid-template-columns: 220px minmax(0, 1fr); align-items: center; gap: 32px; }
 .editorial-dossier--monogram .editorial-chapter__identity { min-width: 0; }
 .editorial-dossier--monogram .editorial-chapter__deck { margin-bottom: 0; }
