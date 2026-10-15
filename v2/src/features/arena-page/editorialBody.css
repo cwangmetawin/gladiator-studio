@@ -147,6 +147,7 @@
 .arena-page__feed li { animation: editorial-row-in 280ms var(--ease-out-expo) both; transition: transform 180ms var(--ease-out-expo); }
 @keyframes editorial-row-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 .partner__stage .arena-page__direct-email { display: inline-block; max-width: 100%; margin-block: 16px 48px; font: 800 clamp(32px,4.6vw,72px)/1.08 'Saira Title', var(--font-display); letter-spacing: -0.03em; text-decoration: underline; }
+@media (max-width: 380px) { .partner__stage .arena-page__direct-email { font-size: clamp(24px, 8vw, 32px); } }
 .arena-page__contact-channels { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 28px; margin-block: 32px; }
 .arena-page__contact-channels dd { margin: 12px 0 0; overflow-wrap: anywhere; }
 .arena-page__contact-partners { padding: 0; margin-block: 36px; list-style: none; }

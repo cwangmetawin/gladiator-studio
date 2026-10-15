@@ -174,7 +174,9 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
       <EditorialIndex chapters={[{ id: 'contact-direct', label: 'Direct' }, { id: 'contact-enquiry', label: 'Enquiry' }]} />
 
       <EditorialChapter id="contact-direct" number="01" kicker="Direct" title="Start a conversation" deck="One team. A direct line.">
-        <a className="arena-page__direct-email" href={`mailto:${email}`}>{email}</a>
+        <a className="arena-page__direct-email" href={`mailto:${email}`}>
+          {email.includes('@') ? <>{email.slice(0, email.indexOf('@'))}@<wbr />{email.slice(email.indexOf('@') + 1)}</> : email}
+        </a>
         <dl className="arena-page__contact-channels">
           {channels.filter((c) => c.label !== 'Email').map((c) => (
             <div key={c.label} className="arena-page__ledger-row">

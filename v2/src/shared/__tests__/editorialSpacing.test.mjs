@@ -50,3 +50,10 @@ test('team bio paragraphs and the meta line above them do not touch', () => {
   assert.match(copy, /margin(?:-block)?:\s*0\s+0\s+[1-9]\d*px|margin-block:\s*0\s+[1-9]\d*px/);
   assert.ok(rulesFor('.editorial-dossier__copy > .arena-page__meta + p:not(.arena-page__meta)').length, 'the bio starts clear of the meta line');
 });
+
+test('the direct email fits a 320 px phone and can only break after the @', () => {
+  const contact = read('features/contact/ContactSection.tsx');
+  assert.match(contact, /@<wbr \/>/, 'a long address wraps as name@ / domain, never mid-word');
+  const narrow = pageCss.match(/@media \(max-width: 380px\) \{[^}]*\.arena-page__direct-email \{[^}]*font-size:\s*clamp\(24px,\s*8vw,\s*32px\)/);
+  assert.ok(narrow, '17 characters of Saira at 32 px overflow the 288 px column of a 320 px phone');
+});
