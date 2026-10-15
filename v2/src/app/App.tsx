@@ -52,9 +52,10 @@ interface MobileDrawerProps {
   /** The top bar hides its Client Area button on phones — this is the mobile route in. */
   readonly onClientArea: (opener: HTMLButtonElement) => void;
   readonly motionMode: MotionMode;
+  readonly covered: boolean;
 }
 
-function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, motionMode }: MobileDrawerProps) {
+function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, motionMode, covered }: MobileDrawerProps) {
   const titleId = useId();
   const isolationRef = useRef<HTMLDivElement>(null);
   const dialogRef = useDialogFocus<HTMLElement>({ active: isOpen, onEscape: onClose, isolationRef });
@@ -65,7 +66,7 @@ function MobileDrawer({ isOpen, onClose, activePanel, onActivate, onClientArea, 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div ref={isolationRef}>
+        <div ref={isolationRef} style={{ visibility: covered ? 'hidden' : 'visible' }}>
           <motion.div
             key="drawer-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -320,7 +321,7 @@ export function App() {
 
   // The gate keeps its slot across verification: it stays mounted above the site while the site's sky
   // and 3D emblem are built underneath, then fades into the first screen.
-  const topBarCovered = page !== null;
+  const topBarCovered = page !== null || clientArea !== 'closed';
   return (
     <>
     {verified && (
@@ -345,7 +346,7 @@ export function App() {
       {!isMobile && <FilmGrain />}
       {!isMobile && <CursorFX />}
 
-      <main id="main">
+      <main id="main" style={{ visibility: topBarCovered ? 'hidden' : 'visible' }}>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
           <Suspense fallback={null}>
             <ArenaJourney active target="none"
@@ -369,7 +370,7 @@ export function App() {
           Shares App's single feeder socket (no second connection). */}
       {page === null && clientArea === 'closed' && <LiveTicker events={events} isConnected={isConnected} />}
 
-      {isMobile && <MobileDrawer isOpen={drawerOpen} motionMode={transition.mode} onClose={() => setDrawerOpen(false)}
+      {isMobile && <MobileDrawer covered={topBarCovered} isOpen={drawerOpen} motionMode={transition.mode} onClose={() => setDrawerOpen(false)}
         activePanel={page ?? 'none'} onActivate={handleActivate} onClientArea={openClientArea} />}
 
       {page !== null && (

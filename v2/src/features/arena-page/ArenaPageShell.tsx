@@ -1,4 +1,4 @@
-import { useId, useLayoutEffect, useRef, type ComponentProps, type ReactNode, type RefObject } from 'react';
+import { useId, useLayoutEffect, useRef, useSyncExternalStore, type ComponentProps, type ReactNode, type RefObject } from 'react';
 import { ChevronRight } from 'lucide-react';
 import { useDialogFocus } from '@/shared/hooks/useDialogFocus';
 import { MiniEmblem } from '@/features/arena/FlatEmblem';
@@ -6,8 +6,11 @@ import { LiveTicker } from '@/features/live-feed/LiveTicker';
 import { SoundToggle } from '@/shared/ui/SoundToggle';
 import { NAV_ITEMS } from '@/features/arena/navItems';
 import type { ArenaPageId } from './useArenaPage';
+import { pageTransition } from './pageTransitionStore';
 import '@/features/arena/topBar.css';
 import './arenaPage.css';
+const getFlightPhase = () => pageTransition.getSnapshot().phase;
+const getSceneAvailable = () => pageTransition.getSnapshot().sceneAvailable;
 
 interface ArenaPageShellProps {
   readonly page: ArenaPageId | 'partner';
@@ -22,15 +25,20 @@ interface ArenaPageShellProps {
 /** One modal/focus owner across page switches; the Client Area keeps its original bar. */
 export function ArenaPageShell({ page, onClose, onNavigate, returnFocusRef, events, isConnected, children }: ArenaPageShellProps) {
   const titleId = useId(), closeRef = useRef<HTMLButtonElement>(null), scrollRef = useRef<HTMLDivElement>(null);
+  const live = useSyncExternalStore(pageTransition.subscribe, getSceneAvailable, getSceneAvailable);
+  const flightPhase = useSyncExternalStore(pageTransition.subscribe, getFlightPhase, getFlightPhase);
+  const phase = live ? flightPhase : 'settled';
   const dialogRef = useDialogFocus<HTMLDivElement>({ onEscape: onClose, initialFocusRef: closeRef, returnFocusRef });
   useLayoutEffect(() => {
-    if (page === 'partner') return;
     scrollRef.current?.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    scrollRef.current?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true });
   }, [page]);
+  useLayoutEffect(() => {
+    if (phase !== 'settled' || (!live && page === 'partner')) return;
+    scrollRef.current?.querySelector<HTMLElement>('h1')?.focus({ preventScroll: true });
+  }, [page, phase, live]);
   return (
-    <div ref={dialogRef} className={`partner arena-page${page === 'partner' ? '' : ' arena-page--section'}`} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
-      <img className="partner__backdrop" src="/arena/client-backdrop.svg" alt="" aria-hidden="true" width={1920} height={1080} />
+    <div ref={dialogRef} className={`partner arena-page${page === 'partner' ? '' : ' arena-page--section'}`} data-scene={live ? 'live' : 'fallback'} data-flight={phase} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1}>
+      {!live && <img className="partner__backdrop" src="/arena/client-backdrop.svg" alt="" aria-hidden="true" width={1920} height={1080} />}
       <div className="partner__shade" aria-hidden="true" />
       <header className="topbar partner__bar">
         <span className="topbar__brand">
@@ -53,7 +61,10 @@ export function ArenaPageShell({ page, onClose, onNavigate, returnFocusRef, even
           </button>
         </div>
       </header>
-      <div ref={scrollRef} className="partner__scroll">{children(titleId)}</div>
+      <div ref={scrollRef} className="partner__scroll" onScroll={event => {
+        const scroll = event.currentTarget;
+        pageTransition.setScroll(scroll.scrollTop / Math.max(1, scroll.scrollHeight - scroll.clientHeight));
+      }}>{children(titleId)}</div>
       <LiveTicker events={events} isConnected={isConnected} />
     </div>
   );

@@ -1,8 +1,8 @@
 import { frameDeltaSeconds } from '@/shared/utils/frameTime';
 
-/** Every arena page and game overlay is opaque, on phones and desktops alike. */
-export function isSceneCovered(playing: boolean, pageOpen: boolean): boolean {
-  return playing || pageOpen;
+/** Pages share the live arena canvas; only an opaque game overlay suspends it. */
+export function isSceneCovered(playing: boolean, _pageOpen: boolean): boolean {
+  return playing;
 }
 
 interface RenderState {

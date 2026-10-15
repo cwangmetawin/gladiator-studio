@@ -37,6 +37,10 @@ export function createDiveFlash(B: BabylonModule, scene: Scene, phone: boolean) 
   let pass: InstanceType<BabylonModule['PostProcess']> | null = null, attached = false, strength = 0;
   const camera = scene.activeCamera!;
   return {
+    suspend(): void {
+      strength = 0;
+      if (attached && pass) { camera.detachPostProcess(pass); attached = false; }
+    },
     update(screens: number, reduced: boolean, home: boolean, opaqueNight: boolean, sceneReady: boolean): number {
       if (!phone && !reduced && !pass && sceneReady) {
         B.Effect.ShadersStore.arenaCrossingFragmentShader = FRAGMENT;

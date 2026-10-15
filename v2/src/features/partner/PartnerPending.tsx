@@ -14,7 +14,7 @@ export function PartnerPending({ titleId, failed = false }: PartnerPendingProps)
     <main className="partner__stage">
       <section className="partner__hero">
         <div className="partner__identity"><p className="partner__eyebrow">{content.eyebrow}</p><FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} /></div>
-        <h1 id={titleId} className="partner__title">{content.title || 'Partners'}</h1>
+        <h1 id={titleId} className="partner__title" tabIndex={-1}>{content.title || 'Partners'}</h1>
         {content.lede && <p className="partner__lede">{content.lede}</p>}
         <p className="partner__load-status" role="status">{failed ? 'Partner details could not be loaded. Please reload the page to try again.' : 'Loading partner details…'}</p>
       </section>

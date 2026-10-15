@@ -3,6 +3,9 @@ import { createCameraTrack, helmetMouthY, type CameraFraming } from './cameraTra
 import { createDiveFlash } from './diveFlash';
 import { createHallLayer } from './hallLayer';
 import { createCrossingSound } from './arenaSound';
+import { pageTransition } from '@/features/arena-page/pageTransitionStore';
+import { createPageFlightController } from './pageFlightController';
+import { createPageGateMeshes } from './pageGateMeshes';
 import { cameraScreens, DIVE_SCREENS, journeyProgress, smoothScreens, smoothstep } from './journeyProgress';
 import type { EmblemAsset } from './emblemFormat';
 import type { Framing } from './framing';
@@ -14,6 +17,8 @@ type Camera = InstanceType<ArenaModule['FreeCamera']>;
 export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, camera: Camera, asset: EmblemAsset,
   phone: boolean, reducedMotion: () => boolean, requestStatic: () => void, onCrossing: (soft: boolean) => void = () => {}) {
   const world = createArenaWorld(B, A, scene, phone);
+  const gates = createPageGateMeshes(B, A, scene, phone);
+  const pages = createPageFlightController(camera, phone, reducedMotion, pageTransition, requestStatic);
   const flash = createDiveFlash(B, scene, phone);
   const hall = createHallLayer(B, A, scene, phone, reducedMotion, requestStatic);
   const mouthY = helmetMouthY(asset.cap.positions);
@@ -28,11 +33,36 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
     cut = next;
     if (changed && reducedMotion()) requestStatic();
   });
+  // One mutable update record/return pose for the takeover branch: no flight-frame allocations.
+  const pageWorld = { fade: 0, night: 0, time: 0, camera };
+  const pageState = { screens: displayed, presence: 0, emblemVisible: false, flash: 0 };
 
   return {
-    meshes: world.meshes,
+    meshes: [...world.meshes, ...gates.meshes],
+    setPageAvailable: (available: boolean): void => pageTransition.setAvailable(available),
+    pageActive: (): boolean => pages.isActive(),
     step(framing: Framing, fov: number, dt: number, visibility: number, time: number, home: boolean, sceneReady: boolean) {
+      if (pages.isActive()) {
+        // Leave the damped homepage journey untouched, including an interrupted helmet dive.
+        pages.step(dt);
+        const blend = pages.worldBlend(), p = displayed / DIVE_SCREENS;
+        const fade = smoothstep(0.5, 0.8, p) * visibility;
+        const night = smoothstep(0.38, 0.63, p) * visibility;
+        pageWorld.fade = fade + (1 - fade) * blend;
+        pageWorld.night = night + (1 - night) * blend;
+        pageWorld.time = reducedMotion() ? 0 : time;
+        world.update(pageWorld);
+        gates.update(pageWorld.fade, pageTransition.getSnapshot().targetPage ?? undefined);
+        // Hide the existing ring without stepping its lazy builder or allocating frame poses.
+        hall.setCovered(pages.isActive());
+        flash.suspend();
+        pageState.screens = displayed;
+        pageState.presence = (1 - smoothstep(0.08, 0.5, p)) * (1 - blend);
+        pageState.emblemVisible = camera.position.z < 1.2 && blend < 0.999;
+        return pageState;
+      }
       const reduced = reducedMotion(), target = cameraScreens(journeyProgress.getSnapshot(), reduced);
+      hall.setCovered(false);
       displayed = reduced ? target : smoothScreens(displayed, target, dt);
       if (!frame || frame.distance !== framing.distance || frame.offsetX !== framing.offsetX || frame.offsetY !== framing.offsetY || frame.fov !== fov) {
         frame = { ...framing, fov, mouthY };
@@ -48,6 +78,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
       const hallFade = reduced ? (target > 0 ? visibility : 0) : smoothstep(0.95, 1.6, displayed) * visibility;
       const theme = hall.step(hallFade, dt, time);
       world.update({ fade, night, time: reduced ? 0 : time, camera, theme: theme?.primary });
+      gates.update(fade);
       const crossing = flash.update(displayed, reduced, home, night === 1, sceneReady);
       crossingSound.update({ screens: displayed, reduced, enabled: home && visibility > 0.5 && sceneReady, nowMs: performance.now() });
       return {
@@ -60,7 +91,8 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      unsubscribe(); hall.dispose(); flash.dispose(); world.dispose();
+      unsubscribe(); pages.dispose(); pageTransition.setAvailable(false);
+      gates.dispose(); hall.dispose(); flash.dispose(); world.dispose();
     },
   };
 }

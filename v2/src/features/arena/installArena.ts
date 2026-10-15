@@ -5,6 +5,7 @@ import { soundEngine } from '@/shared/utils/soundEngine';
 import { ARENA_FILES, loadEmblemAsset, mapUrl } from './arenaAssets';
 import { arenaQuality } from './arenaQuality';
 import { createArenaDive } from './arenaDive';
+import { createPageSceneLifecycle } from './pageSceneLifecycle';
 import { journeyProgress } from './journeyProgress';
 import { createArcScheduler } from './arcSchedule';
 import { createArcs } from './arcs';
@@ -45,6 +46,8 @@ export interface ArenaContext {
 }
 
 export interface Arena {
+  /** Resize the shared canvas, if needed, before either scene paints it. */
+  prepareFrame(): void;
   /** Advance the emblem and draw it. dt is seconds (0 for a static frame). */
   render(dt: number): void;
   dispose(): void;
@@ -172,13 +175,21 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   let clock = 0; // seconds of animated time, for the sway and the rim's shimmer
   const pointer = new B.Vector3();
 
-  scene.executeWhenReady(() => { ready = true; performance.mark('arena:ready'); ctx.onReady(); });
+  const pageLifecycle = createPageSceneLifecycle(engine, dive.meshes, () => ready, dive.setPageAvailable, ctx.onReady);
+  scene.executeWhenReady(() => { ready = true; pageLifecycle.sceneReady(); performance.mark('arena:ready'); ctx.onReady(); });
   // Hidden materials (the arcs) would compile on first use and hitch: compile them now, in the background. This runs
   // after the render loop has started (StarfieldBackground starts its loop before it installs the arena). The prototype
   // measured the pitfall: awaiting forceCompilationAsync before the loop started put readiness back by about 0.85 s;
   // compiling in the background once the loop runs costs about 22 ms.
-  const warmMeshes = [...arcs.parts.map(part => part.mesh), ...dive.meshes];
-  void Promise.all(warmMeshes.map(mesh => mesh.material?.forceCompilationAsync(mesh).catch(() => null) ?? null)).then(() => { lateReady = true; });
+  const warmMeshes = arcs.parts.map(part => part.mesh);
+  void pageLifecycle.warm();
+  let disposed = false;
+  void Promise.all(warmMeshes.map(mesh => mesh.material?.forceCompilationAsync(mesh).catch(() => null) ?? null)).then(() => {
+    if (disposed) return;
+    lateReady = true; ctx.onReady();
+  });
+  const homeScaling = engine.getHardwareScalingLevel();
+  let pageScaling = false;
 
   /** Seconds since the opening began: from the home's release, or from the first frame if that was later (no gate to wait under). -1: not begun. */
   function openingSeconds(now: number): number {
@@ -270,8 +281,16 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   }
 
   return {
+    prepareFrame(): void {
+      if (!ctx.phone || pageScaling === dive.pageActive()) return;
+      pageScaling = dive.pageActive();
+      engine.setHardwareScalingLevel(pageScaling ? Math.max(homeScaling, 1 / 1.15) : homeScaling);
+    },
     render,
     dispose() {
+      disposed = true;
+      pageLifecycle.dispose();
+      if (pageScaling) engine.setHardwareScalingLevel(homeScaling);
       unsubscribeSlot(); unsubscribeAnchor();
       window.removeEventListener('pointermove', onPointerMove);
       dive.dispose();

@@ -10,7 +10,7 @@ interface ArenaPageContentProps {
   readonly bodyOnly?: boolean;
 }
 
-/** The first screen is opaque; the arena line drawing appears behind the following sections. */
+/** The same hero sits over the live arena or the no-WebGL line drawing. */
 export function ArenaPageContent({ titleId, eyebrow, title, lede, children, bodyOnly = false }: ArenaPageContentProps) {
   if (bodyOnly) return <>{children}</>;
   return <main className="partner__stage">

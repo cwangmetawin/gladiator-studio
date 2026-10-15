@@ -501,10 +501,10 @@ test('the shipped feeder emits a constellation win for both small and large trac
   dispose();
 });
 
-test('all arena pages and opaque game overlays suspend the scene on desktop and phone', () => {
+test('live arena pages keep the scene rendering; opaque game overlays suspend it', () => {
   assert.equal(isSceneCovered(false, false), false);
   assert.equal(isSceneCovered(true, false), true);
-  assert.equal(isSceneCovered(false, true), true);
+  assert.equal(isSceneCovered(false, true), false);
   assert.equal(isSceneCovered(true, true), true);
 });
 

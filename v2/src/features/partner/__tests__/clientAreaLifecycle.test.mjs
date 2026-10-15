@@ -5,6 +5,7 @@ import { motionModuleUrls } from '../../../shared/__tests__/motionModuleUrls.mjs
 import { soundModuleUrls } from '../../../shared/__tests__/soundModuleUrls.mjs';
 import { audioRecorder } from '../../../shared/__tests__/audioRecorder.mjs';
 import { createHarness, harnessHooksUrl } from '../../../shared/__tests__/hookHarness.mjs';
+import { createLoader } from '../../../shared/__tests__/loadTs.mjs';
 
 test('the real Client Area hook captures the trigger, opens/closes immediately and synthesizes exactly one cue per action', async () => {
   const previous = { window: globalThis.window, AudioContext: globalThis.AudioContext };
@@ -16,9 +17,11 @@ test('the real Client Area hook captures the trigger, opens/closes immediately a
     const urls = soundModuleUrls(moduleUrl, source, { tokens: motion.tokens, suffix: 'client-area-hook' });
     const { soundEngine } = await import(urls.engine), { CUE_NOTES } = await import(urls.key);
     const hooks = harnessHooksUrl(moduleUrl);
+    const pageTransitionUrl = createLoader().urlOf('features/arena-page/pageTransitionStore.ts');
     const { useClientArea } = await import(moduleUrl(source('../../features/partner/useClientArea.ts')
       .replace("from 'react'", `from '${hooks}'`)
       .replace("from '@/shared/utils/soundEngine'", `from '${urls.engine}'`)
+      .replace("from '@/features/arena-page/pageTransitionStore'", `from '${pageTransitionUrl}'`)
       .replace("from '@/shared/audio/transitionSound'", `from '${urls.transition}'`)));
     soundEngine.unlock();
     const harness = createHarness(useClientArea);

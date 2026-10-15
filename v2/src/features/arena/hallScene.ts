@@ -55,7 +55,7 @@ export function createHallScene(B: BabylonModule, A: ArenaModule, scene: Scene, 
   const primaryColour = new B.Color3(), secondaryColour = new B.Color3();
   let primary: RGB = STEEL_THEME.primary, secondary: RGB = STEEL_THEME.secondary;
   let fromPrimary = primary, fromSecondary = secondary, toPrimary = primary, toSecondary = secondary;
-  let chosen = -1, changedAt = 0, disposed = false, warmed = false;
+  let chosen = -1, changedAt = 0, disposed = false, warmed = false, visible = false, covered = false;
 
   function framing(): void {
     const camera = scene.activeCamera;
@@ -74,9 +74,14 @@ export function createHallScene(B: BabylonModule, A: ArenaModule, scene: Scene, 
   }
 
   return {
+    setCovered(value: boolean): void {
+      if (disposed || covered === value) return;
+      covered = value; root.setEnabled(visible && !covered);
+    },
     step({ offset, fade, time, reduced }: HallFrame) {
       if (disposed) return STEEL_THEME;
-      root.setEnabled(fade > 0.001);
+      visible = fade > 0.001;
+      root.setEnabled(visible && !covered);
       if (fade <= 0.001) return { primary, secondary };
       framing();
       const selected = Math.min(items.length - 1, Math.max(0, Math.round(offset)));

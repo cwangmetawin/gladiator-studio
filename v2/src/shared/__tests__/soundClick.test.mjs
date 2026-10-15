@@ -14,10 +14,12 @@ test('the shipped About and Team in-copy links switch the arena page with exactl
   try {
     const motion = motionModuleUrls(moduleUrl, source, moduleUrl(source('../utils/frameTime.ts')));
     const urls = soundModuleUrls(moduleUrl, source, { tokens: motion.tokens, suffix: 'real-arena-cta' });
+    const pageTransitionUrl = moduleUrl(source('../../features/arena-page/pageTransitionStore.ts'));
     const { soundEngine } = await import(urls.engine), { CUE_NOTES } = await import(urls.key);
     const { useArenaPage } = await import(moduleUrl(source('../../features/arena-page/useArenaPage.ts')
       .replace("from 'react'", `from '${harnessHooksUrl(moduleUrl)}'`)
       .replace("from '@/shared/utils/soundEngine'", `from '${urls.engine}'`)
+      .replace("from './pageTransitionStore'", `from '${pageTransitionUrl}'`)
       .replace("from '@/shared/audio/transitionSound'", `from '${urls.transition}'`)));
     soundEngine.unlock();
     const h = createHarness(useArenaPage); h.mount();

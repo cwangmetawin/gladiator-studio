@@ -116,6 +116,22 @@
 }
 /* Section pages share the Client Area composition, with navigation inside the same focus scope. */
 .arena-page--section .partner__hero { background: #050609; margin-inline: calc(-1 * var(--partner-pad)); padding-inline: var(--partner-pad); }
+/* Bound contrast against a white scene; live metadata uses the brighter muted token too. */
+.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; background: transparent; animation: none; }
+.arena-page[data-scene='live'] .partner__hero { background: transparent; }
+.arena-page[data-scene='live'] .partner__shade { background: rgba(5, 6, 9, 0.81); transition: opacity 180ms ease-out; }
+.arena-page[data-scene='live'] .partner__bar { background: rgba(5, 6, 9, 0.9); }
+.arena-page[data-flight='flying'] .partner__shade, .arena-page[data-flight='closing'] .partner__shade { opacity: 0; }
+.arena-page[data-flight='flying'] .partner__scroll, .arena-page[data-flight='closing'] .partner__scroll { visibility: hidden; }
+.arena-page[data-flight='settled'][data-scene='live'] .partner__title { animation: partner-title-in 140ms var(--ease-out-expo) both; }
+.arena-page[data-flight='settled'][data-scene='live'] .partner__lede,
+.arena-page[data-flight='settled'][data-scene='live'] .partner__stage > :not(.partner__hero),
+.arena-page[data-flight='settled'][data-scene='live'] .partner__hero-foot { animation: partner-body-in 100ms ease-out 80ms both; }
+@keyframes partner-title-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes partner-body-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .arena-page[data-scene='live'] *, .arena-page[data-scene='live'] *::before, .arena-page[data-scene='live'] *::after { animation: none; transition: none; }
+}
 .arena-page__nav { min-width: 0; }
 .arena-page__nav ul { display: flex; flex-wrap: wrap; gap: 6px 20px; list-style: none; padding: 0; margin: 0; }
 .arena-page__nav a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-ice-400); font: 10px/1 var(--font-mono); letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }

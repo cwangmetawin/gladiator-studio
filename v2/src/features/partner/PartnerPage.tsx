@@ -45,7 +45,7 @@ export function PartnerPage({ content: c, stats: s, catalogue, coversReady, titl
           {c.eyebrow && <p className="partner__eyebrow">{c.eyebrow}</p>}
           <FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} />
         </div>
-        <h1 id={titleId} className="partner__title">{c.title || 'Partners'}</h1>
+        <h1 id={titleId} className="partner__title" tabIndex={-1}>{c.title || 'Partners'}</h1>
         {c.lede && <p className="partner__lede">{c.lede}</p>}
         <div className="partner__hero-foot">
           <dl className="partner__stats" aria-label="Studio statistics">

@@ -320,6 +320,9 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         render: (deltaSeconds) => {
           dt = deltaSeconds;
           effects.setRunning(shouldRunRenderLoop(getState()));
+          // Hardware scaling resizes/clears the shared canvas. Do it before either scene paints,
+          // especially when reduced motion will preserve this as its only frame.
+          if (sceneReady) arena?.prepareFrame();
           scene.render();
           if (sceneReady && !frameReady) {
             frameReady = true;

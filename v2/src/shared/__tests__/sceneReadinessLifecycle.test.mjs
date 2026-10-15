@@ -67,17 +67,18 @@ for (const reduced of [false, true]) {
       dispose() { disposed++; }
       resize() {}
     }
-    const arenaFrames = [], contexts = [];
+    const arenaFrames = [], contexts = [], renderOrder = [];
     let arenaDisposed = 0;
     const root = { dataset: {} };
     globalThis.window = { innerWidth: 1000, devicePixelRatio: 2, addEventListener() {}, removeEventListener() {}, matchMedia: () => preference };
     globalThis.document = { hidden: false, addEventListener() {}, removeEventListener() {} };
     globalThis.__m4aCanvas = { dataset: {}, closest: () => root };
     globalThis.__m4aLoad = () => Promise.resolve({ Engine });
-    globalThis.__m4aScene = { render: () => frames++, executeWhenReady: callback => { ready = callback; }, dispose() {} };
+    globalThis.__m4aScene = { render: () => { renderOrder.push('sky'); frames++; }, executeWhenReady: callback => { ready = callback; }, dispose() {} };
     globalThis.__m4aInstallArena = async (_B, _engine, context) => {
       contexts.push(context);
-      return { render: dt => arenaFrames.push(dt), dispose: () => { arenaDisposed++; } };
+      return { prepareFrame: () => renderOrder.push('prepare'),
+        render: dt => { renderOrder.push('arena'); arenaFrames.push(dt); }, dispose: () => { arenaDisposed++; } };
     };
     const probe = await import(hooks);
     probe.begin();
@@ -104,6 +105,8 @@ for (const reduced of [false, true]) {
       assert.equal(frames, before + 1);
       assert.equal(probe.values[0], true);
       assert.deepEqual(arenaFrames, [0], 'the complete static frame draws the emblem over the starfield');
+      assert.deepEqual(renderOrder.slice(-3), ['prepare', 'sky', 'arena'],
+        'canvas resizing must precede the sky paint, including the sole reduced-motion frame');
       render?.();
       assert.equal(observed.length, 3, 'later renders do not republish frame');
       assert.equal(arenaFrames.length, reduced ? 1 : 2, 'the emblem draws once per starfield frame (a reduced-motion loop draws none)');

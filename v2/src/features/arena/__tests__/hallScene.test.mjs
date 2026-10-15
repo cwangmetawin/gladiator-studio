@@ -38,6 +38,10 @@ test('the hall uses only the supplied scene, loads each unique cover once, and d
     assert.equal(r.scene.postProcesses.length, 0, 'the hall has no extra occlusion/post pass');
     hall.step({ offset: 0, fade: 1, dt: 0, time: 0, reduced: false });
     assert.equal(r.scene.getMeshByName('hallSlab0').isVisible, true);
+    hall.setCovered(true);
+    assert.equal(r.scene.getTransformNodeByName('arenaHall').isEnabled(), false);
+    hall.setCovered(false);
+    assert.equal(r.scene.getTransformNodeByName('arenaHall').isEnabled(), true, 'return restores the frozen ring without a lazy rebuild');
     const centre = r.scene.getMeshByName('hallSlab0');
     assert.ok(Math.abs(centre.scaling.x - 1.12) < 1e-6);
     hall.step({ offset: 1, fade: 1, dt: 0, time: 0, reduced: true });
