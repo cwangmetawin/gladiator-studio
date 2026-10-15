@@ -93,7 +93,7 @@ export function AboutSection() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
           <Button variant="primary" href="https://metawin.com" target="_blank" rel="noopener noreferrer">Visit MetaWin</Button>
           <Button variant="secondary" href="mailto:cwang@metawin.inc?subject=Demo Request — Gladiator Studio">Request Demo</Button>
-          <Button variant="secondary" onClick={openContact}>Partner With Us</Button>
+          <Button variant="secondary" sound={false} onClick={openContact}>Partner With Us</Button>
         </div>
       </Reveal>
     </SectionWrapper>

@@ -2,6 +2,7 @@ import { createArenaWorld } from './arenaWorld';
 import { createCameraTrack, helmetMouthY, type CameraFraming } from './cameraTrack';
 import { createDiveFlash } from './diveFlash';
 import { createHallLayer } from './hallLayer';
+import { createCrossingSound } from './arenaSound';
 import { cameraScreens, DIVE_SCREENS, journeyProgress, smoothScreens, smoothstep } from './journeyProgress';
 import type { EmblemAsset } from './emblemFormat';
 import type { Framing } from './framing';
@@ -11,12 +12,13 @@ type Camera = InstanceType<ArenaModule['FreeCamera']>;
 
 /** Lives inside M1's arena Scene. StarfieldBackground remains the only render-loop owner. */
 export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, camera: Camera, asset: EmblemAsset,
-  phone: boolean, reducedMotion: () => boolean, requestStatic: () => void) {
+  phone: boolean, reducedMotion: () => boolean, requestStatic: () => void, onCrossing: (soft: boolean) => void = () => {}) {
   const world = createArenaWorld(B, A, scene, phone);
   const flash = createDiveFlash(B, scene, phone);
   const hall = createHallLayer(B, A, scene, phone, reducedMotion, requestStatic);
   const mouthY = helmetMouthY(asset.cap.positions);
   let displayed = journeyProgress.getSnapshot();
+  const crossingSound = createCrossingSound(cameraScreens(displayed, reducedMotion()), onCrossing, reducedMotion());
   let frame: CameraFraming | null = null;
   let track: ReturnType<typeof createCameraTrack> | null = null;
   let disposed = false;
@@ -47,6 +49,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
       const theme = hall.step(hallFade, dt, time);
       world.update({ fade, night, time: reduced ? 0 : time, camera, theme: theme?.primary });
       const crossing = flash.update(displayed, reduced, home, night === 1, sceneReady);
+      crossingSound.update({ screens: displayed, reduced, enabled: home && visibility > 0.5 && sceneReady, nowMs: performance.now() });
       return {
         screens: displayed,
         presence: 1 - smoothstep(0.08, 0.5, p),

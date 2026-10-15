@@ -8,17 +8,18 @@ const { load } = createLoader();
 const B = await load('shared/babylon/babylonCore.ts'), A = await load('features/arena/arenaCore.ts');
 const { createArenaDive } = await load('features/arena/arenaDive.ts');
 const { createDiveFlash } = await load('features/arena/diveFlash.ts');
+const { createArcs } = await load('features/arena/arcs.ts');
 const { journeyProgress } = await load('features/arena/journeyProgress.ts');
 const { parseEmblem } = await load('features/arena/emblemFormat.ts');
 const bytes = readFileSync(new URL('../../../../public/arena/emblem.bin', import.meta.url));
 const asset = parseEmblem(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength));
 const frame = { distance: 12, offsetX: 0, offsetY: 0.8 };
 
-function rig(phone = true) {
+function rig(phone = true, onCrossing = () => {}) {
   const engine = new NullEngine(), scene = new B.Scene(engine);
   const camera = new A.FreeCamera('arenaCamera', new B.Vector3(), scene);
   let reduced = false, staticRequests = 0;
-  const dive = createArenaDive(B, A, scene, camera, asset, phone, () => reduced, () => { staticRequests++; });
+  const dive = createArenaDive(B, A, scene, camera, asset, phone, () => reduced, () => { staticRequests++; }, onCrossing);
   return {
     scene, camera, dive, engine,
     reduce: value => { reduced = value; },
@@ -27,6 +28,32 @@ function rig(phone = true) {
     dispose: () => { dive.dispose(); scene.dispose(); engine.dispose(); journeyProgress.publish(0); },
   };
 }
+
+test('real electric ribbons sound only after an accepted fire, never for a rejected or disposed arc', () => {
+  const r = rig(); let heard = 0;
+  const parent = new B.TransformNode('audioTest', r.scene), light = new B.PointLight('audioLight', new B.Vector3(), r.scene);
+  const arcs = createArcs(B, r.scene, asset.arcs, asset.placement, parent, light, () => 0.5, () => heard++);
+  try {
+    arcs.fire(-1, 0); assert.equal(heard, 0);
+    arcs.fire(0, 0); arcs.fire(1, 0); assert.equal(heard, 1);
+    arcs.update(50, 1); assert.ok(arcs.parts.every(part => part.mesh.isVisible));
+    arcs.update(1000, 1); assert.ok(arcs.parts.every(part => !part.mesh.isVisible));
+    arcs.dispose(); arcs.fire(1, 1100); assert.equal(heard, 1);
+  } finally { arcs.dispose(); r.dispose(); }
+});
+
+test('the real camera step publishes one crossing at the flash centre, also on a phone with no flash', () => {
+  for (const phone of [false, true]) {
+    const heard = [], r = rig(phone, soft => heard.push(soft));
+    try {
+      journeyProgress.publish(0); r.step();
+      journeyProgress.publish(0.62); r.step(); assert.deepEqual(heard, []);
+      journeyProgress.publish(0.621); r.step(); assert.deepEqual(heard, [false]);
+      journeyProgress.publish(0.8); r.step(); assert.deepEqual(heard, [false]);
+      journeyProgress.publish(0); r.step(); assert.deepEqual(heard, [false]);
+    } finally { r.dispose(); }
+  }
+});
 
 test('the actual camera uses the pure track in the same scene, settles the emblem before the mouth and replays exactly', () => {
   const r = rig();

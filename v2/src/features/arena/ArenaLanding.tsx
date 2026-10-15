@@ -11,6 +11,8 @@ import { coverForGame, type CoverManifest } from './hallManifest';
 import { hallOffset } from './hallProgress';
 import { hallContent, hallDrawn } from './hallState';
 import { journeyProgress } from './journeyProgress';
+import { createHallSound } from './arenaSound';
+import { soundEngine } from '@/shared/utils/soundEngine';
 import './hall.css';
 
 interface ArenaLandingProps {
@@ -32,10 +34,20 @@ export function ArenaLanding({ visible, interactive, onPlayGame }: ArenaLandingP
   const [manifestLoaded, setManifestLoaded] = useState(false);
   const root = useRef<HTMLElement>(null), enabled = useRef(false);
   const controls = useRef<ReturnType<typeof bindHallControls> | null>(null);
+  const switchSound = useMemo(() => createHallSound(soundEngine.gameSwitch), []);
   const index = useSyncExternalStore(journeyProgress.subscribe,
     () => Math.round(hallOffset(journeyProgress.getSnapshot(), games.length, reduced)), () => 0);
   const rendered = useSyncExternalStore(hallDrawn.subscribe, hallDrawn.getSnapshot, () => false);
   const items = useMemo(() => games.map(game => ({ game, cover: coverForGame(game, manifest, compact), compact })), [games, manifest, compact]);
+  const selectedIdentity = games[index] ? String(games[index].id) : null;
+  useLayoutEffect(() => {
+    const sync = (): void => switchSound.update(selectedIdentity,
+      visible && interactive && (typeof document === 'undefined' || !document.hidden));
+    sync();
+    if (typeof document === 'undefined') return;
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
+  }, [switchSound, selectedIdentity, visible, interactive]);
 
   useLayoutEffect(() => { enabled.current = visible && interactive; }, [visible, interactive]);
   useLayoutEffect(() => {

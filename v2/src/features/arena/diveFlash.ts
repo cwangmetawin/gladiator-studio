@@ -1,10 +1,12 @@
 import { DIVE_SCREENS, smoothstep } from './journeyProgress';
 import type { BabylonModule, Scene } from './arenaTypes';
 
+export const HELMET_CROSSING_SCREENS = DIVE_SCREENS * 0.69;
+
 export function crossingFlash(screens: number, phone: boolean, reduced: boolean): number {
   const p = screens / DIVE_SCREENS;
   if (phone || reduced || p <= 0.63 || p >= 0.8) return 0;
-  const distance = (p - 0.69) / 0.05;
+  const distance = (screens - HELMET_CROSSING_SCREENS) / (DIVE_SCREENS * 0.05);
   const gaussian = Math.exp(-distance * distance);
   return gaussian * smoothstep(0.63, 0.66, p) * (1 - smoothstep(0.75, 0.8, p));
 }

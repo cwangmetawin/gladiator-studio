@@ -348,6 +348,7 @@ export function App() {
   const handleVerify = useCallback(() => {
     preloadScene();
     soundEngine.unlock();
+    soundEngine.ignite();
     verify();
   }, [verify]);
   useEffect(() => { if (released) soundEngine.startAmbient(); }, [released]);
