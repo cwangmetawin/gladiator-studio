@@ -3,6 +3,7 @@ import { motion, useMotionValue, useSpring, useTransform, useMotionTemplate } fr
 import type { Game } from '@/shared/types/game';
 import { soundEngine } from '@/shared/utils/soundEngine';
 import { gameKey } from '@/features/starfield/gameIdentity';
+import { useGameCover } from './useGameCover';
 
 const TILT_SPRING = { stiffness: 160, damping: 18, mass: 0.5 } as const;
 
@@ -75,7 +76,7 @@ interface GameCardProps {
 }
 
 function GameCardComponent({ game, onPlayGame, index = 0 }: GameCardProps) {
-  const [imageError, setImageError] = useState(false);
+  const cover = useGameCover(game);
   const [hovered, setHovered] = useState(false);
 
   // ── Cursor-tracked 3D tilt + glare ──────────────────────────────────────────
@@ -147,15 +148,15 @@ function GameCardComponent({ game, onPlayGame, index = 0 }: GameCardProps) {
     >
       {/* Cover */}
       <div style={{ position: 'relative', aspectRatio: '3 / 4', overflow: 'hidden', background: 'var(--color-void-900)' }}>
-        {(!game.image || imageError) ? (
+        {!cover.src ? (
           <FallbackCover title={game.title} />
         ) : (
           <img
-            src={game.image}
+            src={cover.src}
             alt=""
             loading="lazy"
             width={300} height={400}
-            onError={() => setImageError(true)}
+            onError={cover.onError}
             draggable={false}
             style={{
               position: 'absolute', inset: 0, width: '100%', height: '100%',
@@ -254,11 +255,12 @@ interface FeaturedCardProps {
 
 function FeaturedCardComponent({ game, onPlayGame, heroImage }: FeaturedCardProps) {
   const [hovered, setHovered] = useState(false);
-  // Prefer the designed hero art; step down to the game cover, then a fallback.
-  const [src, setSrc] = useState<string | undefined>(heroImage ?? game.image);
-  const onImgError = useCallback(() => {
-    setSrc((prev) => (prev === heroImage && game.image && game.image !== heroImage ? game.image : undefined));
-  }, [heroImage, game.image]);
+  const cover = useGameCover(game);
+  // Keep designed hero art first; portrait fallbacks share the catalogue's bake.
+  const [failedHero, setFailedHero] = useState<string>();
+  const showHero = heroImage !== undefined && failedHero !== heroImage;
+  const src = showHero ? heroImage : cover.src;
+  const onImgError = () => { if (showHero) setFailedHero(heroImage); else cover.onError(); };
 
   const handlePlay = useCallback(() => {
     if (!isSafeUrl(game.link)) {

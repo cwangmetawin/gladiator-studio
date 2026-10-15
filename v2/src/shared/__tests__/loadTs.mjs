@@ -19,7 +19,7 @@ function resolveSource(specifier, fromFile) {
   const base = specifier.startsWith('@/') ? resolve(SRC, specifier.slice(2)) : resolve(dirname(fromFile), specifier);
   for (const suffix of CANDIDATES) {
     const file = base + suffix;
-    if (/\.(?:ts|tsx)$/.test(file) && existsSync(file)) return file;
+    if (/\.(?:ts|tsx|json)$/.test(file) && existsSync(file)) return file;
   }
   throw new Error(`loadTs: cannot resolve ${specifier} from ${fromFile}`);
 }
@@ -28,7 +28,8 @@ export function createLoader(stubs = {}) {
   const cache = new Map();
   const urlOf = (file) => {
     if (cache.has(file)) return cache.get(file);
-    const js = ts.transpileModule(readFileSync(file, 'utf8'), { compilerOptions: {
+    const input = readFileSync(file, 'utf8');
+    const js = file.endsWith('.json') ? `export default ${JSON.stringify(JSON.parse(input))};` : ts.transpileModule(input, { compilerOptions: {
       target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX,
     } }).outputText;
     const linked = js.replace(/(from\s+|import\s*\(\s*|import\s+)(['"])([^'"]+)\2/g, (match, lead, quote, specifier) => {

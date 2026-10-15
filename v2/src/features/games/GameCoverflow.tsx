@@ -13,6 +13,7 @@ import { soundEngine } from '@/shared/utils/soundEngine';
 import { skyStore } from '@/features/starfield/skyStore';
 import { catalogueFocusIndex } from './catalogueFocus';
 import { createCatalogueLock } from '@/shared/audio/transitionSound';
+import { useGameCover } from './useGameCover';
 import './coverflow.css';
 
 function isSafeUrl(url: string): boolean {
@@ -52,7 +53,7 @@ interface DeckCardProps {
 }
 
 function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, onLock, durationMs }: DeckCardProps) {
-  const [err, setErr] = useState(false);
+  const cover = useGameCover(game);
   return (
     <motion.button
       type="button"
@@ -68,10 +69,10 @@ function DeckCard({ game, cellW, cellH, target, grid, centre, onClick, onLock, d
       transition={durationMs === undefined ? SPRING : { duration: durationMs / 1000, ease: motionTokens.ease }}
       style={{ position: 'absolute', top: 0, left: 0, width: cellW, height: cellH, zIndex: target.z }}
     >
-      {(!game.image || err) ? (
+      {!cover.src ? (
         <span className="deck-card__fallback"><span>🎰</span><span>{game.title}</span></span>
       ) : (
-        <img src={game.image} alt="" draggable={false} loading="lazy" onError={() => setErr(true)} />
+        <img src={cover.src} alt="" draggable={false} loading="lazy" onError={cover.onError} />
       )}
       <span className="deck-card__grad" aria-hidden="true" />
       <span className="deck-card__title">{game.title}</span>
