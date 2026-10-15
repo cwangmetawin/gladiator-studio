@@ -9,7 +9,7 @@ const motion = motionModuleUrls(moduleUrl, source, moduleUrl(source('../utils/fr
 const urls = soundModuleUrls(moduleUrl, source, { tokens: motion.tokens });
 const { createWinThrottle } = await import(urls.throttle);
 const { createMuteStore, MUTE_STORAGE_KEY } = await import(urls.mute);
-const { bindTransitionSounds, createWarpSounds, createCatalogueLock } = await import(urls.transition);
+const { bindTransitionSounds, createClientAreaSounds, createCatalogueLock } = await import(urls.transition);
 const { createTransitionStore } = await import(motion.store);
 const { transitionTimeline } = await import(motion.tokens);
 
@@ -107,16 +107,15 @@ test('closing and reopening at the previous arrival timestamp still publishes th
   clock.advance(2000); assert.equal(played.length, 3);
 });
 
-test('Client Area has one start and one arrival, including an immediate reduced-motion arrival', () => {
+test('Client Area plays one tonal open and one close; duplicate or rapid requests cannot add cues', () => {
   const played = [];
-  const warp = createWarpSounds({ warpStart: () => played.push('start'), warpArrival: () => played.push('arrival') });
-  assert.equal(warp.start(), true); assert.equal(warp.start(), false);
-  assert.equal(warp.arrive(), true); assert.equal(warp.arrive(), false);
-  assert.deepEqual(played, ['start', 'arrival']);
-  warp.cancel(); warp.start(); warp.cancel();
-  assert.equal(warp.arrive(), false, 'a dismissed warp cannot play a late arrival');
-  warp.start(); warp.arrive();
-  assert.deepEqual(played, ['start', 'arrival', 'start', 'start', 'arrival']);
+  const client = createClientAreaSounds({ warpArrival: () => played.push('open'), panelClose: () => played.push('close') });
+  assert.equal(client.close(), false);
+  assert.equal(client.open(), true); assert.equal(client.open(), false);
+  assert.deepEqual(played, ['open']);
+  assert.equal(client.close(), true); assert.equal(client.close(), false);
+  client.open(); client.close(); client.open(); client.close();
+  assert.deepEqual(played, ['open', 'close', 'open', 'close', 'open', 'close']);
 });
 
 test('catalogue lock ticks once for a changed settled game, and does not tick on initial load or resize', () => {

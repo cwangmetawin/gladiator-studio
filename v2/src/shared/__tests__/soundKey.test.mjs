@@ -40,7 +40,8 @@ test('no cue declares a pitch glide; panel motion is expressed as exact scale st
   }
 });
 
-test('the shipped synth actually writes only its declared pitches; noise-only warp uses the cached texture', async () => {
+test('the shipped synth actually writes only its declared pitches; Client Area open and close have no noise', async () => {
+  assert.equal('warpStart' in CUE_NOTES, false, 'the retired noise burst has no remaining caller');
   for (const [name, cue] of Object.entries(CUE_NOTES)) {
     if (name === 'ambient') continue; // Its real sample synthesis is tested separately.
     const { AudioContext, record } = audioRecorder();
@@ -52,11 +53,10 @@ test('the shipped synth actually writes only its declared pitches; noise-only wa
     assert.deepEqual(record.pitches, declared, `${name} oscillator frequencies must come from its cue table`);
     for (const hz of record.pitches) assertScalePitch(hz, `${name} synthesized`);
     assert.ok(record.oscillators.every(osc => osc.detune.value === 0));
-    if (name === 'warpStart') {
-      assert.equal(record.oscillators.length, 0);
-      assert.equal(record.buffers.length, 1);
-      assert.ok(record.buffers[0].getChannelData(0).some(value => value !== 0));
-      assert.equal(record.sources[0].buffer === noise, true, 'the played source reads the prepared buffer');
+    if (name === 'warpArrival' || name === 'panelClose') {
+      assert.ok(record.oscillators.length > 0);
+      assert.equal(record.sources.length, 0);
+      assert.equal(cue.noise, false);
     }
   }
 });

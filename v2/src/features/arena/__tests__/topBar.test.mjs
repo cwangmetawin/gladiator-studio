@@ -73,7 +73,7 @@ test('desktop has Client Area and no menu; a phone has the menu and no section r
   const desktop = render();
   assert.equal(walk(desktop.tree, node => node.type === 'nav').length, 1);
   const client = buttons(desktop.tree).find(button => String(button.props.className).includes('topbar__client'));
-  client.props.onClick(); client.props.onMouseEnter();
+  client.props.onClick({ currentTarget: {} }); client.props.onMouseEnter();
   assert.equal(desktop.calls.client, 1);
   assert.deepEqual(globalThis.__sounds, ['hover']);
   assert.equal(buttons(desktop.tree).some(button => button.props['aria-label'] === 'Open menu'), false);
@@ -86,6 +86,16 @@ test('desktop has Client Area and no menu; a phone has the menu and no section r
   assert.equal(phone.calls.menu, 1);
   assert.equal(menu.props.style.visibility, 'visible');
   assert.equal(menu.props.tabIndex, 0);
+});
+
+test('Client Area passes its actual trigger so focus restoration does not depend on pointer focus', () => {
+  const opener = { focus() {} };
+  let captured = null;
+  const { tree } = render({ onClientArea: element => { captured = element; } });
+  const client = buttons(tree).find(button => String(button.props.className).includes('topbar__client'));
+  client.props.onClick({ currentTarget: opener });
+  assert.equal(captured === opener, true);
+  assert.deepEqual(globalThis.__sounds, [], 'the opener delegates the single cue to App');
 });
 
 test('while a panel flies in or out the phone menu is hidden and out of the tab order, so focus can return to it', () => {

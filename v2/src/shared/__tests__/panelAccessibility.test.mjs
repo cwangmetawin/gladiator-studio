@@ -234,3 +234,31 @@ test('phone panels retain modal isolation, focus containment, wrapping Tab and r
     assert.equal(f.doc.activeElement, f.opener);
   } finally { f.restore(); }
 });
+
+test('Client Area above the phone drawer traps focus, consumes Escape and returns to its original drawer button', () => {
+  const f = focusFixture();
+  try {
+    const manager = createDialogManager(f.doc);
+    const closeDrawer = manager.attach({ dialog: f.dialog, scope: f.dialog, modal: true, returnTo: f.opener,
+      initialFocus: () => f.first, onEscape() {} });
+    const client = f.dialog.parentElement.append(new HTMLElement());
+    const close = client.append(new HTMLElement(true)), access = client.append(new HTMLElement(true));
+    let closes = 0;
+    const closeClient = manager.attach({ dialog: client, scope: client, modal: true, returnTo: f.first,
+      initialFocus: () => close, onEscape: () => { closes++; closeClient(); } });
+    assert.equal(f.dialog.inert, true);
+    assert.equal(f.doc.activeElement === close, true);
+    f.key('Tab', true);
+    assert.equal(f.doc.activeElement === access, true);
+    f.key('Tab');
+    assert.equal(f.doc.activeElement === close, true);
+    f.nav.focus();
+    assert.equal(f.doc.activeElement === close, true, 'the page underneath cannot take focus');
+    assert.equal(f.key('Escape').defaultPrevented, true);
+    assert.equal(closes, 1);
+    assert.equal(f.dialog.inert, false);
+    assert.equal(f.doc.activeElement === f.first, true, 'the same drawer trigger receives focus');
+    closeDrawer();
+    assert.equal(f.doc.activeElement === f.opener, true, 'closing the drawer still returns to Menu');
+  } finally { f.restore(); }
+});

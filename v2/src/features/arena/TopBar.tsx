@@ -19,7 +19,7 @@ export interface TopBarProps {
   readonly target: PanelId;
   /** Open the section, or close it when it is already open (App's handleActivate). */
   readonly onActivate: (id: PanelId) => void;
-  readonly onClientArea: () => void;
+  readonly onClientArea: (opener: HTMLButtonElement) => void;
   readonly onMenu: () => void;
   /** Phones hide the menu while a panel flies in or out, so focus can return to it cleanly. */
   readonly menuVisible: boolean;
@@ -63,7 +63,7 @@ export function TopBar({ isConnected, isMobile, target, onActivate, onClientArea
             Menu
           </button>
         ) : (
-          <button type="button" className="topbar__client" onMouseEnter={() => soundEngine.hover()} onClick={onClientArea}>
+          <button type="button" className="topbar__client" onMouseEnter={() => soundEngine.hover()} onClick={event => onClientArea(event.currentTarget)}>
             Client Area
             <ExternalLink size={12} aria-hidden="true" />
           </button>

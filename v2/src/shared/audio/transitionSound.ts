@@ -32,23 +32,22 @@ export function bindTransitionSounds(store: TransitionSource, sounds: Transition
   });
 }
 
-/** Client Area callbacks describe real warp boundaries, including instant motion. */
-export function createWarpSounds(sounds: { readonly warpStart: () => void; readonly warpArrival: () => void }) {
-  let phase: 'closed' | 'flying' | 'arrived' = 'closed';
+/** One cue per committed open/close, independent of motion preference or repeated clicks. */
+export function createClientAreaSounds(sounds: { readonly warpArrival: () => void; readonly panelClose: () => void }) {
+  let open = false;
   return {
-    start(): boolean {
-      if (phase !== 'closed') return false;
-      phase = 'flying';
-      sounds.warpStart();
-      return true;
-    },
-    arrive(): boolean {
-      if (phase !== 'flying') return false;
-      phase = 'arrived';
+    open(): boolean {
+      if (open) return false;
+      open = true;
       sounds.warpArrival();
       return true;
     },
-    cancel(): void { phase = 'closed'; },
+    close(): boolean {
+      if (!open) return false;
+      open = false;
+      sounds.panelClose();
+      return true;
+    },
   };
 }
 
