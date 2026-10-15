@@ -59,6 +59,8 @@
 .partner__stage h3 { margin: 0 0 12px; font-size: 20px; font-weight: 600; line-height: 1.3; }
 .partner__stage a { color: inherit; }
 .partner__stage a:focus-visible, .partner__bar button:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 4px; }
+/* The global :focus-visible curves its corners (2px, grown by the offset); the Client Area keeps square corners. */
+.partner :focus-visible { border-radius: 0; }
 .partner__stage :is(h1, h2, h3, p, a, li, dd) { overflow-wrap: anywhere; }
 .partner__hero {
   display: flex;
