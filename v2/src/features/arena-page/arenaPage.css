@@ -53,7 +53,9 @@
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
-.partner__stage { min-width: 0; padding-inline: var(--partner-pad); }
+/* The copy shade bleeds 32 px past each line. clip (not hidden) keeps that bleed out of the
+   scroll box's scrollable width, so a phone cannot drag the page sideways. */
+.partner__stage { min-width: 0; padding-inline: var(--partner-pad); overflow-x: clip; }
 .partner__stage p { color: var(--color-ice-200); line-height: 1.8; }
 .partner__stage h2, .partner__stage h3 { text-wrap: balance; }
 .partner__stage h3 { margin: 0 0 12px; font-size: 20px; font-weight: 600; line-height: 1.3; }
