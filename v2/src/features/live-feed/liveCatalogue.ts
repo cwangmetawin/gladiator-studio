@@ -12,6 +12,7 @@ export type LiveProvider = 'gladiator' | 'original' | 'other';
 export interface CatalogueEntry {
   readonly title: string;
   readonly image?: string;
+  readonly slug?: string;
   readonly provider: 'gladiator' | 'original';
 }
 
@@ -30,10 +31,10 @@ export function normalizeGameName(name: string): string {
 // Build the primary lookup from curated catalogue titles.
 const byName = new Map<string, CatalogueEntry>();
 for (const g of GLADIATOR_SLOTS) {
-  byName.set(normalizeGameName(g.title), { title: g.title, image: g.image, provider: 'gladiator' });
+  byName.set(normalizeGameName(g.title), { title: g.title, image: g.image, slug: g.slug, provider: 'gladiator' });
 }
 for (const g of METAWIN_ORIGINALS) {
-  byName.set(normalizeGameName(g.title), { title: g.title, image: g.image, provider: 'original' });
+  byName.set(normalizeGameName(g.title), { title: g.title, image: g.image, slug: g.slug, provider: 'original' });
 }
 
 // Socket-name variants → a catalogue key already present in `byName`.

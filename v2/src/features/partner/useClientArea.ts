@@ -9,7 +9,7 @@ export function useClientArea() {
   const [clientArea, setClientArea] = useState<'closed' | 'open'>('closed');
   const clientSounds = useMemo(() => createClientAreaSounds(soundEngine), []);
   const clientOpenerRef = useRef<HTMLElement | null>(null);
-  const closing = useRef(false), active = useRef(false);
+  const closing = useRef(false), active = useRef(false), wasOpen = useRef(false);
   const phase = useSyncExternalStore(pageTransition.subscribe, getFlightPhase, getFlightPhase);
   useLayoutEffect(() => {
     if (!closing.current || phase !== 'idle') return;
@@ -17,6 +17,11 @@ export function useClientArea() {
     active.current = false;
     setClientArea('closed');
   }, [phase]);
+  useLayoutEffect(() => {
+    // The persistent bar/drawer has regained visibility and React's inert has been removed.
+    if (wasOpen.current && clientArea === 'closed') clientOpenerRef.current?.focus({ preventScroll: true });
+    wasOpen.current = clientArea !== 'closed';
+  }, [clientArea]);
   const openClientArea = useCallback((opener: HTMLButtonElement) => {
     if (!clientSounds.open()) return;
     if (!active.current) {

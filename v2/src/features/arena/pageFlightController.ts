@@ -1,6 +1,6 @@
 import type { createPageTransitionStore } from '@/features/arena-page/pageTransitionStore';
 import { createPageGates, type PageCameraPose } from './pageGates';
-import { createPageFlight, pageFlightTiming, samplePageFlight, samplePageScroll, type PageFlight } from './pageFlight';
+import { createPageFlight, pageFlightTiming, samplePageFlight, samplePageScroll, type PageFlight, type PageFlightMouth } from './pageFlight';
 
 interface Vector { x: number; y: number; z: number; set(x: number, y: number, z: number): unknown }
 interface Camera { readonly position: Vector; readonly rotation: Vector; fov: number }
@@ -25,19 +25,19 @@ function sample(leg: Leg, out: PageCameraPose): void {
 
 /** Owns only the supplied camera. Routes allocate on clicks; the frame sampler reuses one scalar pose. */
 export function createPageFlightController(camera: Camera, phone: boolean, reducedMotion: () => boolean,
-  store: Store, requestStatic: () => void) {
+  store: Store, requestStatic: () => void, mouth: () => PageFlightMouth | undefined = () => undefined) {
   const gates = createPageGates(phone ? 40 : 64), timing = pageFlightTiming(phone, false);
   const pose = blank(), rest = blank(), home = blank(), scrollStart = blank();
   const legs: Leg[] = [];
   let active = false, returning = false, disposed = false, revision = -1, available = false;
-  let reverseRate = 1, scroll = 0, blend = 0;
+  let reverseRate = 1, scroll = 0;
 
   function apply(): void {
     camera.position.set(pose.x, pose.y, pose.z);
     camera.rotation.set(pose.pitch, pose.yaw, pose.roll); camera.fov = pose.fov;
   }
   function finishReturn(): void {
-    copy(home, pose); apply(); legs.length = 0; active = returning = false; blend = 0; scroll = 0;
+    copy(home, pose); apply(); legs.length = 0; active = returning = false; scroll = 0;
     store.setPhase('idle', revision);
   }
   function land(): void {
@@ -63,7 +63,7 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
     const state = store.getSnapshot(), newlyAvailable = state.sceneAvailable && !available;
     available = state.sceneAvailable;
     if (!available) {
-      if (active) { copy(home, pose); apply(); legs.length = 0; active = returning = false; blend = 0; }
+      if (active) { copy(home, pose); apply(); legs.length = 0; active = returning = false; }
       return;
     }
     if (state.revision === revision && !newlyAvailable) return;
@@ -74,8 +74,10 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
       if (!active) { copy(capture(camera), home); active = true; }
       else bridgeScroll();
       returning = false; scroll = 0;
-      legs.push({ path: createPageFlight(capture(camera), gate, phone), upto: 0 });
-      if (reducedMotion()) { blend = 1; land(); }
+      const leg = { path: createPageFlight(capture(camera), gate, phone, mouth()), upto: 0 };
+      legs.push(leg);
+      sample(leg, pose); apply(); // Establish the exact takeover sample before any frame consumes time.
+      if (reducedMotion()) land();
     } else if (active) {
       bridgeScroll(); returning = true;
       let total = 0;
@@ -90,7 +92,7 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
 
   return {
     isActive: (): boolean => active,
-    worldBlend: (): number => blend,
+    homeDepth: (): number => home.z,
     step(dt: number): void {
       if (disposed || !active) return;
       const reduced = reducedMotion(), state = store.getSnapshot();
@@ -112,11 +114,6 @@ export function createPageFlightController(camera: Camera, phone: boolean, reduc
         const target = reduced ? 0 : state.scrollProgress;
         scroll = reduced ? 0 : scroll + (target - scroll) * (1 - Math.exp(-5 * Math.max(0, dt)));
         samplePageScroll(rest, scroll, pose); apply();
-      }
-      if (active) {
-        const first = legs[0];
-        blend = first ? Math.min(1, first.upto / 0.16) : 0;
-        blend = blend * blend * (3 - 2 * blend);
       }
     },
     dispose(): void { disposed = true; unsubscribe(); legs.length = 0; },

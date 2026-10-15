@@ -4,6 +4,7 @@ import type { ArenaPageGate, PageCameraPose } from './pageGates';
 
 export type { PageCameraPose } from './pageGates';
 type Channel = keyof PageCameraPose;
+export interface PageFlightMouth { readonly x: number; readonly y: number }
 const CHANNELS: readonly Channel[] = ['x', 'y', 'z', 'pitch', 'yaw', 'roll', 'fov'];
 export interface PageFlight {
   readonly start: PageCameraPose;
@@ -31,7 +32,7 @@ function nearestAngle(angle: number, reference: number): number {
 }
 
 /** Setup-only allocations. PCHIP keeps velocity continuous at the route joins and still settles exactly at rest. */
-export function createPageFlight(input: PageCameraPose, gate: ArenaPageGate, phone = false): PageFlight {
+export function createPageFlight(input: PageCameraPose, gate: ArenaPageGate, phone = false, mouth?: PageFlightMouth): PageFlight {
   const start = { ...input }, end = { ...gate.restPose, yaw: nearestAngle(gate.restPose.yaw, input.yaw) };
   const [cx, , cz] = ARENA_CENTER, radius = Math.hypot(start.x - cx, start.z - cz);
   const eyeY = gate.center[1], gateAt = phone ? 0.7 : 0.76;
@@ -42,7 +43,21 @@ export function createPageFlight(input: PageCameraPose, gate: ArenaPageGate, pho
   });
   const turn = nearestAngle(gate.angle, Math.atan2(start.z - cz, start.x - cx));
   const bank = phone ? 0.012 : 0.025;
-  if (radius < ARENA_RADIUS - 0.5) {
+  if (mouth && start.z < 1.2) {
+    // The emblem is real foreground geometry: reach its empty mouth before turning toward a page.
+    // Revealing the exterior while orbiting from the original depth made it look like a hard scene cut.
+    const mouthPose = { ...start, x: mouth.x, y: mouth.y, z: Math.max(0.4, start.z + 0.05),
+      pitch: 0, yaw: nearestAngle(0, start.yaw), roll: 0, fov: Math.max(start.fov, 0.94) };
+    keys.push([0.16, mouthPose], [0.25, { ...mouthPose, z: 4, fov: 0.94 }]);
+    const from = Math.atan2(4 - cz, mouth.x - cx), angleDistance = nearestAngle(gate.angle, from) - from;
+    const segments = Math.max(1, Math.ceil(Math.abs(angleDistance) / (Math.PI / 6)));
+    for (let i = 1; i <= segments; i++) {
+      const fraction = i / segments, angle = from + angleDistance * fraction;
+      keys.push([0.25 + fraction * 0.32, at(31, angle,
+        mouth.y + (eyeY - mouth.y) * fraction,
+        nearestAngle(-angle - Math.PI / 2, mouthPose.yaw), -bank * Math.sin(fraction * Math.PI))]);
+    }
+  } else if (radius < ARENA_RADIUS - 0.5) {
     // A switch first clears the target doorway outward, then turns on the exterior landing and enters it.
     // The outward heading is selected relative to the final yaw, so a wrap at ±π never adds a full revolution.
     const outwardYaw = inwardYaw + (inwardYaw < start.yaw ? Math.PI : -Math.PI);

@@ -116,10 +116,37 @@
 }
 /* Section pages share the Client Area composition, with navigation inside the same focus scope. */
 .arena-page--section .partner__hero { background: #050609; margin-inline: calc(-1 * var(--partner-pad)); padding-inline: var(--partner-pad); }
-/* Bound contrast against a white scene; live metadata uses the brighter muted token too. */
-.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; background: transparent; animation: none; }
+/* A small soft pool sits behind the headline; copy carries its own scrim as it scrolls. */
+.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; --page-copy-shade: rgba(5, 6, 9, 0.86); background: transparent; animation: none; }
 .arena-page[data-scene='live'] .partner__hero { background: transparent; }
-.arena-page[data-scene='live'] .partner__shade { background: rgba(5, 6, 9, 0.81); transition: opacity 180ms ease-out; }
+.arena-page[data-scene='live'] .partner__shade {
+  inset: 28% auto auto 0;
+  width: min(78%, 1080px);
+  height: 52%;
+  background: rgba(5, 6, 9, 0.81);
+  mask-image: radial-gradient(ellipse at center, #000 8%, transparent 72%);
+  transition: opacity 180ms ease-out;
+}
+.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3) {
+  background: var(--page-copy-shade);
+  box-shadow: 0 0 18px 8px var(--page-copy-shade);
+}
+.arena-page[data-scene='live'] .partner__stage :is(h2, h3) { width: fit-content; max-width: 100%; }
+.arena-page[data-scene='live'] :is(.partner__stats, .arena-page__stats, .partner__access, .arena-page__action, .partner__foot, .partner__dots li, .arena-page__dots li, .arena-page__meta, .arena-page__details summary, .field-label) {
+  background: var(--page-copy-shade);
+  box-shadow: 0 0 18px 8px var(--page-copy-shade);
+}
+.arena-page[data-scene='live'] .arena-page__feed li > :is(span, strong),
+.arena-page[data-scene='live'] .arena-page__row > :is(a, span),
+.arena-page[data-scene='live'] .arena-page__contact-form > [aria-live='polite'],
+.arena-page[data-scene='live'] .field-error,
+.arena-page[data-scene='live'] .readout {
+  background: var(--page-copy-shade);
+  box-shadow: 0 0 18px 8px var(--page-copy-shade);
+}
+.arena-page[data-scene='live'] .partner__title { filter: drop-shadow(0 3px 8px #050609); }
+.arena-page[data-scene='live'] .partner__hero-foot { border-color: rgba(174, 198, 218, 0.4); }
+.arena-page[data-scene='live'] :is(.partner__access, .arena-page__action):hover { background: var(--color-ice-50); color: #050609; }
 .arena-page[data-scene='live'] .partner__bar { background: rgba(5, 6, 9, 0.9); }
 .arena-page[data-flight='flying'] .partner__shade, .arena-page[data-flight='closing'] .partner__shade { opacity: 0; }
 .arena-page[data-flight='flying'] .partner__scroll, .arena-page[data-flight='closing'] .partner__scroll { visibility: hidden; }
@@ -182,6 +209,7 @@
   .arena-page__games { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 767px) {
+  .arena-page[data-scene='live'] .partner__shade { width: min(94%, 1080px); height: 40%; inset-block-start: 32%; }
   .arena-page--section .partner__bar { gap: 0 8px; }
   .arena-page__nav ul { justify-content: flex-start; gap: 0 16px; }
   .arena-page__nav a { font-size: 9px; letter-spacing: 0.08em; }

@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FeedEvent } from './useFeederSocket';
 import { lookupGame } from './liveCatalogue';
+import { COVER_MANIFEST, coverForGame } from '../arena/hallManifest';
 
 // ─── Homepage live ticker ───────────────────────────────────────────────────
 // A seamless horizontal crawl of real win events streaming across the bottom of
@@ -22,13 +23,16 @@ function formatUSD(n: number): string {
 
 function Chip({ ev }: { readonly ev: FeedEvent }) {
   const entry = lookupGame(ev.gameName);
+  const cover = entry ? coverForGame(entry, COVER_MANIFEST, true) : undefined;
   const big = ev.amount >= BIG;
   const accent = ev.provider === 'gladiator' ? HOLO : PURPLE;
   return (
     <span className="ticker__item">
       <span className="ticker__thumb" style={{ color: accent }}>
-        {entry?.image
-          ? <img src={entry.image} alt="" decoding="async" loading="lazy" />
+        {cover?.url
+          ? <img src={cover.url} alt="" decoding="async" loading="lazy" onError={event => {
+            if (event.currentTarget.getAttribute('src') !== cover.fallbackUrl) event.currentTarget.src = cover.fallbackUrl;
+          }} />
           : (entry?.title ?? ev.gameName).charAt(0).toUpperCase()}
       </span>
       <span className="ticker__game">{entry?.title ?? ev.gameName}</span>

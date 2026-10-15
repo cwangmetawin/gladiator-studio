@@ -7,14 +7,16 @@ import type { FeederState } from '@/features/live-feed/useFeederSocket';
 import { ArenaPageContent } from './ArenaPageContent';
 import { ARENA_PAGE_COPY } from './pageCopy';
 import type { ArenaPageId } from './useArenaPage';
+import { pageBodyLoaders } from './pageBodyLoaders';
+import { usePageBodyReady } from './usePageBodyReady';
 
-const GamesPage = lazy(() => import('@/features/games/GamesPage').then(m => ({ default: m.GamesPage })));
-const AboutSection = lazy(() => import('@/features/about/AboutSection').then(m => ({ default: m.AboutSection })));
-const TeamSection = lazy(() => import('@/features/team/TeamSection').then(m => ({ default: m.TeamSection })));
-const JourneySection = lazy(() => import('@/features/journey/JourneySection').then(m => ({ default: m.JourneySection })));
-const LiveActivityFeed = lazy(() => import('@/features/live-feed/LiveActivityFeed').then(m => ({ default: m.LiveActivityFeed })));
-const CareersSection = lazy(() => import('@/features/careers/CareersSection').then(m => ({ default: m.CareersSection })));
-const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
+const GamesPage = lazy(pageBodyLoaders.games);
+const AboutSection = lazy(pageBodyLoaders.about);
+const TeamSection = lazy(pageBodyLoaders.team);
+const JourneySection = lazy(pageBodyLoaders.journey);
+const LiveActivityFeed = lazy(pageBodyLoaders.live);
+const CareersSection = lazy(pageBodyLoaders.careers);
+const ContactSection = lazy(pageBodyLoaders.contact);
 
 interface ArenaSectionAreaProps {
   readonly page: ArenaPageId;
@@ -29,8 +31,9 @@ interface ArenaSectionAreaProps {
 /** The hero never suspends or loses focus while the real section details load. */
 export function ArenaSectionArea({ page, titleId, games, loading, focusGame, onPlayGame, feed }: ArenaSectionAreaProps) {
   const stats = useStudioStats(), copy = ARENA_PAGE_COPY[page];
+  const bodyReady = usePageBodyReady(page);
   return <ArenaPageContent titleId={titleId} {...copy} lede={withCatalogueCounts(copy.lede, stats)}>
-    <ErrorBoundary key={page} fallback={<p className="arena-page__section" role="status">Details could not be loaded. Please reload to try again.</p>}>
+    {bodyReady ? <ErrorBoundary key={page} fallback={<p className="arena-page__section" role="status">Details could not be loaded. Please reload to try again.</p>}>
       <Suspense fallback={<p className="arena-page__section" role="status">Loading details…</p>}>
         {page === 'games' && <GamesPage titleId={titleId} bodyOnly games={games} loading={loading} focusGame={focusGame} onPlayGame={onPlayGame} />}
         {page === 'about' && <AboutSection titleId={titleId} bodyOnly />}
@@ -40,6 +43,6 @@ export function ArenaSectionArea({ page, titleId, games, loading, focusGame, onP
         {page === 'careers' && <CareersSection titleId={titleId} bodyOnly />}
         {page === 'contact' && <ContactSection titleId={titleId} bodyOnly />}
       </Suspense>
-    </ErrorBoundary>
+    </ErrorBoundary> : <p className="arena-page__section" role="status">Loading details…</p>}
   </ArenaPageContent>;
 }

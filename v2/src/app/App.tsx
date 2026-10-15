@@ -29,12 +29,13 @@ import { LiveTicker } from '@/features/live-feed/LiveTicker';
 import { ArenaPageShell } from '@/features/arena-page/ArenaPageShell';
 import { useArenaPage } from '@/features/arena-page/useArenaPage';
 import { ArenaSectionArea } from '@/features/arena-page/ArenaSectionArea';
+import { PageBodyGate } from '@/features/arena-page/PageBodyGate';
+import { pageBodyLoaders, schedulePageBodyWarmup } from '@/features/arena-page/pageBodyLoaders';
 import { useTransition } from '@/shared/motion/useTransition';
 import { isPanelId, type PanelId } from '@/shared/motion/transition';
 import { motionTokens, type MotionMode } from '@/shared/motion/tokens';
 
-const loadPartnerArea = () => import('@/features/partner/PartnerArea');
-const PartnerArea = lazy(() => loadPartnerArea().then(m => ({ default: m.PartnerArea })));
+const PartnerArea = lazy(pageBodyLoaders.partner);
 // The first screen (3D emblem's page, headline, top bar) loads after the age gate answers, so none of it is in the gate's bundle.
 const ArenaJourney = lazy(() => import('@/features/arena/home').then(m => ({ default: m.ArenaJourney })));
 const TopBar = lazy(() => import('@/features/arena/home').then(m => ({ default: m.TopBar })));
@@ -259,8 +260,7 @@ export function App() {
   useEffect(() => scheduleScenePreload(), []);
   useEffect(() => { if (verified) preloadScene(); }, [verified]);
   useEffect(() => {
-    // Warm the small editorial page after the gate; a failed speculative load can retry on open.
-    if (released) void loadPartnerArea().catch(() => {});
+    if (released) return schedulePageBodyWarmup();
   }, [released]);
   const handleVerify = useCallback(() => {
     preloadScene();
@@ -390,11 +390,13 @@ export function App() {
       {clientArea !== 'closed' && (
         <PartnerDialog onClose={closeClientArea} returnFocusRef={clientOpenerRef} events={events} isConnected={isConnected}>
           {titleId => (
-            <ErrorBoundary fallback={<PartnerPending titleId={titleId} failed />}>
-              <Suspense fallback={<PartnerPending titleId={titleId} />}>
-                <PartnerArea titleId={titleId} />
-              </Suspense>
-            </ErrorBoundary>
+            <PageBodyGate page="partner" fallback={<PartnerPending titleId={titleId} />}>
+              <ErrorBoundary fallback={<PartnerPending titleId={titleId} failed />}>
+                <Suspense fallback={<PartnerPending titleId={titleId} />}>
+                  <PartnerArea titleId={titleId} />
+                </Suspense>
+              </ErrorBoundary>
+            </PageBodyGate>
           )}
         </PartnerDialog>
       )}
