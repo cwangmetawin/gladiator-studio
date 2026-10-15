@@ -1,6 +1,7 @@
 import { createAmbientBufferCache } from '@/shared/audio/ambientBuffer';
 import { playCue } from '@/shared/audio/cuePlayer';
-import { createWinThrottle } from '@/shared/audio/cueThrottle';
+import { createCueBufferCache } from '@/shared/audio/cueBuffer';
+import { createCueThrottle, createWinThrottle, GAME_SWITCH_INTERVAL_MS } from '@/shared/audio/cueThrottle';
 import { muteStore } from '@/shared/audio/muteStore';
 import type { EffectCue } from '@/shared/audio/key';
 
@@ -13,8 +14,11 @@ let ambientSource: AudioBufferSourceNode | null = null;
 let ambientGain: GainNode | null = null;
 let ambientRequested = false;
 let ambientPending = false;
+let cancelArc: (() => void) | null = null;
 const ambientCache = createAmbientBufferCache();
+const cueCache = createCueBufferCache();
 const allowWin = createWinThrottle();
+const allowGameSwitch = createCueThrottle(GAME_SWITCH_INTERVAL_MS);
 
 function unlock(): void {
   if (unlocked) return;
@@ -29,25 +33,36 @@ function unlock(): void {
     if (ac.state === 'suspended') void ac.resume().catch(() => {});
     // Queue bounded background work now, while the intro is still on screen.
     void ambientCache.prepare(ac).catch(() => {});
+    void cueCache.prepare(ac).catch(() => {});
     if (ambientRequested) startAmbient();
   } catch { /* Audio unavailable: the visual site remains fully usable. */ }
 }
 
 function initGestureUnlock(): () => void {
+  const visibilityTarget = typeof document === 'undefined' ? null : document;
+  const visibility = (): void => { if (visibilityTarget?.hidden) stopArc(); };
   const gesture = (): void => {
     unlock();
     if (ctx?.state === 'suspended') void ctx.resume().catch(() => {});
   };
   for (const event of ['pointerdown', 'keydown', 'click']) window.addEventListener(event, gesture, true);
+  visibilityTarget?.addEventListener('visibilitychange', visibility);
   return () => {
     for (const event of ['pointerdown', 'keydown', 'click']) window.removeEventListener(event, gesture, true);
+    visibilityTarget?.removeEventListener('visibilitychange', visibility);
+    stopArc();
   };
 }
 
-function play(cue: EffectCue): void {
+function stopArc(): void { cancelArc?.(); cancelArc = null; }
+
+function play(cue: EffectCue, level = 1): void {
   if (!unlocked || muteStore.getSnapshot() || !ctx || !masterGain) return;
   if ((cue === 'alert' || cue === 'bigWin') && !allowWin(cue, performance.now())) return;
-  playCue(ctx, masterGain, cue);
+  if (cue === 'gameSwitch' && !allowGameSwitch(performance.now())) return;
+  if (cue === 'arc') stopArc();
+  const cancel = playCue(ctx, masterGain, cue, cueCache.get(), level);
+  if (cue === 'arc') cancelArc = cancel;
 }
 
 function startAmbient(): void {
@@ -92,7 +107,7 @@ function setVolume(value: number): void {
 function toggleMute(): boolean {
   const muted = muteStore.toggle();
   if (masterGain) masterGain.gain.value = muted ? 0 : volume;
-  if (muted) stopAmbient();
+  if (muted) { stopAmbient(); stopArc(); }
   else startAmbient();
   return muted;
 }
@@ -109,7 +124,11 @@ export const soundEngine = Object.freeze({
   warpStart: () => play('warpStart'),
   warpArrival: () => play('warpArrival'),
   catalogueFocus: () => play('catalogueFocus'),
-  unlock, initGestureUnlock, startAmbient, stopAmbient, setVolume, toggleMute,
+  ignite: () => play('ignite'),
+  arc: () => play('arc'),
+  crossing: (soft = false) => play('crossing', soft ? 0.5 : 1),
+  gameSwitch: () => play('gameSwitch'),
+  unlock, initGestureUnlock, startAmbient, stopAmbient, stopArc, setVolume, toggleMute,
   isMuted: muteStore.getSnapshot,
   subscribeMute: muteStore.subscribe,
 });

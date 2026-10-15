@@ -333,7 +333,7 @@ test('useAgeGate: starts verified from the session, verify stores the answer as 
 
 test('App still unlocks sound and warms the scene on the click, then verifies', () => {
   const app = source('../../app/App.tsx');
-  assert.match(app, /const handleVerify = useCallback\(\(\) => \{\s*preloadScene\(\);\s*soundEngine\.unlock\(\);\s*verify\(\);\s*\}, \[verify\]\);/);
+  assert.match(app, /const handleVerify = useCallback\(\(\) => \{\s*preloadScene\(\);\s*soundEngine\.unlock\(\);\s*soundEngine\.ignite\(\);\s*verify\(\);\s*\}, \[verify\]\);/);
   assert.match(app, /<AgeGateLayer verified=\{verified\} rejected=\{!verified && !showGate\} onVerify=\{handleVerify\} onReject=\{reject\} \/>/);
 });
 

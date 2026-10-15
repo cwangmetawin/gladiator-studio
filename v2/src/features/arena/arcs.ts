@@ -69,10 +69,11 @@ export interface Arcs {
 }
 
 export function createArcs(B: BabylonModule, scene: Scene, edges: readonly ArcEdge[], placement: PlacementConstants,
-  parent: TransformNode, light: PointLight, random: () => number): Arcs {
+  parent: TransformNode, light: PointLight, random: () => number, onFire: () => void = () => {}): Arcs {
   const parts = [createPart(B, scene, 'arcMain', MAIN_POINTS, parent), createPart(B, scene, 'arcBranchA', BRANCH_POINTS, parent), createPart(B, scene, 'arcBranchB', BRANCH_POINTS, parent)];
   const placers = edges.map(edge => placeWing(placement, edge.side));
   const scratch = { main: new Float32Array(MAIN_POINTS), branch: new Float32Array(BRANCH_POINTS) };
+  let disposed = false;
   let active: { feather: number; startMs: number; t0: number; t1: number; tick: number; branchAt: readonly [number, number] } | null = null;
 
   function ribbon(points: number[][], width: number, place: (x: number, y: number, z: number) => [number, number, number], part: Part): void {
@@ -128,13 +129,14 @@ export function createArcs(B: BabylonModule, scene: Scene, edges: readonly ArcEd
 
   return {
     fire(feather, nowMs) {
-      if (active || !edges[feather]) return;
+      if (disposed || active || !edges[feather]) return;
       const t0 = 0.02 + random() * 0.22;
       active = { feather, startMs: nowMs, t0, t1: Math.min(0.98, t0 + 0.42 + random() * 0.3), tick: -1,
         branchAt: [8 + Math.floor(random() * 8), 18 + Math.floor(random() * 8)] };
+      onFire();
     },
     update(nowMs, fade) {
-      if (!active) return;
+      if (disposed || !active) return;
       const age = (nowMs - active.startMs) / 1000, duration = ARC_FLASH_MS / 1000;
       if (age > duration || fade <= 0.001) { stop(); return; }
       const tick = Math.floor((age * 1000) / JITTER_MS);
@@ -151,6 +153,10 @@ export function createArcs(B: BabylonModule, scene: Scene, edges: readonly ArcEd
     },
     isActive: () => active !== null,
     parts,
-    dispose() { parts.forEach(part => { part.mesh.dispose(false, true); }); },
+    dispose() {
+      if (disposed) return;
+      disposed = true; stop();
+      parts.forEach(part => { part.mesh.dispose(false, true); });
+    },
   };
 }

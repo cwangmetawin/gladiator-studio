@@ -182,9 +182,9 @@ test('the actual engine stays silent before a gesture, shares win throttles, and
     assert.equal(record.buffers.length, 0, 'the hand-off cannot synthesize a buffer synchronously');
     while (chunks.length) chunks.shift()();
     await Promise.resolve(); await Promise.resolve();
-    assert.equal(record.buffers.length, 1);
+    assert.equal(record.buffers.length, 2, 'one stereo ambient buffer and one shared mono cue texture');
     assert.equal(record.sources.filter(source => source.started).length, 1);
-    const ambient = record.buffers[0];
+    const ambient = record.buffers.find(buffer => buffer.numberOfChannels === 2);
     const oscillatorsBeforeMute = record.oscillators.length;
     assert.equal(sound.toggleMute(), true);
     sound.panelOpen(); sound.alert();
@@ -192,7 +192,7 @@ test('the actual engine stays silent before a gesture, shares win throttles, and
     assert.equal(values.get(MUTE_STORAGE_KEY), '1');
     assert.equal(sound.toggleMute(), false);
     await Promise.resolve(); await Promise.resolve();
-    assert.equal(record.buffers.length, 1);
+    assert.equal(record.buffers.length, 2);
     assert.equal(record.sources.at(-1).buffer, ambient, 'unmute reuses the same AudioBuffer');
     assert.equal(chunks.length, 0);
     cleanup(); assert.equal(listeners.size, 0);

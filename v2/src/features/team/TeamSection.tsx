@@ -198,7 +198,7 @@ function JoinTeamCard() {
         We hire senior talent across engineering, design, and product on a rolling basis.
         If you are exceptional at what you do and want to build games that real players use daily, we want to hear from you.
       </p>
-      <Button variant="primary" onClick={openCareers}>Join the Team</Button>
+      <Button variant="primary" sound={false} onClick={openCareers}>Join the Team</Button>
     </div>
   );
 }

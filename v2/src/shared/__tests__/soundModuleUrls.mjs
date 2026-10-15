@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
 /** MUTATE_SOUND_KEY=1 restores the old off-key transmission oscillator (red). */
-export function soundModuleUrls(moduleUrl, source, { mutateKey = false, tokens, suffix = '' } = {}) {
+export function soundModuleUrls(moduleUrl, source, { mutateKey = false, mutateSquare = false, tokens, suffix = '' } = {}) {
   const urls = {};
   const compile = (path, names, mutate) => {
     let src = source(path);
@@ -16,12 +16,17 @@ export function soundModuleUrls(moduleUrl, source, { mutateKey = false, tokens, 
     assert.ok(src.includes(target), 'sound-key mutation target not found');
     return src.replace(target, 'transmission: cue([{ ...NOTES.D6, hz: 1200 }, NOTES.F6, NOTES.G6])');
   } : undefined);
-  const player = compile('../audio/cuePlayer.ts', ['@/shared/audio/cuePlayer']);
+  const player = compile('../audio/cuePlayer.ts', ['@/shared/audio/cuePlayer'], mutateSquare ? src => {
+    const target = "osc.type = 'sine';";
+    assert.ok(src.includes(target), 'square mutation target not found');
+    return src.replace(target, "osc.type = cue === 'click' ? 'square' : 'sine';");
+  } : undefined);
+  const noise = compile('../audio/cueBuffer.ts', ['@/shared/audio/cueBuffer']);
   const ambient = compile('../audio/ambientBuffer.ts', ['@/shared/audio/ambientBuffer']);
   const throttle = compile('../audio/cueThrottle.ts', ['@/shared/audio/cueThrottle']);
   const mute = compile('../audio/muteStore.ts', ['@/shared/audio/muteStore']);
   const engine = compile('../utils/soundEngine.ts', ['@/shared/utils/soundEngine']);
   if (tokens) urls['@/shared/motion/tokens'] = tokens;
   const transition = tokens ? compile('../audio/transitionSound.ts', ['@/shared/audio/transitionSound']) : null;
-  return { key, player, ambient, throttle, mute, engine, transition };
+  return { key, player, noise, ambient, throttle, mute, engine, transition };
 }

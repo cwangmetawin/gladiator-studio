@@ -1,6 +1,7 @@
 import { approach } from '@/shared/utils/frameTime';
 import { emblemAnchor } from '@/shared/brand/emblemAnchor';
 import { homeReveal } from '@/shared/brand/homeReveal';
+import { soundEngine } from '@/shared/utils/soundEngine';
 import { ARENA_FILES, loadEmblemAsset, mapUrl } from './arenaAssets';
 import { arenaQuality } from './arenaQuality';
 import { createArenaDive } from './arenaDive';
@@ -16,6 +17,7 @@ import { createAuraMaterial, createRibbonMaterial, HOLO } from './ribbonShaders'
 import { installSteelSky, stepGrade } from './steelSky';
 import { createSteelMaterials } from './steelMaterial';
 import { LOOK } from './arenaLook';
+import { arenaSoundVisibility, canFireArenaArc } from './arenaSound';
 import type { ArenaModule, BabylonModule, Engine, Scene } from './arenaTypes';
 
 // The 3D emblem: a second Scene on the starfield's engine and canvas (one WebGL context). It is drawn
@@ -120,9 +122,10 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   arcLight.diffuse = new B.Color3(0.65, 0.86, 1); arcLight.specular = arcLight.diffuse; arcLight.intensity = 0;
   arcLight.parent = nodes.pivot;
 
-  const arcs = createArcs(B, scene, asset.arcs, asset.placement, nodes.pivot, arcLight, Math.random);
+  const arcs = createArcs(B, scene, asset.arcs, asset.placement, nodes.pivot, arcLight, Math.random, soundEngine.arc);
   const scheduler = createArcScheduler(Math.random);
-  const dive = createArenaDive(B, A, scene, camera, asset, ctx.phone, ctx.reducedMotion, ctx.onReady);
+  const dive = createArenaDive(B, A, scene, camera, asset, ctx.phone, ctx.reducedMotion, ctx.onReady,
+    soft => { if (arenaSoundVisibility.get() && !document.hidden) soundEngine.crossing(soft); });
 
   // ── framing: the slot on the page, and the gate's rectangle the emblem starts from ──────────────────
   const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
@@ -245,7 +248,10 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     auraMaterial.setFloat('uStrength', (LOOK.aura + LOOK.auraFlash * a.flash + (arcs.isActive() ? LOOK.auraArc : 0)) * visibility * journey.presence);
 
     // arcs: one at a time, 2.6-4.2 s apart, once the opening is under way (never in a static frame)
-    if (!reduced && seconds >= 0 && lateReady && visibility > 0.5 && journey.presence > 0.5) {
+    const arcAllowed = canFireArenaArc({ home: hub, covered: !arenaSoundVisibility.get() || document.hidden,
+      reduced, seconds, ready: lateReady, visibility, presence: journey.presence });
+    if (!arcAllowed) soundEngine.stopArc();
+    if (arcAllowed) {
       const feather = scheduler.poll(seconds * 1000);
       if (feather !== null) {
         arcs.fire(feather, now);

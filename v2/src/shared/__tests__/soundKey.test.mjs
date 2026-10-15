@@ -32,23 +32,22 @@ test('the cue table names D natural minor and every declared tonal frequency is 
   }
 });
 
-test('every glide starts and ends on exact scale pitches, including the sub-bass thump', () => {
-  assert.equal(CUE_NOTES.panelOpen.glides.length, 2);
-  assert.equal(CUE_NOTES.panelClose.glides.length, 1);
+test('no cue declares a pitch glide; panel motion is expressed as exact scale steps', () => {
+  assert.ok(CUE_NOTES.panelOpen.tones.length > 1);
+  assert.ok(CUE_NOTES.panelClose.tones.length > 1);
   for (const [name, cue] of Object.entries(CUE_NOTES)) {
-    for (const [start, end] of cue.glides) {
-      assertScalePitch(start.hz, `${name} start/${start.name}`);
-      assertScalePitch(end.hz, `${name} end/${end.name}`);
-    }
+    assert.deepEqual(cue.glides, [], `${name} may not sweep through out-of-key pitches`);
   }
 });
 
-test('the shipped synth actually writes only its declared pitches; noise-only warp stays unpitched', () => {
+test('the shipped synth actually writes only its declared pitches; noise-only warp uses the cached texture', async () => {
   for (const [name, cue] of Object.entries(CUE_NOTES)) {
     if (name === 'ambient') continue; // Its real sample synthesis is tested separately.
     const { AudioContext, record } = audioRecorder();
     const ac = new AudioContext();
-    playCue(ac, ac.createGain(), name);
+    const { createCueBufferCache } = await import(urls.noise);
+    const noise = await createCueBufferCache(callback => callback()).prepare(ac);
+    playCue(ac, ac.createGain(), name, noise);
     const declared = [...cue.tones.map(pitch => pitch.hz), ...cue.glides.flatMap(pair => pair.map(pitch => pitch.hz))];
     assert.deepEqual(record.pitches, declared, `${name} oscillator frequencies must come from its cue table`);
     for (const hz of record.pitches) assertScalePitch(hz, `${name} synthesized`);
@@ -57,6 +56,7 @@ test('the shipped synth actually writes only its declared pitches; noise-only wa
       assert.equal(record.oscillators.length, 0);
       assert.equal(record.buffers.length, 1);
       assert.ok(record.buffers[0].getChannelData(0).some(value => value !== 0));
+      assert.equal(record.sources[0].buffer === noise, true, 'the played source reads the prepared buffer');
     }
   }
 });

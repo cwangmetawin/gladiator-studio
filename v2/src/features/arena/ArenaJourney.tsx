@@ -5,6 +5,8 @@ import { ArenaLanding } from './ArenaLanding';
 import { doorsVisible, journeyProgress } from './journeyProgress';
 import { bindJourneyScroll, lockJourneyScroll } from './journeyScroll';
 import type { HallPlay } from './hallActions';
+import { arenaSoundVisibility } from './arenaSound';
+import { soundEngine } from '@/shared/utils/soundEngine';
 import './arenaJourney.css';
 
 interface ArenaJourneyProps extends ArenaHeroProps {
@@ -22,6 +24,11 @@ export function ArenaJourney({ scrollLocked, onPlayGame, ...heroProps }: ArenaJo
     () => journeyProgress.getSnapshot() >= (reduced ? 1 : 1.05), () => false);
   useLayoutEffect(() => root.current ? bindJourneyScroll(root.current) : undefined, []);
   useLayoutEffect(() => scrollLocked ? lockJourneyScroll() : undefined, [scrollLocked]);
+  useLayoutEffect(() => {
+    arenaSoundVisibility.set(!scrollLocked);
+    if (scrollLocked) soundEngine.stopArc();
+    return () => { arenaSoundVisibility.set(false); soundEngine.stopArc(); };
+  }, [scrollLocked]);
   return (
     <div ref={root} className="arena-journey" data-arena-journey="">
       <div className="arena-journey__first" aria-hidden={!firstVisible} inert={!firstVisible}>

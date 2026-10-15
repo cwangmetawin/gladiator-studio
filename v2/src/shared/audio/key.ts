@@ -16,6 +16,7 @@ const pitch = (name: string, midi: number): Pitch => Object.freeze({
 export const NOTES = Object.freeze({
   Bb0: pitch('Bb0', 22), D1: pitch('D1', 26), A1: pitch('A1', 33), Bb1: pitch('Bb1', 34),
   D3: pitch('D3', 50), G3: pitch('G3', 55), A3: pitch('A3', 57),
+  D4: pitch('D4', 62), F4: pitch('F4', 65), A4: pitch('A4', 69),
   D5: pitch('D5', 74), F5: pitch('F5', 77), G5: pitch('G5', 79), A5: pitch('A5', 81), Bb5: pitch('Bb5', 82),
   D6: pitch('D6', 86), F6: pitch('F6', 89), G6: pitch('G6', 91), A6: pitch('A6', 93),
   D7: pitch('D7', 98), G7: pitch('G7', 103),
@@ -29,15 +30,15 @@ interface CueNotes {
 }
 
 const cue = (tones: readonly Pitch[], glides: CueNotes['glides'] = [], noise = false): CueNotes =>
-  Object.freeze({ key: SOUND_KEY.name, tones, glides, noise });
+  Object.freeze({ key: SOUND_KEY.name, tones: Object.freeze([...tones]), glides: Object.freeze([...glides]), noise });
 
-/** All audible pitches, including sweep endpoints; noise contains no oscillator. */
+/** All audible sine partials. Scale steps replace every former pitch glide. */
 export const CUE_NOTES = Object.freeze({
   ambient: cue([NOTES.D1, NOTES.A1, NOTES.A3], [], true),
   hover: cue([NOTES.A6]),
-  click: cue([NOTES.G5, NOTES.G6]),
-  panelOpen: cue([], [[NOTES.G3, NOTES.D6], [NOTES.Bb1, NOTES.Bb0]], true),
-  panelClose: cue([], [[NOTES.A5, NOTES.D3]]),
+  click: cue([NOTES.G5, NOTES.G6, NOTES.D7]),
+  panelOpen: cue([NOTES.G3, NOTES.Bb1, NOTES.D5, NOTES.D6]),
+  panelClose: cue([NOTES.A5, NOTES.F5, NOTES.D5, NOTES.D3]),
   transmission: cue([NOTES.D6, NOTES.F6, NOTES.G6]),
   alert: cue([NOTES.D7, NOTES.G7]),
   bigWin: cue([NOTES.G5, NOTES.Bb5, NOTES.D6, NOTES.G6]),
@@ -45,6 +46,10 @@ export const CUE_NOTES = Object.freeze({
   warpStart: cue([], [], true),
   warpArrival: cue([NOTES.A5, NOTES.D6]),
   catalogueFocus: cue([NOTES.D6]),
+  ignite: cue([NOTES.D3, NOTES.D4, NOTES.F4, NOTES.A4, NOTES.D5]),
+  arc: cue([], [], true),
+  crossing: cue([NOTES.D3, NOTES.A3, NOTES.D5]),
+  gameSwitch: cue([NOTES.D6]),
 });
 
 export type CueName = keyof typeof CUE_NOTES;
