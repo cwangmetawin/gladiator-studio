@@ -8,8 +8,7 @@ import './topBar.css';
 
 // The top bar (Phase 4 M1): the brand on the left, the seven sections in the middle in small mono
 // capitals, the sound toggle and Client Area on the right; on a phone, the brand and a menu button (the
-// drawer is App's). It replaced the seven orbiting dots, so each section button opens the panel the dot
-// opened, through App's own handler: the transition, the camera flight and the focus return are unchanged.
+// drawer is App's). It replaced the seven orbiting dots, so each section button opens its arena page through App's handler and captures the actual trigger for focus return.
 // It mounts when the first screen is released and arrives by a CSS animation (a fade and a short drop).
 
 export interface TopBarProps {
@@ -18,7 +17,7 @@ export interface TopBarProps {
   /** The panel the transition is heading for ('none' at home). */
   readonly target: PanelId;
   /** Open the section, or close it when it is already open (App's handleActivate). */
-  readonly onActivate: (id: PanelId) => void;
+  readonly onActivate: (id: PanelId, opener?: HTMLButtonElement) => void;
   readonly onClientArea: (opener: HTMLButtonElement) => void;
   readonly onMenu: () => void;
   /** Phones hide the menu while a panel flies in or out, so focus can return to it cleanly. */
@@ -43,7 +42,7 @@ export function TopBar({ isConnected, isMobile, target, onActivate, onClientArea
               <li key={panelId}>
                 <button type="button" className="topbar__item" data-cursor="OPEN" aria-pressed={target === panelId}
                   aria-label={panelId === 'live' ? `Live feed, ${isConnected ? 'connected' : 'offline'}` : undefined}
-                  onMouseEnter={() => soundEngine.hover()} onClick={() => onActivate(panelId)}>
+                  onMouseEnter={() => soundEngine.hover()} onClick={event => onActivate(panelId, event.currentTarget)}>
                   {panelId === 'live' && <i className="topbar__dot" data-live={isConnected} aria-hidden="true" />}
                   {short}
                 </button>

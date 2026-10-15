@@ -1,8 +1,8 @@
 import { frameDeltaSeconds } from '@/shared/utils/frameTime';
 
-/** Every phone panel and the game / Client Area overlays cover the sky. */
-export function isSceneCovered(playing: boolean, clientAreaOpen: boolean, phone: boolean, panel: string): boolean {
-  return playing || clientAreaOpen || (phone && panel !== 'none');
+/** Every arena page and game overlay is opaque, on phones and desktops alike. */
+export function isSceneCovered(playing: boolean, pageOpen: boolean): boolean {
+  return playing || pageOpen;
 }
 
 interface RenderState {

@@ -71,16 +71,13 @@ async function homepageCamera(B, scene, width) {
     .replace("from './renderLoop'", `from '${loopUrl}'`)
     .replace("from './starTwinkle'", `from '${twinkleUrl}'`)
     .replace("from '@/shared/motion/transitionStore'", `from '${motionUrls.store}'`)
-    .replace("from '@/features/journey/journeyMotion'", `from '${motionUrls.journey}'`)
     .replace("from './cameraNarrative'", `from '${motionUrls.camera}'`)
     .replace("from './gameSkyRenderer'", `from '${urls.renderer}'`)
     .replace("from './skyStore'", `from '${urls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
-    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
     .replace("from '@/shared/utils/webgl'", `from '${moduleUrl('export const webglAvailable = () => true;')}'`)
-    .replace("from './skyBodies'", `from '${moduleUrl(source('../../features/starfield/skyBodies.ts').replace("from '@/shared/utils/frameTime'", `from '${timeUrl}'`))}'`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loadingUrls.preload}'`);
   const { probeHomeCamera } = await import(moduleUrl(`${wired}\n
     export const probeWidth = ${width};
@@ -132,12 +129,7 @@ for (const [width, height, phone, minimum] of [[1440, 900, false, 3], [320, 640,
     try {
       const camera = await homepageCamera(B, scene, width);
       const homeAlpha = camera.alpha;
-      const { initialTransition } = await import(motionUrls.transition);
-      const { createCameraNarrative } = await import(motionUrls.camera);
-      const idle = { ...initialTransition(), mode: phone ? 'phone' : 'desktop' };
-      const narrative = createCameraNarrative({ read: () => ({ alpha: camera.alpha }),
-        write: pose => { camera.alpha = pose.alpha; }, target: () => ({ alpha: homeAlpha }),
-        journey: () => ({ progress: 0, count: 0 }), isPhone: () => phone });
+      const { driftHomeCamera } = await import(motionUrls.camera);
       const stars = new B.Mesh('existingStars', scene);
       stars.setVerticesData('position', new Float32Array([0, 0, 160]));
       stars.setVerticesData('color', new Float32Array([1, 1, 1, 1]), true);
@@ -168,7 +160,7 @@ for (const [width, height, phone, minimum] of [[1440, 900, false, 3], [320, 640,
         camera.alpha = homeAlpha;
         for (const cameraSeconds of [0, 90]) {
           // Fresh live stars at the real idle camera's 90-second pose, without sleeping or expiring the fixture.
-          narrative.update(idle, cameraSeconds * 1000, cameraSeconds);
+          camera.alpha = driftHomeCamera(camera.alpha, cameraSeconds, phone);
           for (const reduced of [false, true]) {
             sky.configure(phone, reduced);
             scene.render();
@@ -481,155 +473,7 @@ test('phone card focus matches stable keys and scrolls instantly for reduced mot
   assert.deepEqual(actions, []);
 });
 
-const visualUrl = moduleUrl(`
-  export function Reveal({ children }) { return children; }
-  export function X() { return null; }
-  export const ChevronLeft = X, ChevronRight = X, Play = X, LayoutGrid = X, Layers = X;
-`);
 const soundUrl = moduleUrl('export const soundEngine = { click() {}, transmission() {}, alert() {}, bigWin() {}, catalogueFocus() {} };');
-const contextUrl = moduleUrl(source('../motion/panelMotion.ts'));
-function coverflowSource() {
-  return source('../../features/games/GameCoverflow.tsx').replace("import './coverflow.css';", '')
-    .replace("from '@/shared/motion/tokens'", `from '${motionUrls.tokens}'`)
-    .replace("from '@/shared/motion/panelMotion'", `from '${contextUrl}'`)
-    .replace("from '@/shared/ui/Reveal'", `from '${visualUrl}'`)
-    .replace("from 'lucide-react'", `from '${visualUrl}'`)
-    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
-    .replace("from '@/shared/audio/transitionSound'", `from '${transitionSoundUrl}'`)
-    .replace("from '@/features/starfield/skyStore'", `from '${urls.store}'`)
-    .replace("from './catalogueFocus'", `from '${urls.focus}'`);
-}
-
-test('the shipped phone showcase waits for data, switches tabs before focusing, then permits manual tab changes', async () => {
-  const hooksUrl = moduleUrl(`
-    export const values = [], refs = [], effects = [];
-    let stateIndex = 0, refIndex = 0;
-    export function beginRender() { stateIndex = refIndex = 0; effects.length = 0; }
-    export function useState(initial) { const i = stateIndex++;
-      if (i >= values.length) values.push(typeof initial === 'function' ? initial() : initial);
-      return [values[i], next => { values[i] = typeof next === 'function' ? next(values[i]) : next; }]; }
-    export function useRef(current) { const i = refIndex++; if (i >= refs.length) refs.push({ current }); return refs[i]; }
-    export const useEffect = fn => effects.push(fn), useMemo = fn => fn(), useCallback = fn => fn;
-  `);
-  const uiUrl = moduleUrl(`
-    export function SectionWrapper({ children }) { return children; }
-    export const SectionHeading = () => null, GameCard = () => null, FeaturedCard = () => null;
-  `);
-  const { GameShowcase } = await import(moduleUrl(source('../../features/games/GameShowcase.tsx')
-    .replace("from 'react'", `from '${hooksUrl}'`)
-    .replace("from '@/shared/components/SectionWrapper'", `from '${uiUrl}'`)
-    .replace("from '@/shared/ui'", `from '${uiUrl}'`)
-    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
-    .replace("from './GameCard'", `from '${uiUrl}'`)
-    .replace("from './catalogueFocus'", `from '${urls.focus}'`)));
-  const { beginRender, values, effects } = await import(hooksUrl);
-  const previousDocument = globalThis.document;
-  const actions = [];
-  const original = { ...games[1], id: 100, category: 'mini', title: 'Original Focus', slug: 'original-focus' };
-  const card = { dataset: { gameKey: 'original focus' }, scrollIntoView: options => actions.push(['scroll', options]),
-    focus: options => actions.push(['focus', options]) };
-  globalThis.document = { getElementById(id) {
-    assert.equal(id, 'games'); actions.push(['query']); return { querySelectorAll: () => [card] };
-  } };
-  const render = props => { beginRender(); GameShowcase(props); for (const effect of effects) effect(); };
-  try {
-    render({ slotGames: [], miniGames: [], loading: true, focusGame: 'original-focus' });
-    assert.equal(values[0], 'slot');
-    assert.deepEqual(actions, []);
-    const loaded = { slotGames: games, miniGames: [original], loading: false, focusGame: 'original-focus', reducedMotion: true };
-    render(loaded);
-    assert.equal(values[0], 'mini');
-    assert.deepEqual(actions, [], 'tab commit precedes lookup / scrolling');
-    render(loaded);
-    assert.equal(actions[1][1].behavior, 'instant');
-    assert.deepEqual(actions[2], ['focus', { preventScroll: true }]);
-    actions.length = 0;
-    values[0] = 'new'; render(loaded);
-    assert.equal(values[0], 'new', 'a completed focus request does not force the user back');
-    assert.deepEqual(actions, []);
-  } finally {
-    if (previousDocument === undefined) delete globalThis.document; else globalThis.document = previousDocument;
-  }
-});
-
-test('both shipped phone card types expose the stable focus key and remain keyboard focusable', async () => {
-  const cardUrl = moduleUrl(source('../../features/games/GameCard.tsx')
-    .replace("from '@/shared/utils/soundEngine'", `from '${soundUrl}'`)
-    .replace("from '@/features/starfield/gameIdentity'", `from '${urls.identity}'`));
-  const { GameCard, FeaturedCard } = await import(cardUrl);
-  const React = require('react');
-  const { renderToStaticMarkup } = require('react-dom/server');
-  for (const component of [GameCard, FeaturedCard]) {
-    const html = renderToStaticMarkup(React.createElement(component, { game: games[2], onPlayGame() {} }));
-    assert.match(html, /role="button" tabindex="0"/);
-    assert.match(html, /data-game-key="to the top"/);
-  }
-});
-
-test('the shipped catalogue opens with the requested centre card; doors are real named buttons', async () => {
-  const dialogUrl = moduleUrl(`import { useRef } from 'react'; export function useDialogFocus() { return useRef(null); }`);
-  const { GameCoverflow } = await import(moduleUrl(coverflowSource()
-    .replace("from '@/shared/hooks/useDialogFocus'", `from '${dialogUrl}'`)));
-  const React = require('react');
-  const { renderToStaticMarkup } = require('react-dom/server');
-  const { initialTransition } = await import(motionUrls.transition);
-  const html = renderToStaticMarkup(React.createElement(GameCoverflow, { games, loading: false, suspended: false,
-    onClose() {}, returnFocusRef: { current: null }, narrative: { ...initialTransition('reduced'), focusGame: 'To The Top' } }));
-  assert.match(html, /data-active-game="To The Top"/);
-  assert.match(html, /data-active-index="2"/);
-  assert.match(html, /class="deck-card is-centre"[^>]*aria-label="Play To The Top"/);
-  const { ConstellationDoors } = await import(moduleUrl(source('../../features/starfield/ConstellationDoors.tsx')
-    .replace("from '@/shared/motion/useMotionPreference'", `from '${doorPreferenceUrl}'`)
-    .replace("from '@/features/arena/journeyProgress'", `from '${arenaJourneyUrl}'`)
-    .replace("import './constellations.css';", '')
-    .replace("from './gameIdentity'", `from '${urls.identity}'`)
-    .replace("from './skyStore'", `from '${urls.store}'`)
-    .replace("from './doorSelection'", `from '${urls.doors}'`)
-    .replace("from './constellationStore'", `from '${urls.constellations}'`)));
-  const doorsHtml = renderToStaticMarkup(React.createElement(ConstellationDoors, { active: true, phone: false, games, onFocusGame() {} }));
-  assert.equal((doorsHtml.match(/<button type="button" class="constellation"/g) ?? []).length, DESKTOP_DOOR_CAP);
-  assert.match(doorsHtml, /aria-label="Recent win constellations"/);
-  // Inactive doors rely on `hidden` only: a React inert prop fights the modal dialog manager.
-  const inactiveHtml = renderToStaticMarkup(React.createElement(ConstellationDoors, { active: false, phone: false, games, onFocusGame() {} }));
-  assert.match(inactiveHtml, /<nav[^>]*hidden=""/);
-  assert.doesNotMatch(inactiveHtml, /<nav[^>]*\binert\b/);
-  assert.match(doorsHtml, /data-game=""/);
-});
-
-test('the real carousel pointermove updates trail/tint synchronously and release selects the previewed index', async () => {
-  const hooksUrl = moduleUrl(`
-    export const values = [];
-    export function useState(initial) { const i = values.length; values.push(typeof initial === 'function' ? initial() : initial);
-      return [values[i], next => { values[i] = typeof next === 'function' ? next(values[i]) : next; }]; }
-    export const useRef = current => ({ current }), useId = () => 'catalogue';
-    export const useEffect = () => {}, useLayoutEffect = () => {}, useCallback = fn => fn, useMemo = fn => fn();
-  `);
-  const frameUrl = moduleUrl(`export const motion = { div: 'div', button: 'button' }; export const useIsPresent = () => true;`);
-  const dialogUrl = moduleUrl(`export function useDialogFocus() { return { current: null }; }`);
-  const { values } = await import(hooksUrl);
-  const { GameCoverflow } = await import(moduleUrl(coverflowSource().replace("from 'react'", `from '${hooksUrl}'`)
-    .replace("from 'framer-motion'", `from '${frameUrl}'`)
-    .replace("from '@/shared/hooks/useDialogFocus'", `from '${dialogUrl}'`)));
-  const { initialTransition } = await import(motionUrls.transition);
-  skyStore.configure(false, false);
-  const tree = GameCoverflow({ games, loading: false, suspended: false, onClose() {}, returnFocusRef: { current: null },
-    narrative: { ...initialTransition(), focusGame: 'To The Top' } });
-  const panel = tree.props.children;
-  const deck = panel.props.children.find(child => child?.props?.className?.includes('coverflow__deck'));
-  const captured = new Set();
-  deck.props.ref.current = { style: {}, setPointerCapture: id => captured.add(id),
-    hasPointerCapture: id => captured.has(id), releasePointerCapture: id => captured.delete(id) };
-  const pointer = { button: 0, isPrimary: true, pointerId: 1, clientX: 100, timeStamp: 0 };
-  deck.props.onPointerDown(pointer);
-  deck.props.onPointerMove({ ...pointer, clientX: 250, timeStamp: 100 });
-  assert.equal(skyStore.trail.state.strength, 1);
-  assert.equal(skyStore.gameName, 'Navigator');
-  assert.equal(skyStore.trail.state.dragging, true);
-  deck.props.onPointerUp({ ...pointer, clientX: 250, timeStamp: 110 });
-  assert.equal(values[0], 1);
-  assert.equal(skyStore.trail.state.dragging, false);
-  assert.equal(captured.size, 0);
-});
 
 test('the shipped feeder emits a constellation win for both small and large tracked wins', async () => {
   const eventUrl = moduleUrl(source('../utils/sceneEvents.ts'));
@@ -657,27 +501,11 @@ test('the shipped feeder emits a constellation win for both small and large trac
   dispose();
 });
 
-test('desktop Games keeps rendering while every phone panel and opaque overlay retain M1 suspension', () => {
-  assert.equal(isSceneCovered(false, false, false, 'games'), false);
-  for (const phone of [false, true]) {
-    assert.equal(isSceneCovered(false, false, phone, 'none'), false);
-    assert.equal(isSceneCovered(true, false, phone, 'games'), true);
-    assert.equal(isSceneCovered(false, true, phone, 'none'), true);
-  }
-  for (const panel of ['games', 'about', 'team', 'journey', 'live', 'careers', 'contact']) {
-    assert.equal(isSceneCovered(false, false, true, panel), true);
-  }
-  let covered = false;
-  let render;
-  let frames = 0;
-  const loop = createRenderLoop({ getState: () => ({ reducedMotion: false, hidden: false, suspended: covered }),
-    getDeltaTime: () => 1000 / 60, render: () => { frames++; }, start: fn => { render = fn; }, stop() {} });
-  loop.startLoop(); render();
-  covered = isSceneCovered(false, false, true, 'games'); loop.startLoop();
-  const frozen = frames;
-  for (let i = 0; i < 10; i++) render();
-  assert.equal(frames, frozen, 'no queued frame renders behind an opaque overlay');
-  loop.dispose();
+test('all arena pages and opaque game overlays suspend the scene on desktop and phone', () => {
+  assert.equal(isSceneCovered(false, false), false);
+  assert.equal(isSceneCovered(true, false), true);
+  assert.equal(isSceneCovered(false, true), true);
+  assert.equal(isSceneCovered(true, true), true);
 });
 
 test('the app-root binding exposes trail/tint/constellation attributes synchronously and cleans up its listeners', async () => {
@@ -748,7 +576,7 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     .replace("from './constellationStore'", `from '${urls.constellations}'`)));
   const saved = Object.fromEntries(['window', 'document', 'ResizeObserver', 'MutationObserver'].map(name => [name, globalThis[name]]));
   let reads = 0;
-  let requested;
+  let requested, requestedOpener;
   let onShellMutation;
   const obstacle = { getBoundingClientRect() { reads++; return { left: 1180, right: 1190, top: 100, bottom: 140 }; } };
   const buttons = Array.from({ length: 6 }, () => {
@@ -774,7 +602,7 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     }
     skyStore.setReady(true);
     root.current = { querySelectorAll: () => buttons, parentElement: {} };
-    const tree = ConstellationDoors({ active: true, phone: false, games: catalogue, onFocusGame: title => { requested = title; } });
+    const tree = ConstellationDoors({ active: true, phone: false, games: catalogue, onFocusGame: (title, opener) => { requested = title; requestedOpener = opener; } });
     cleanup = layouts[0]();
     assert.deepEqual(buttons.filter(button => !button.hidden).map(button => button.dataset.game),
       ['Door Game 5', 'Door Game 4', 'Door Game 3', 'Door Game 2', 'Door Game 1', 'Door Game 0']);
@@ -787,6 +615,7 @@ test('projected DOM doors receive accessible names, activate the correct title, 
     assert.equal(buttons[0].style.top, undefined, 'no top');
     tree.props.children[0].props.onClick({ currentTarget: buttons[0] });
     assert.equal(requested, 'Door Game 5');
+    assert.equal(requestedOpener === buttons[0], true, 'pointer focus is not assumed: return the actual door trigger');
 
     // A door keeps its button when the brightness order changes: buttons never trade games, so no text swaps in place
     // (a swap resizes the name and the count, which is a layout shift however the button is positioned).

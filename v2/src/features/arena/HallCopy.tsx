@@ -55,7 +55,7 @@ export function HallCopy({ games, index, total, visible, activated, rendered, co
             {game && <button type="button" className="hall-button hall-play" onClick={event => {
               event.currentTarget.focus({ preventScroll: true }); onPlay(game);
             }}>Play demo <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M3 10h13m-5-5 5 5-5 5" /></svg></button>}
-            <button type="button" className="hall-button hall-all" onClick={event => openAllGames(event.currentTarget)}>All {total} games</button>
+            <button type="button" className="hall-button hall-all" onClick={event => openAllGames(event.currentTarget, game?.title)}>All {total} games</button>
           </div>
           {games.length > 0 && <nav className="hall-ticks" aria-label="Featured games">
             {games.map((item, at) => <button type="button" key={item.id} aria-label={`Show ${item.title}`}

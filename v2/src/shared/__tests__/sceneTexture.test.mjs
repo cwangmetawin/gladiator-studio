@@ -29,8 +29,6 @@ const { installSceneGpuMetrics } = await import(urls.gpu);
 const { initialTransition, transitionReducer } = await import(motion.transition);
 const { transitionTimeline } = await import(motion.tokens);
 const { frameDeltaSeconds } = await import(time);
-const titleUrl = moduleUrl(source('../motion/titleMotion.ts').replace("from './tokens'", `from '${motion.tokens}'`));
-const { panelTitleReveal } = await import(titleUrl);
 const coreUrl = moduleUrl(source('../babylon/babylonCore.ts'));
 const B = await import(coreUrl);
 const { NullEngine } = await import(pathToFileURL(require.resolve('@babylonjs/core/Engines/nullEngine.js')).href);
@@ -316,21 +314,3 @@ test('optional GPU loading cannot publish a probe after scene disposal', async (
   assert.equal(constructed, 0); assert.equal(Object.hasOwn(host, '__sceneGpuMs'), false);
 });
 
-test('title wipe uses only paint properties, keeps rest typography, and fits the existing desktop and phone tokens', () => {
-  for (const [mode, delayMs, durationMs] of [['desktop', 80, 180], ['phone', 30, 120], ['reduced', 0, 120]]) {
-    const reveal = panelTitleReveal(mode, transitionTimeline(mode, 'open'));
-    assert.equal(reveal.delayMs, delayMs); assert.equal(reveal.durationMs, durationMs);
-    for (const state of [reveal.initial, reveal.animate]) {
-      assert.ok(Object.keys(state).every(key => ['opacity', 'y', 'clipPath'].includes(key)), 'layout and letter-spacing must not animate');
-    }
-    if (mode === 'reduced') {
-      assert.deepEqual(reveal.initial, { opacity: 0 }); assert.deepEqual(reveal.animate, { opacity: 1 });
-    } else {
-      assert.equal(reveal.animate.y, 0);
-      // At rest the clip lies outside the heading on every side, so descenders are never cut.
-      const insets = (clip) => clip.match(/^inset\((.+)\)$/)[1].split(' ').map(parseFloat);
-      assert.ok(insets(reveal.animate.clipPath).every(value => value < 0), reveal.animate.clipPath);
-      assert.ok(insets(reveal.initial.clipPath)[2] >= 100, 'the hidden state must cover the whole line');
-    }
-  }
-});

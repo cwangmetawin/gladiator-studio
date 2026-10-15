@@ -53,7 +53,7 @@ test('the real Client Area hook captures the trigger, opens/closes immediately a
 test('App keeps the scroll/suspension guards and the drawer trigger mounted beneath the modal', () => {
   const app = source('../../app/App.tsx');
   assert.match(app, /scrollLocked=\{[^}]*clientArea !== 'closed'/);
-  assert.match(app, /isSceneCovered\(playingGame !== null, clientArea !== 'closed'/);
+  assert.match(app, /isSceneCovered\(playingGame !== null, clientArea !== 'closed' \|\| page !== null/);
   assert.match(app, /useClientArea\(\)/);
   assert.match(app, /returnFocusRef=\{clientOpenerRef\}/);
   const drawer = app.slice(app.indexOf('function MobileDrawer('), app.indexOf('// ─── Game iframe overlay'));

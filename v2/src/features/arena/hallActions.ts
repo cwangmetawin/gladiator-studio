@@ -10,9 +10,11 @@ export function playDetail(game: Game): HallPlay | null {
   } catch { return null; }
 }
 
-export function openAllGames(opener: Pick<HTMLElement, 'focus'>): void {
+export function openAllGames(opener: Pick<HTMLElement, 'focus'>, title?: string): void {
   opener.focus({ preventScroll: true });
-  window.dispatchEvent(new CustomEvent('open-panel', { detail: 'games' }));
+  const requested = title?.trim();
+  window.dispatchEvent(requested ? new CustomEvent('focus-game', { detail: requested })
+    : new CustomEvent('open-panel', { detail: 'games' }));
 }
 
 export async function loadCoverManifest(signal: AbortSignal, fetcher: typeof fetch = fetch): Promise<CoverManifest | null> {

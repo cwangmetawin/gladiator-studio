@@ -32,21 +32,18 @@ function wiredScene(readiness) {
     .replace("from './renderLoop'", `from '${loop}'`)
     .replace("from './starTwinkle'", `from '${twinkle}'`)
     .replace("from '@/shared/motion/transitionStore'", `from '${motion.store}'`)
-    .replace("from '@/features/journey/journeyMotion'", `from '${motion.journey}'`)
     .replace("from './cameraNarrative'", `from '${motion.camera}'`)
     .replace("from './gameSkyRenderer'", `from '${sky.renderer}'`)
     .replace("from './skyStore'", `from '${sky.store}'`)
     .replace("from './sceneReadiness'", `from '${readiness}'`)
-    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${quality}'`)
     .replace("from '@/shared/utils/webgl'", `from '${webgl}'`)
-    .replace("from './skyBodies'", `from '${moduleUrl(source('../../features/starfield/skyBodies.ts').replace("from '@/shared/utils/frameTime'", `from '${time}'`))}'`)
     .replace("import('@/features/arena/installArena')", `import('${arenaModule}')`)
     .replace("from '@/shared/utils/preloadScene'", `from '${loader}'`)
     // M1 separately executes the real builders with NullEngine. Isolate only the
     // effect's lifecycle here so textures and WebGL cannot hide readiness bugs.
-    .replace('const scene = buildScene(BABYLON, engine, () => dt, () => repaintSurfaces());', 'const scene = globalThis.__m4aScene;');
+    .replace('const scene = buildScene(BABYLON, engine, () => dt);', 'const scene = globalThis.__m4aScene;');
 }
 
 const flush = () => new Promise(resolve => setTimeout(resolve, 0));
