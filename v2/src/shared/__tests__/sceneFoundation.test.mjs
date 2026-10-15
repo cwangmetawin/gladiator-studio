@@ -218,6 +218,7 @@ test('the real star builder gives Babylon an updatable colour buffer and static 
     .replace("from './gameSkyRenderer'", `from '${skyUrls.renderer}'`)
     .replace("from './skyStore'", `from '${skyUrls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
+    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
     .replace("from '@/shared/utils/webgl'", `from '${moduleUrl('export const webglAvailable = () => true;')}'`)

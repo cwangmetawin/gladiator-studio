@@ -5,15 +5,11 @@ import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 // appears instead of developing in seconds later. Babylon requests the same
 // same-origin URLs afterwards and is served from cache. The 3D emblem's files
 // (arenaAssets.preloadArena) and the first screen's own chunk are warmed the same way,
-// but later: see HOME_WARMUP_DELAY_MS.
+// but later: see HOME_WARMUP_DELAY_MS. The first screen shows no planet (Phase 4), so
+// their surfaces are not warmed here: they load after the hand-off (planetSurfaces).
 
 const FIRST_VISIBLE = [
   '/nebula.webp',
-  '/textures/earth_day.webp',
-  '/textures/earth_night_2k.webp',
-  '/textures/planet_moon.webp',
-  '/textures/planet_jupiter.webp',
-  '/textures/planet_saturn.webp',
 ] as const;
 
 let started = false;

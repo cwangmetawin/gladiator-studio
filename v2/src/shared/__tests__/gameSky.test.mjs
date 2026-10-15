@@ -76,6 +76,7 @@ async function homepageCamera(B, scene, width) {
     .replace("from './gameSkyRenderer'", `from '${urls.renderer}'`)
     .replace("from './skyStore'", `from '${urls.store}'`)
     .replace("from './sceneReadiness'", `from '${loadingUrls.readiness}'`)
+    .replace("from './planetSurfaces'", `from '${moduleUrl(source('../../features/starfield/planetSurfaces.ts'))}'`)
     .replace("from './sceneEffects'", `from '${effectsUrls.effects}'`)
     .replace("from '@/features/arena/arenaQuality'", `from '${moduleUrl(source('../../features/arena/arenaQuality.ts'))}'`)
     .replace("from '@/shared/utils/webgl'", `from '${moduleUrl('export const webglAvailable = () => true;')}'`)
