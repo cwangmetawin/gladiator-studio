@@ -1,6 +1,7 @@
 import { createArenaWorld } from './arenaWorld';
 import { createCameraTrack, helmetMouthY, type CameraFraming } from './cameraTrack';
 import { createDiveFlash } from './diveFlash';
+import { createHallLayer } from './hallLayer';
 import { cameraScreens, DIVE_SCREENS, journeyProgress, smoothScreens, smoothstep } from './journeyProgress';
 import type { EmblemAsset } from './emblemFormat';
 import type { Framing } from './framing';
@@ -13,6 +14,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
   phone: boolean, reducedMotion: () => boolean, requestStatic: () => void) {
   const world = createArenaWorld(B, A, scene, phone);
   const flash = createDiveFlash(B, scene, phone);
+  const hall = createHallLayer(B, A, scene, phone, reducedMotion, requestStatic);
   const mouthY = helmetMouthY(asset.cap.positions);
   let displayed = journeyProgress.getSnapshot();
   let frame: CameraFraming | null = null;
@@ -41,7 +43,9 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
       const p = displayed / DIVE_SCREENS;
       const fade = smoothstep(0.5, 0.8, p) * visibility;
       const night = smoothstep(0.38, 0.63, p) * visibility;
-      world.update({ fade, night, time: reduced ? 0 : time, camera });
+      const hallFade = reduced ? (target > 0 ? visibility : 0) : smoothstep(0.95, 1.6, displayed) * visibility;
+      const theme = hall.step(hallFade, dt, time);
+      world.update({ fade, night, time: reduced ? 0 : time, camera, theme: theme?.primary });
       const crossing = flash.update(displayed, reduced, home, night === 1, sceneReady);
       return {
         screens: displayed,
@@ -53,7 +57,7 @@ export function createArenaDive(B: BabylonModule, A: ArenaModule, scene: Scene, 
     dispose(): void {
       if (disposed) return;
       disposed = true;
-      unsubscribe(); flash.dispose(); world.dispose();
+      unsubscribe(); hall.dispose(); flash.dispose(); world.dispose();
     },
   };
 }

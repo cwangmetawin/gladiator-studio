@@ -38,7 +38,7 @@ void main() {
 export const FLOOR_FRAGMENT = `#extension GL_OES_standard_derivatives : enable
 precision highp float;
 varying vec3 vWorld;
-uniform vec3 uCenter; uniform float uFade; uniform float uTime;
+uniform vec3 uCenter; uniform vec3 uTheme; uniform float uFade; uniform float uTime;
 float lineAt(float d, float width) {
   float aa = max(fwidth(d) * 1.2, 0.0001);
   return 1.0 - smoothstep(width, width + aa, abs(d));
@@ -59,5 +59,5 @@ void main() {
   float light = (thin * 0.20 + bold * 0.85 * pulse) * sand + edge * 1.4 + radial * 0.22;
   light += exp(-radius * radius / 40.0) * 0.30 * sand;
   vec3 base = mix(vec3(0.006, 0.009, 0.016), vec3(0.010, 0.016, 0.028), sand);
-  gl_FragColor = vec4(base + vec3(0.38, 0.65, 0.82) * light * fade, uFade * fade);
+  gl_FragColor = vec4(base + uTheme * light * fade, uFade * fade);
 }`;

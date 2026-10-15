@@ -14,7 +14,7 @@ export function bindJourneyScroll(root: HTMLElement): () => void {
     written.set(name, value); root.style.setProperty(name, value);
   };
   function paint(): void {
-    const screens = scrollScreens(window.scrollY, height, start);
+    const screens = scrollScreens(window.scrollY, height, start, journeyProgress.getLimit());
     const cut = screens >= 1;
     const hero = motion.matches ? Number(!cut) : 1 - smoothstep(0.025, 0.18, screens);
     const arena = motion.matches ? Number(cut) : smoothstep(0.95, 1.6, screens);

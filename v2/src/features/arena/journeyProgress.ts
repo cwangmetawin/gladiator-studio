@@ -1,10 +1,10 @@
 // Screen distances, not time or wheel deltas, are the journey's source of truth.
 export const DIVE_SCREENS = 0.9;
 export const JOURNEY_SCREENS = 1.9;
-const clamp = (value: number): number => Math.min(JOURNEY_SCREENS, Math.max(0, Number.isFinite(value) ? value : 0));
+const clamp = (value: number, limit = JOURNEY_SCREENS): number => Math.min(limit, Math.max(0, Number.isFinite(value) ? value : 0));
 
-export function scrollScreens(scrollY: number, screenHeight: number, startY = 0): number {
-  return screenHeight > 0 ? clamp((scrollY - startY) / screenHeight) : 0;
+export function scrollScreens(scrollY: number, screenHeight: number, startY = 0, limit = JOURNEY_SCREENS): number {
+  return screenHeight > 0 ? clamp((scrollY - startY) / screenHeight, limit) : 0;
 }
 
 /** With reduced motion there are exactly two poses; crossing the first screen is a cut. */
@@ -30,12 +30,15 @@ export function smoothScreens(current: number, target: number, dt: number): numb
 
 export function createJourneyProgress() {
   let screens = 0;
+  let limit = JOURNEY_SCREENS;
   const listeners = new Set<() => void>();
   return {
     getSnapshot: (): number => screens,
+    getLimit: (): number => limit,
+    setLimit(value: number): void { limit = Math.max(JOURNEY_SCREENS, Number.isFinite(value) ? value : JOURNEY_SCREENS); },
     subscribe(listener: () => void): () => void { listeners.add(listener); return () => { listeners.delete(listener); }; },
     publish(value: number): void {
-      const next = clamp(value);
+      const next = clamp(value, limit);
       if (next === screens) return;
       screens = next;
       listeners.forEach(listener => listener());

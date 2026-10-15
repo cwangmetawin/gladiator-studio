@@ -3,13 +3,10 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { createLoader } from '../../../shared/__tests__/loadTs.mjs';
 
-const data = text => `data:text/javascript;base64,${Buffer.from(text).toString('base64')}`;
-const { load } = createLoader({
-  '@/shared/content/StudioStats': data('export const useStudioStats = () => globalThis.__journeyStats;'),
-});
+const { load } = createLoader();
 const { bindJourneyScroll, lockJourneyScroll } = await load('features/arena/journeyScroll.ts');
 const { journeyProgress } = await load('features/arena/journeyProgress.ts');
-const { ArenaLanding } = await load('features/arena/ArenaLanding.tsx');
+const { HallCopy } = await load('features/arena/HallCopy.tsx');
 const require = createRequire(import.meta.url);
 const React = require('react'), { renderToStaticMarkup } = require('react-dom/server');
 
@@ -83,29 +80,28 @@ const textOf = node => typeof node === 'string' || typeof node === 'number' ? St
 const find = (node, type) => !node || typeof node !== 'object' ? null : Array.isArray(node)
   ? node.map(child => find(child, type)).find(Boolean) : node.type === type ? node : find(node.props?.children, type);
 
-test('the small second screen reads the current catalogue count, has no game images or RTP, and asks for the existing games panel once', () => {
-  globalThis.__journeyStats = { games: 41 };
-  try {
-    const markup = renderToStaticMarkup(React.createElement(ArenaLanding, { visible: true }));
-    assert.match(markup, /41 games\./);
-    assert.match(markup, /One arena\./);
+test('the second screen keeps a catalogue action even for an empty featured roster and retains opener focus', () => {
+    const props = { games: [], index: 0, total: 41, visible: true, activated: false, rendered: false,
+      cover: null, rootRef: null, onSelect() {}, onPlay() {} };
+    const markup = renderToStaticMarkup(React.createElement(HallCopy, props));
+    assert.match(markup, /All 41 games/);
+    assert.match(markup, /The arena/);
     assert.doesNotMatch(markup, /\b38\b|RTP|<img|<canvas|<iframe/);
     assert.equal(markup.match(/<button\b/g)?.length, 1);
     const previous = globalThis.window, events = [], order = [];
     globalThis.window = { dispatchEvent: event => { order.push('request'); events.push(event); } };
     try {
-      const button = find(ArenaLanding({ visible: true }), 'button');
-      assert.equal(textOf(button), 'Explore the games');
+      const button = find(HallCopy(props), 'button');
+      assert.equal(textOf(button), 'All 41 games');
       button.props.onClick({ currentTarget: { focus: options => { assert.equal(options.preventScroll, true); order.push('focus'); } } });
       assert.deepEqual(order, ['focus', 'request'], 'the panel captures its button even on browsers that do not focus clicked buttons');
       assert.equal(events.length, 1);
       assert.equal(events[0].type, 'open-panel');
       assert.equal(events[0].detail, 'games');
     } finally { if (previous === undefined) delete globalThis.window; else globalThis.window = previous; }
-    const hidden = renderToStaticMarkup(React.createElement(ArenaLanding, { visible: false }));
+    const hidden = renderToStaticMarkup(React.createElement(HallCopy, { ...props, visible: false }));
     assert.match(hidden, /inert=""/);
     assert.match(hidden, /aria-hidden="true"/);
-  } finally { delete globalThis.__journeyStats; }
 });
 
 test('locking the journey keeps the visitor where they were, with the body overflow the viewport really uses', () => {

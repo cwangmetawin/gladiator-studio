@@ -4,11 +4,15 @@ import { ArenaHero, type ArenaHeroProps } from './ArenaHero';
 import { ArenaLanding } from './ArenaLanding';
 import { doorsVisible, journeyProgress } from './journeyProgress';
 import { bindJourneyScroll, lockJourneyScroll } from './journeyScroll';
+import type { HallPlay } from './hallActions';
 import './arenaJourney.css';
 
-interface ArenaJourneyProps extends ArenaHeroProps { readonly scrollLocked: boolean }
+interface ArenaJourneyProps extends ArenaHeroProps {
+  readonly scrollLocked: boolean;
+  readonly onPlayGame: (game: HallPlay) => void;
+}
 
-export function ArenaJourney({ scrollLocked, ...heroProps }: ArenaJourneyProps) {
+export function ArenaJourney({ scrollLocked, onPlayGame, ...heroProps }: ArenaJourneyProps) {
   const root = useRef<HTMLDivElement>(null);
   const reduced = useMotionPreference();
   // React only needs two visibility boundaries; continuous progress goes to CSS and the camera directly.
@@ -24,7 +28,7 @@ export function ArenaJourney({ scrollLocked, ...heroProps }: ArenaJourneyProps) 
         <ArenaHero {...heroProps} />
         <p className="arena-journey__scroll" aria-hidden="true">Scroll to enter the arena <span>01 / 02</span></p>
       </div>
-      <ArenaLanding visible={arenaVisible} />
+      <ArenaLanding visible={arenaVisible} interactive={!scrollLocked} onPlayGame={onPlayGame} />
     </div>
   );
 }

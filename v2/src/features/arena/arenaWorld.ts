@@ -1,6 +1,7 @@
 import { ARENA_CENTER, ARENA_RADIUS, arenaStars, colosseumLines } from './colosseumGeometry';
 import { FLOOR_FRAGMENT, FLOOR_VERTEX, STAR_FRAGMENT, STAR_VERTEX } from './arenaWorldShaders';
 import type { ArenaModule, BabylonModule, Mesh, Scene, ShaderMaterial } from './arenaTypes';
+import type { RGB } from './hallLayout';
 
 type Camera = NonNullable<Scene['activeCamera']>;
 
@@ -42,8 +43,9 @@ export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene,
   floorData.indices = [0, 1, 2, 0, 2, 3];
   floorData.applyToMesh(floor, false);
   const floorMaterial = shader(B, scene, 'arenaFloorMaterial', FLOOR_VERTEX, FLOOR_FRAGMENT, ['position'],
-    ['world', 'viewProjection', 'uCenter', 'uTime', 'uFade'], false);
+    ['world', 'viewProjection', 'uCenter', 'uTime', 'uFade', 'uTheme'], false);
   floorMaterial.setVector3('uCenter', new B.Vector3(...ARENA_CENTER));
+  const floorColour = new B.Color3(0.38, 0.65, 0.82);
   floor.material = floorMaterial;
   floor.alphaIndex = -1;
 
@@ -58,7 +60,7 @@ export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene,
 
   return {
     meshes,
-    update({ fade, night, time, camera }: { readonly fade: number; readonly night: number; readonly time: number; readonly camera: Camera }): void {
+    update({ fade, night, time, camera, theme }: { readonly fade: number; readonly night: number; readonly time: number; readonly camera: Camera; readonly theme?: RGB }): void {
       meshes.forEach(mesh => { mesh.isVisible = fade > 0.001; });
       colosseum.alpha = fade;
       starMaterial.setFloat('uFade', fade);
@@ -66,6 +68,8 @@ export function createArenaWorld(B: BabylonModule, A: ArenaModule, scene: Scene,
       starMaterial.setFloat('uPixel', 2 * Math.tan(camera.fov / 2) / Math.max(1, scene.getEngine().getRenderHeight()));
       floorMaterial.setFloat('uFade', fade);
       floorMaterial.setFloat('uTime', time);
+      floorColour.set(...(theme ?? [0.38, 0.65, 0.82] as const));
+      floorMaterial.setColor3('uTheme', floorColour);
       nightSky.color.a = night;
     },
     dispose(): void {
