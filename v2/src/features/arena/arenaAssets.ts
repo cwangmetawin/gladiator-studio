@@ -14,9 +14,9 @@ export function mapUrl(file: string): string { return `/arena/${file}`; }
 let emblemPromise: Promise<EmblemAsset> | null = null;
 
 /** The parsed emblem, fetched once. A failure clears the memo so a later call can retry. */
-export function loadEmblemAsset(): Promise<EmblemAsset> {
+export function loadEmblemAsset(priority: RequestPriority = 'auto'): Promise<EmblemAsset> {
   if (!emblemPromise) {
-    emblemPromise = fetch(ARENA_FILES.emblem)
+    emblemPromise = fetch(ARENA_FILES.emblem, { priority })
       .then(response => {
         if (!response.ok) throw new Error(`${ARENA_FILES.emblem}: HTTP ${response.status}`);
         return response.arrayBuffer();
@@ -38,7 +38,7 @@ export function preloadArena(): void {
   warmed = true;
   const low: RequestInit = { priority: 'low' };
   void fetch(ARENA_FILES.env, low).catch(() => {});
-  void loadEmblemAsset().then(asset => {
+  void loadEmblemAsset('low').then(asset => {
     void fetch(mapUrl(asset.maps.normal.file), low).catch(() => {});
     void fetch(mapUrl(asset.maps.rough.file), low).catch(() => {});
   }).catch(() => {});

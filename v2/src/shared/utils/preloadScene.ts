@@ -5,7 +5,7 @@ import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 // appears instead of developing in seconds later. Babylon requests the same
 // same-origin URLs afterwards and is served from cache. The 3D emblem's files
 // (arenaAssets.preloadArena) and the first screen's own chunk are warmed the same way,
-// but later: see HOME_WARMUP_DELAY_MS.
+// after the gate's first paint, in the browser's next idle slot.
 
 const FIRST_VISIBLE = [
   '/nebula.webp',
@@ -41,6 +41,7 @@ export function preloadSceneTextures(): void {
     // browser can reuse this response for the texture fetch.
     img.crossOrigin = 'anonymous';
     img.decoding = 'async';
+    img.fetchPriority = 'low';
     img.src = src;
   }
 }
@@ -69,12 +70,11 @@ export function preloadScene(): void {
 }
 
 /**
- * How long the gate is up before the first screen's files are warmed, if the visitor has not shown a sign by then.
- * Straight after the first paint they would be requests that start before the gate's own largest paint, which a
- * Lighthouse run counts against the gate (measured: 21 more requests and 437 KB cost the gate 2-3 points and 3 s of
- * simulated LCP). Three seconds is after the gate has painted, and a visitor who reads it that long is still ahead of the click.
+ * An idle deadline, after a paint and a task. The old three-second wait missed visitors who answered quickly.
+ * Same-origin textures and baked assets use low fetch priority; code stays in the existing lazy chunks. The
+ * gate's initial paint runs first. Lighthouse/LCP still need a controller measurement on the final build.
  */
-export const HOME_WARMUP_DELAY_MS = 3000;
+export const HOME_WARMUP_DELAY_MS = 250;
 /**
  * Any of these says the visitor is there and about to answer: the first screen's files are warmed at once. Not focusin:
  * the gate focuses its own button when it opens, and that is not a visitor.
@@ -83,22 +83,26 @@ const SIGNS = ['pointerdown', 'pointermove', 'keydown', 'touchstart'] as const;
 
 /**
  * While the age gate is up. A frame plus a task lets it paint before speculative downloads; then the scene's own files
- * are warmed, and the first screen's wait for a sign of the visitor or HOME_WARMUP_DELAY_MS. Returns the undo.
+ * are warmed, and the first screen's files follow at idle (or immediately on a gesture). Returns the undo.
  */
 export function scheduleScenePreload(): () => void {
   let cancelled = false;
   let timer: number | undefined;
+  let idle: number | undefined;
   const stop = (): void => {
     for (const type of SIGNS) window.removeEventListener(type, warm, true);
     if (timer !== undefined) window.clearTimeout(timer);
+    if (idle !== undefined) window.cancelIdleCallback(idle);
   };
-  function warm(): void { stop(); preloadHome(); }
+  function warm(): void { if (cancelled) return; stop(); preloadHome(); }
   requestAnimationFrame(() => {
     window.setTimeout(() => {
       if (cancelled) return;
       preloadSceneBase();
       for (const type of SIGNS) window.addEventListener(type, warm, { capture: true, passive: true });
-      timer = window.setTimeout(warm, HOME_WARMUP_DELAY_MS);
+      if (typeof window.requestIdleCallback === 'function') {
+        idle = window.requestIdleCallback(warm, { timeout: HOME_WARMUP_DELAY_MS });
+      } else timer = window.setTimeout(warm, HOME_WARMUP_DELAY_MS);
     }, 0);
   });
   return () => { cancelled = true; stop(); };

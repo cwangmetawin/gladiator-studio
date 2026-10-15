@@ -269,10 +269,10 @@ test('the shipped preloader waits past public first paint, shares the Babylon pr
 });
 
 /** A fresh preloader over fake timers, listeners and first-screen modules, for the tests of when the first screen is warmed. */
-async function warmupRig(tag) {
+async function warmupRig(tag, idleAvailable = false) {
   const keys = ['window', 'Image', 'requestAnimationFrame', '__warmed'];
   const previous = Object.fromEntries(keys.map(key => [key, globalThis[key]]));
-  const timers = [], listeners = new Map();
+  const timers = [], listeners = new Map(), idles = [];
   let frame;
   globalThis.__warmed = [];
   globalThis.window = {
@@ -281,6 +281,10 @@ async function warmupRig(tag) {
     addEventListener: (type, listener) => { if (!listeners.has(type)) listeners.set(type, new Set()); listeners.get(type).add(listener); },
     removeEventListener: (type, listener) => { listeners.get(type)?.delete(listener); },
   };
+  if (idleAvailable) {
+    globalThis.window.requestIdleCallback = (callback, options) => { idles.push({ callback, options, live: true }); return idles.length; };
+    globalThis.window.cancelIdleCallback = id => { idles[id - 1].live = false; };
+  }
   globalThis.requestAnimationFrame = callback => { frame = callback; return 1; };
   globalThis.Image = class { set src(_) {} };
   const readiness = moduleUrl(source('../../features/starfield/sceneReadiness.ts') + `\n// warm-up ${tag}`);
@@ -293,7 +297,7 @@ async function warmupRig(tag) {
     + `\n// warm-up ${tag}`);
   const module = await import(wired);
   return {
-    module, timers, listeners, warmed: () => globalThis.__warmed,
+    module, timers, listeners, idles, warmed: () => globalThis.__warmed,
     paintAndRunTask: () => { frame(); timers[0].callback(); },
     restore: () => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete globalThis[key]; else globalThis[key] = value; } },
   };
@@ -322,7 +326,7 @@ test('the first screen\'s files are not warmed while the gate paints: a sign of 
   } finally { rig.restore(); }
 });
 
-test('a visitor who only reads the gate gets the first screen warmed after the delay', async () => {
+test('a browser without idle callbacks warms the first screen shortly after the gate paints', async () => {
   const rig = await warmupRig('timer');
   try {
     rig.module.scheduleScenePreload();
@@ -330,8 +334,32 @@ test('a visitor who only reads the gate gets the first screen warmed after the d
     rig.timers[1].callback();
     await flush();
     assert.deepEqual([...rig.warmed()].sort(), ['arena', 'home']);
-    assert.ok(rig.module.HOME_WARMUP_DELAY_MS >= 2000, 'late enough to start after a Lighthouse run\'s observed LCP');
+    assert.ok(rig.module.HOME_WARMUP_DELAY_MS > 0 && rig.module.HOME_WARMUP_DELAY_MS <= 500, 'the fallback no longer waits three seconds');
   } finally { rig.restore(); }
+});
+
+test('after the gate paints, idle warms the home before any gesture, with a short deadline and cancellable work', async () => {
+  const rig = await warmupRig('idle', true);
+  try {
+    const undo = rig.module.scheduleScenePreload();
+    assert.equal(rig.idles.length, 0, 'the gate paints before idle work is even scheduled');
+    rig.paintAndRunTask(); await flush();
+    assert.deepEqual(rig.warmed(), []);
+    assert.equal(rig.idles.length, 1);
+    assert.ok(rig.idles[0].options.timeout <= 500);
+    rig.idles[0].callback(); await flush();
+    assert.deepEqual([...rig.warmed()].sort(), ['arena', 'home']);
+    undo();
+    assert.equal(rig.idles[0].live, false);
+  } finally { rig.restore(); }
+  const cancelled = await warmupRig('idle-cancelled', true);
+  try {
+    const undo = cancelled.module.scheduleScenePreload();
+    cancelled.paintAndRunTask(); undo();
+    assert.equal(cancelled.idles[0].live, false);
+    cancelled.idles[0].callback(); await flush();
+    assert.deepEqual(cancelled.warmed(), [], 'a queued callback cannot warm a page that has left');
+  } finally { cancelled.restore(); }
 });
 
 test('answering the gate warms the first screen at once, and leaving the page undoes the waiting', async () => {

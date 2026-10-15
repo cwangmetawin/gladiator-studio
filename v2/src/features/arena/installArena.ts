@@ -3,6 +3,8 @@ import { emblemAnchor } from '@/shared/brand/emblemAnchor';
 import { homeReveal } from '@/shared/brand/homeReveal';
 import { ARENA_FILES, loadEmblemAsset, mapUrl } from './arenaAssets';
 import { arenaQuality } from './arenaQuality';
+import { createArenaDive } from './arenaDive';
+import { journeyProgress } from './journeyProgress';
 import { createArcScheduler } from './arcSchedule';
 import { createArcs } from './arcs';
 import { emblemSlot } from './emblemSlot';
@@ -74,7 +76,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   scene.autoClearDepthAndStencil = true;    // but its depth must not hide the emblem
   scene.skipPointerMovePicking = true;
   const camera = new A.FreeCamera('arenaCamera', new B.Vector3(0, 0, -12), scene);
-  camera.minZ = 0.05; camera.maxZ = 80; camera.fov = fov;
+  camera.minZ = 0.025; camera.maxZ = 1000; camera.fov = fov;
   camera.inputs.clear();
 
   const processing = scene.imageProcessingConfiguration;
@@ -120,6 +122,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
 
   const arcs = createArcs(B, scene, asset.arcs, asset.placement, nodes.pivot, arcLight, Math.random);
   const scheduler = createArcScheduler(Math.random);
+  const dive = createArenaDive(B, A, scene, camera, asset, ctx.phone, ctx.reducedMotion, ctx.onReady);
 
   // ── framing: the slot on the page, and the gate's rectangle the emblem starts from ──────────────────
   const viewport = () => ({ width: window.innerWidth, height: window.innerHeight });
@@ -171,7 +174,8 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
   // after the render loop has started (StarfieldBackground starts its loop before it installs the arena). The prototype
   // measured the pitfall: awaiting forceCompilationAsync before the loop started put readiness back by about 0.85 s;
   // compiling in the background once the loop runs costs about 22 ms.
-  void Promise.all(arcs.parts.map(part => part.mesh.material?.forceCompilationAsync(part.mesh).catch(() => null) ?? null)).then(() => { lateReady = true; });
+  const warmMeshes = [...arcs.parts.map(part => part.mesh), ...dive.meshes];
+  void Promise.all(warmMeshes.map(mesh => mesh.material?.forceCompilationAsync(mesh).catch(() => null) ?? null)).then(() => { lateReady = true; });
 
   /** Seconds since the opening began: from the home's release, or from the first frame if that was later (no gate to wait under). -1: not begun. */
   function openingSeconds(now: number): number {
@@ -196,56 +200,59 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     visibility = instant ? wantVisible : approach(visibility, wantVisible, FADE_RATE, dt);
     const hidden = wantVisible === 0 && visibility < HIDDEN;
     if (hidden) visibility = 0;
-    nodes.root.setEnabled(!hidden);
-    if (hidden && grade === 0) return; // nothing of the arena scene shows: draw nothing
+    if (wantVisible === 1 && 1 - visibility < HIDDEN) visibility = 1;
 
     const seconds = reduced ? SETTLED_S + 1 : openingSeconds(now);
 
-    // pose
+    // framing: from the gate's rectangle to the slot over the glide (not at all when there was no gate or with reduced motion)
+    const gliding = reduced || gateFraming === null || journeyProgress.getSnapshot() > 0 ? 1 : seconds < 0 ? 0 : glide(seconds);
+    const framing = gateFraming !== null && gliding < 1 ? blendFraming(gateFraming, slotFraming, gliding) : slotFraming;
+    const journey = dive.step(framing, fov, dt, visibility, clock, hub);
+    nodes.root.setEnabled(!hidden && journey.emblemVisible);
+    if (hidden && grade === 0) return; // nothing of the arena scene shows: draw nothing
+
+    // The emblem becomes still before the mouth; its opening then agrees with the pure camera track.
     const sway = !quality.pointer || shouldSway(false, now, lastMoveAt);
     pose = reduced ? REST_POSE : followPose(pose, sway ? swayPose(clock) : target, sway, dt);
-    const rotation = emblemRotation(pose, 1);
+    const rotation = emblemRotation(pose, journey.presence);
     nodes.pivot.rotation.y = rotation.yaw;
     nodes.pivot.rotation.x = rotation.pitch;
-    if (now - flaggedAt >= FLAG_EVERY_MS) {
+    nodes.root.position.set(framing.offsetX, framing.offsetY + (reduced ? 0 : Math.sin(clock * 0.8) * BOB_UNITS * journey.presence), 0);
+    if (reduced || now - flaggedAt >= FLAG_EVERY_MS) {
       flaggedAt = now;
       const degrees = 180 / Math.PI;
       setFlag(ctx.root, 'emblemPose', numbers([rotation.yaw * degrees, rotation.pitch * degrees], 1));
+      setFlag(ctx.root, 'arenaCamera', numbers([camera.position.x, camera.position.y, camera.position.z, camera.fov, camera.rotation.x], 4));
+      setFlag(ctx.root, 'arenaProgress', journey.screens.toFixed(4));
     }
-
-    // framing: from the gate's rectangle to the slot over the glide (not at all when there was no gate or with reduced motion)
-    const gliding = reduced || gateFraming === null ? 1 : seconds < 0 ? 0 : glide(seconds);
-    const framing = gateFraming !== null && gliding < 1 ? blendFraming(gateFraming, slotFraming, gliding) : slotFraming;
-    camera.position.z = -framing.distance;
-    nodes.root.position.set(framing.offsetX, framing.offsetY + (reduced ? 0 : Math.sin(clock * 0.8) * BOB_UNITS), 0);
 
     // light and glow
     const a = reduced ? REDUCED_ARRIVAL : arrival(seconds);
     processing.exposure = a.exposure * LOOK.exposure;
     rim.position.set(framing.offsetX + pose.x * 5.2, framing.offsetY - pose.y * 2, -1.5);
-    rim.intensity = (LOOK.rim + LOOK.rimFlash * a.flash) * visibility;
+    rim.intensity = (LOOK.rim + LOOK.rimFlash * a.flash) * visibility * journey.presence;
     key.intensity = LOOK.key * visibility;
     scene.environmentIntensity = LOOK.environment * visibility;
-    environment.rotationY = pose.x * 0.22;
+    environment.rotationY = pose.x * 0.22 * journey.presence;
     steel.all.forEach(material => { material.alpha = visibility; });
     pointer.set(pose.x * 5, -pose.y * 1.6, 0);
-    const halo = (a.halo * LOOK.halo + (arcs.isActive() ? 0.25 : 0)) * visibility;
+    const halo = (a.halo * LOOK.halo + (arcs.isActive() ? 0.25 : 0)) * visibility * journey.presence;
     for (const material of [haloMaterial, currentMaterial]) { material.setVector3('uPointer', pointer); material.setFloat('uTime', clock); material.setFloat('uFade', visibility); }
     haloMaterial.setFloat('uHalo', halo);
     currentMaterial.setFloat('uProgress', a.progress);
-    currentMaterial.setFloat('uCurrent', a.currentOn ? 1 : 0);
+    currentMaterial.setFloat('uCurrent', a.currentOn ? journey.presence : 0);
     nodes.current.isVisible = a.currentOn && visibility > 0;
-    auraMaterial.setFloat('uStrength', (LOOK.aura + LOOK.auraFlash * a.flash + (arcs.isActive() ? LOOK.auraArc : 0)) * visibility);
+    auraMaterial.setFloat('uStrength', (LOOK.aura + LOOK.auraFlash * a.flash + (arcs.isActive() ? LOOK.auraArc : 0)) * visibility * journey.presence);
 
     // arcs: one at a time, 2.6-4.2 s apart, once the opening is under way (never in a static frame)
-    if (!reduced && seconds >= 0 && lateReady && visibility > 0.5) {
+    if (!reduced && seconds >= 0 && lateReady && visibility > 0.5 && journey.presence > 0.5) {
       const feather = scheduler.poll(seconds * 1000);
       if (feather !== null) {
         arcs.fire(feather, now);
         if (arcsFired++ < ARC_MARKS) performance.mark('arena:arc');
       }
     }
-    arcs.update(now, visibility);
+    arcs.update(now, visibility * journey.presence);
 
     scene.render();
     if (ready && firstFrameAt === null) {
@@ -261,6 +268,7 @@ export async function installArena(B: BabylonModule, engine: Engine, ctx: ArenaC
     dispose() {
       unsubscribeSlot(); unsubscribeAnchor();
       window.removeEventListener('pointermove', onPointerMove);
+      dive.dispose();
       arcs.dispose();
       sky.dispose();
       scene.dispose();

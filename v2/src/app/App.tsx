@@ -42,7 +42,7 @@ const CareersSection = lazy(() => import('@/features/careers/CareersSection').th
 const ContactSection = lazy(() => import('@/features/contact/ContactSection').then(m => ({ default: m.ContactSection })));
 const PartnerArea = lazy(() => import('@/features/partner/PartnerArea').then(m => ({ default: m.PartnerArea })));
 // The first screen (3D emblem's page, headline, top bar) loads after the age gate answers, so none of it is in the gate's bundle.
-const ArenaHero = lazy(() => import('@/features/arena/home').then(m => ({ default: m.ArenaHero })));
+const ArenaJourney = lazy(() => import('@/features/arena/home').then(m => ({ default: m.ArenaJourney })));
 const TopBar = lazy(() => import('@/features/arena/home').then(m => ({ default: m.TopBar })));
 
 // ─── Layout constants ───────────────────────────────────────────────────────
@@ -494,10 +494,12 @@ export function App() {
     {verified && (
     <CatalogueStatsProvider catalogue={catalogue}>
     <MotionConfig reducedMotion="user">
-    <div ref={skyRootRef} data-transition={transition.phase} data-transition-target={transition.target}
+    <div ref={skyRootRef} data-arena-track="" data-transition={transition.phase} data-transition-target={transition.target}
       data-scene-ready={sceneReady ?? undefined}
       data-trail="0.00" data-sky-game="" data-constellations="0"
-      style={{ position: 'fixed', inset: 0, overflow: 'hidden', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
+      style={{ position: 'relative', height: released ? '290dvh' : '100dvh', background: 'var(--color-void-900)' }} aria-label="Gladiator Studio">
+      {/* Native document scroll supplies 0.9 screens of dive and one screen of arena arrival. */}
+      <div style={{ position: 'sticky', top: 0, height: '100dvh', overflow: 'clip' }}>
       {/* 3D scene — always behind everything */}
       <StarfieldCanvas suspended={isSceneCovered(playingGame !== null, clientArea !== 'closed', isMobile, activePanel)} />
 
@@ -527,7 +529,8 @@ export function App() {
           style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10, visibility: transition.hubVisible ? 'visible' : undefined }}
         >
           <Suspense fallback={null}>
-            <ArenaHero panelSide={activeSide} active={transition.hubVisible} target={transition.target} />
+            <ArenaJourney panelSide={activeSide} active={transition.hubVisible} target={transition.target}
+              scrollLocked={transition.phase !== 'idle' || drawerOpen || playingGame !== null || clientArea !== 'closed'} />
           </Suspense>
         </motion.div>
       </main>
@@ -630,6 +633,7 @@ export function App() {
         <WarpTransition onComplete={arriveClientArea} />
       )}
       </>}
+      </div>
     </div>
     </MotionConfig>
     </CatalogueStatsProvider>
