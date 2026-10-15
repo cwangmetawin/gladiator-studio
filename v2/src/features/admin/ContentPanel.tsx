@@ -446,6 +446,7 @@ function SectionCard({ schema, initial, updatedAt, onSaved }: {
       <p className="rail-card__note" style={{ marginBottom: 14 }}>
         {updatedAt ? <>Last saved <time dateTime={updatedAt} title={updatedAt}>{relativeTime(updatedAt, now)}</time></> : 'Not saved yet — showing defaults'}
       </p>
+      {schema.key === 'partner' && <p className="rail-card__note" style={{ marginBottom: 14 }}>Since the portal launch, only eyebrow, title, lede and contact email are shown. Existing editorial content is kept for reference.</p>}
       <div className="form-grid">
         {renderSectionFields(schema.fields, value, (k, update) => setValue((p) => ({ ...p, [k]: update(p[k]) })))}
       </div>

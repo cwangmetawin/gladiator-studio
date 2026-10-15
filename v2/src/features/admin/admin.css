@@ -431,3 +431,30 @@ button { font-family: inherit; }
   .toast, .dash-card, .admin__sidebar { animation: none; transition: none; }
   .skeleton::after { animation: none; }
 }
+
+/* Partner management keeps long email addresses and secrets inside their panels. */
+.partner-admin { display: flex; flex-direction: column; gap: 22px; }
+.partner-admin-section { padding: 20px; min-width: 0; }
+.partner-admin-section > .hint { display: block; margin-bottom: 16px; }
+.partner-admin-section .toolbar h2 { font-size: 20px; }
+.partner-admin-editor { margin: 18px 0; padding-top: 18px; border-top: 1px solid var(--a-line); }
+.partner-admin-editor h3, .partner-admin-editor h4 { margin-bottom: 14px; }
+.partner-admin-fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.partner-admin-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.partner-admin-list { list-style: none; padding: 0; margin: 16px 0; }
+.partner-admin-list > li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 14px; padding: 14px 0; border-bottom: 1px solid var(--a-line); }
+.partner-admin-list .hint { display: block; margin-top: 5px; }
+.partner-admin .table-wrap { max-width: 100%; overflow-x: auto; }
+.partner-admin .table { width: 100%; border-collapse: collapse; text-align: left; }
+.partner-admin .table th, .partner-admin .table td { padding: 12px 10px; border-bottom: 1px solid var(--a-line); vertical-align: top; overflow-wrap: anywhere; min-width: 110px; }
+.partner-admin .table th { color: var(--a-dim); font-size: 12px; }
+.partner-admin .table td:nth-child(2), .partner-admin .table td:nth-child(3) { min-width: 170px; }
+.partner-admin .pill { display: inline-block; font-size: 11px; padding: 3px 7px; color: var(--a-dim); background: var(--a-panel-2); }
+.partner-admin .pill--ok { color: var(--a-green); }
+.partner-login-details { margin: 18px 0; }
+.partner-login-details dt { color: var(--a-dim); font-size: 12px; margin-top: 12px; }
+.partner-login-details dd { margin: 5px 0 0; overflow-wrap: anywhere; user-select: text; }
+.partner-login-details code { font-size: 17px; }
+@media (max-width: 600px) {
+  .partner-admin-section { padding: 14px; }
+}

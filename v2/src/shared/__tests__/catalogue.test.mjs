@@ -11,7 +11,6 @@ const ts = require('typescript');
 const React = require('react');
 const { renderToStaticMarkup } = require('react-dom/server');
 const source = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
-const json = (path) => JSON.parse(source(path));
 const moduleUrl = (src) => {
   const js = ts.transpileModule(src, { compilerOptions: {
     target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.ReactJSX,
@@ -22,7 +21,6 @@ const moduleUrl = (src) => {
 const rtpUrl = moduleUrl(source('../utils/gameRtp.ts'));
 const { defaultRtp, catalogueMaxRtp } = await import(rtpUrl);
 const rtpImports = (src) => src.replace("from '@/shared/utils/gameRtp'", `from '${rtpUrl}'`);
-const { mapFeaturedRtp } = await import(moduleUrl(rtpImports(source('../../features/partner/featuredCatalogue.ts'))));
 const { withGameCategory } = await import(moduleUrl(rtpImports(source('../../features/admin/gameEditorRtp.ts'))));
 let countSource = source('../utils/catalogueText.ts');
 if (process.env.MUTATE_CATALOGUE_COUNT === '1') {
@@ -37,7 +35,6 @@ const catalogueSource = rtpImports(source('../../api/gameData.ts'))
   .replace("import { fetchCatalogueFromDb } from './catalogueDb';", 'const fetchCatalogueFromDb = async () => null;');
 const { GLADIATOR_SLOTS, METAWIN_ORIGINALS } = await import(moduleUrl(catalogueSource));
 const curated = [...GLADIATOR_SLOTS, ...METAWIN_ORIGINALS];
-const featured = (title, extra = {}) => ({ title, genre: 'Test mechanic', rtp: '99.5%', ...extra });
 const counts = { games: 43, slots: 12, originals: 31 };
 
 test('category defaults are 96.5 for slots and 97 for Originals', () => {
@@ -60,40 +57,12 @@ test('Max RTP is the highest RTP the catalogue shows, never a hand-typed figure'
   assert.equal('rtp' in stats.default, false);
 });
 
-test('every curated RTP and standalone featured JSON value uses its category default', () => {
+test('every curated RTP uses its category default', () => {
   assert.ok(GLADIATOR_SLOTS.length > 0 && METAWIN_ORIGINALS.length > 0);
   for (const game of curated) {
     assert.equal(game.rtp, defaultRtp(game.category), game.title);
     assert.doesNotMatch(game.description, /99\.5%/);
   }
-  const defaults = json('../../api/partnerDefault.json').catalogue;
-  assert.deepEqual(mapFeaturedRtp(defaults, [], curated), defaults);
-});
-
-test('featured RTP uses the live value with a case-insensitive title match', () => {
-  const input = Object.freeze([Object.freeze(featured('  TO THE TOP  '))]);
-  const live = Object.freeze([{ title: 'To The Top', category: 'slot', rtp: 95.8 }]);
-  assert.equal(mapFeaturedRtp(input, live, curated)[0].rtp, '95.8%');
-  assert.equal(input[0].rtp, '99.5%');
-});
-
-test('a missing live RTP uses the live category, never an old featured or curated RTP', () => {
-  assert.equal(mapFeaturedRtp([featured('New Original')], [
-    { title: 'NEW ORIGINAL', category: 'mini' },
-  ], [{ title: 'New Original', category: 'slot', rtp: 99 }])[0].rtp, '97%');
-  assert.equal(mapFeaturedRtp([featured('To The Top')], [
-    { title: 'To The Top', category: 'slot', rtp: null },
-  ], curated)[0].rtp, '96.5%');
-});
-
-test('titles absent from the live catalogue use curated or explicit category defaults', () => {
-  const entries = [featured('NAVIGATOR'), featured('To The Top'), featured('New Original', { category: 'mini' }), featured('Unknown slot')];
-  assert.deepEqual(mapFeaturedRtp(entries, [], curated).map((g) => g.rtp), ['97%', '96.5%', '97%', '96.5%']);
-});
-
-test('featured formatting uses at most one decimal, omits .0, and preserves zero', () => {
-  const games = [97, 96.5, 96.76, 0].map((rtp, i) => ({ title: `Game ${i}`, category: 'slot', rtp }));
-  assert.deepEqual(mapFeaturedRtp(games.map((g) => featured(g.title)), games, []).map((g) => g.rtp), ['97%', '96.5%', '96.8%', '0%']);
 });
 
 test('Hero, About, Contact and Journey current-count text changes with the catalogue', () => {

@@ -1,148 +1,88 @@
-import type { SyntheticEvent } from 'react';
-import { ArrowUpRight } from 'lucide-react';
-import type { StudioStats } from '@/shared/content/StudioStats';
+import { useEffect, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { FlatEmblem } from '@/features/arena/FlatEmblem';
-import { withCatalogueCounts } from '@/shared/utils/catalogueText';
-import { lines, safeHref } from '@/shared/utils/text';
-import type { PartnerContent } from './partnerContent';
-import type { PartnerTitle } from './partnerCatalogue';
+import { safeHref } from '@/shared/utils/text';
+import { PortalSections } from './PortalSections';
+import { partnerError } from './usePartnerAuth';
+import type { usePartnerAuth } from './usePartnerAuth';
 
+export interface PartnerHeroCopy {
+  readonly eyebrow: string;
+  readonly title: string;
+  readonly lede: string;
+  readonly contactEmail: string;
+}
 interface PartnerPageProps {
-  readonly content: PartnerContent;
-  readonly stats: StudioStats;
-  readonly catalogue: readonly PartnerTitle[];
-  readonly coversReady: boolean;
+  readonly content: PartnerHeroCopy;
   readonly titleId: string;
+  readonly auth?: ReturnType<typeof usePartnerAuth>;
 }
 
-function AccessLink({ content }: { readonly content: PartnerContent }) {
-  return content.ctaLabel && (
-    <a className="partner__access" href={safeHref(content.ctaUrl)}>
-      {content.ctaLabel}
-      <ArrowUpRight size={16} aria-hidden="true" />
-    </a>
-  );
-}
+/** The shell owns initial focus; only an explicit auth switch moves it again. */
+export function PartnerPage({ content: c, titleId, auth }: PartnerPageProps) {
+  const status = auth?.status ?? 'signedout';
+  const [email, setEmail] = useState(''), [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false), [actionError, setActionError] = useState('');
+  const heading = useRef<HTMLHeadingElement>(null), focusAfterAuth = useRef(false), inFlight = useRef(false);
+  const signedIn = Boolean(auth?.session), preview = status === 'preview';
+  const ready = status === 'partner' || preview;
+  const company = auth?.partner?.company;
+  const title = ready ? company || 'Client Area' : status === 'noaccess' ? 'Partner access' : c.title || 'Partners';
+  const contactEmail = String(c.contactEmail ?? '').trim();
+  const contactHref = /^[^\s@?\r\n]+@[^\s@?\r\n]+\.[^\s@?\r\n]+$/.test(contactEmail) ? safeHref(`mailto:${contactEmail}`) : '';
 
-/** An absent original is a plain placeholder, never an error/retry loop. */
-function coverError(event: SyntheticEvent<HTMLImageElement>, fallback: string): void {
-  const image = event.currentTarget;
-  if (fallback && image.dataset.fallback !== 'true') {
-    image.dataset.fallback = 'true'; image.src = fallback;
-  } else image.hidden = true;
-}
+  useEffect(() => {
+    if (!focusAfterAuth.current || status === 'loading' || status === 'unknown') return;
+    focusAfterAuth.current = false;
+    heading.current?.focus({ preventScroll: true });
+  }, [status]);
 
-export function PartnerPage({ content: c, stats: s, catalogue, coversReady, titleId }: PartnerPageProps) {
-  const valueProps = (c.valueProps ?? []).filter(v => v && (v.title || v.body || v.tag));
-  const steps = (c.steps ?? []).filter(step => step && (step.step || step.body));
-  const specs = lines(c.specs), compliance = lines(c.compliancePoints);
-  const faqs = (c.faqs ?? []).filter(faq => faq && (faq.q || faq.a));
-  const email = String(c.contactEmail || '').trim();
-  return (
-    <main className="partner__stage">
-      <section className="partner__hero">
-        <div className="partner__identity">
-          {c.eyebrow && <p className="partner__eyebrow">{c.eyebrow}</p>}
-          <FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} />
-        </div>
-        <h1 id={titleId} className="partner__title" tabIndex={-1}>{c.title || 'Partners'}</h1>
-        {c.lede && <p className="partner__lede">{c.lede}</p>}
-        <div className="partner__hero-foot">
-          <dl className="partner__stats" aria-label="Studio statistics">
-            <div><dt>Games</dt><dd>{s.games}</dd></div>
-            <div><dt>Max RTP</dt><dd>{Number(s.rtp.toFixed(1))}%</dd></div>
-            <div><dt>Markets</dt><dd>{s.markets}</dd></div>
-          </dl>
-          <AccessLink content={c} />
-        </div>
-      </section>
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setActionError(''); focusAfterAuth.current = true;
+    try { await auth?.signIn(email, password); setPassword(''); }
+    catch (error) { focusAfterAuth.current = false; setActionError(partnerError(error, 'Sign-in failed. Please try again.')); }
+    finally { inFlight.current = false; setBusy(false); }
+  }
+  async function signOut() {
+    if (inFlight.current) return;
+    inFlight.current = true; setBusy(true); setActionError(''); focusAfterAuth.current = true;
+    try { await auth?.signOut(); setPassword(''); }
+    catch (error) { focusAfterAuth.current = false; setActionError(partnerError(error, 'Sign-out failed. Please try again.')); }
+    finally { inFlight.current = false; setBusy(false); }
+  }
 
-      {valueProps.length > 0 && (
-        <section className="partner__section" aria-label="Why partner with us">
-          <div className="partner__values">
-            {valueProps.map((value, i) => (
-              <article key={i}>
-                {value.tag && <p className="partner__eyebrow">{value.tag}</p>}
-                {value.title && <h2>{value.title}</h2>}
-                {value.body && <p>{withCatalogueCounts(value.body, s)}</p>}
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {steps.length > 0 && (
-        <section className="partner__section" aria-labelledby={`${titleId}-steps`}>
-          <h2 id={`${titleId}-steps`} className="partner__heading">Integration steps</h2>
-          <ol className="partner__timeline">
-            {steps.map((step, i) => (
-              <li key={i}>
-                <span className="partner__number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span>
-                <div>{step.step && <h3>{step.step}</h3>}{step.body && <p>{step.body}</p>}</div>
-              </li>
-            ))}
-          </ol>
-        </section>
-      )}
-
-      {specs.length > 0 && (
-        <section className="partner__section" aria-labelledby={`${titleId}-specs`}>
-          <h2 id={`${titleId}-specs`} className="partner__heading">What you get</h2>
-          <ul className="partner__dots partner__specs">{specs.map((spec, i) => <li key={i}>{spec}</li>)}</ul>
-        </section>
-      )}
-
-      {catalogue.length > 0 && (
-        <section className="partner__section" aria-labelledby={`${titleId}-titles`}>
-          <h2 id={`${titleId}-titles`} className="partner__heading">Featured titles</h2>
-          <ul className="partner__titles">
-            {catalogue.map((game, i) => (
-              <li key={i}>
-                <div className="partner__cover" aria-hidden="true">
-                  {coversReady && game.cover?.url && (
-                    <img key={game.cover.url} src={game.cover.url} alt="" width={game.cover.width} height={game.cover.height}
-                      loading="lazy" decoding="async" data-fallback={game.cover.url === game.cover.fallbackUrl ? 'true' : undefined}
-                      onError={event => coverError(event, game.cover?.fallbackUrl ?? '')} />
-                  )}
-                </div>
-                <h3>{game.title}</h3>
-                {game.genre && <p className="partner__genre">{game.genre}</p>}
-                {game.rtp && <p className="partner__rtp">RTP {game.rtp}</p>}
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
-
-      {(c.complianceTitle || c.complianceBody || compliance.length > 0) && (
-        <section className="partner__section partner__compliance" aria-label="Compliance">
-          <div>
-            <p className="partner__eyebrow">Compliance</p>
-            {c.complianceTitle && <h2 className="partner__heading">{c.complianceTitle}</h2>}
-            {c.complianceBody && <p>{c.complianceBody}</p>}
-          </div>
-          {compliance.length > 0 && <ul className="partner__dots">{compliance.map((point, i) => <li key={i}>{point}</li>)}</ul>}
-        </section>
-      )}
-
-      {faqs.length > 0 && (
-        <section className="partner__section" aria-labelledby={`${titleId}-faq`}>
-          <h2 id={`${titleId}-faq`} className="partner__heading">Partner FAQ</h2>
-          <div className="partner__faq">
-            {faqs.map((faq, i) => <article key={i}>{faq.q && <h3>{faq.q}</h3>}{faq.a && <p>{faq.a}</p>}</article>)}
-          </div>
-        </section>
-      )}
-
-      <section className="partner__section partner__closing">
-        {c.closingTitle && <h2>{c.closingTitle}</h2>}
-        {c.closingBody && <p>{c.closingBody}</p>}
-        <div className="partner__closing-actions">
-          <AccessLink content={c} />
-          {email && <p className="partner__contact">Talk to us <a href={`mailto:${email}`}>{email}</a></p>}
-        </div>
-      </section>
-      <footer className="partner__foot">© 2026 Gladiator Studio · A MetaWin Company</footer>
-    </main>
-  );
+  return <main className="partner__stage">
+    <section className={`partner__hero${ready ? ' partner__hero--portal' : ''}`}>
+      <div className="partner__identity">
+        {(c.eyebrow || signedIn) && <p className="partner__eyebrow">{signedIn ? 'Client Area' : c.eyebrow}</p>}
+        <FlatEmblem className="partner__emblem" fillId={`${titleId}-steel`} />
+      </div>
+      <h1 ref={heading} id={titleId} className="partner__title" tabIndex={-1}>{title}</h1>
+      {status === 'signedout' && c.lede && <p className="partner__lede">{c.lede}</p>}
+      {preview && <p className="partner__preview" role="status">Admin preview — you are viewing the partner portal as an administrator.</p>}
+      {signedIn && <div className="partner__account"><p>{company || auth?.session?.user.email || 'Signed in'}</p>
+        <button className="partner__button" type="button" onClick={signOut} disabled={busy}>{busy ? 'Signing out…' : 'Sign out'}</button></div>}
+      {actionError && <p className="partner__error" role="alert">{actionError}</p>}
+      {status === 'loading' && <p className="partner__load-status" role="status">Checking partner access…</p>}
+      {status === 'error' && <div className="partner__access-error"><p className="partner__error" role="alert">{auth?.error || 'Partner access could not be checked. Please try again.'}</p>
+        <button className="partner__button" type="button" onClick={() => { setActionError(''); auth?.retry(); }}>Retry</button></div>}
+      {status === 'noaccess' && <p className="partner__lede">This account has no partner access</p>}
+      {status === 'signedout' && <div className="partner__signin">
+        <h2 className="partner__heading">Sign in</h2>
+        <form className="partner__form" onSubmit={submit} aria-busy={busy}>
+          <label htmlFor={`${titleId}-email`}>Email<input id={`${titleId}-email`} name="email" type="email" autoComplete="username" required maxLength={254}
+            value={email} onChange={event => setEmail(event.target.value)} disabled={busy} /></label>
+          <label htmlFor={`${titleId}-password`}>Password<input id={`${titleId}-password`} name="password" type="password" autoComplete="current-password" required
+            value={password} onChange={event => setPassword(event.target.value)} disabled={busy} /></label>
+          <button className="partner__button" type="submit" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+        </form>
+        {contactEmail && <p className="partner__contact">Accounts are opened by Gladiator Studio — contact {contactHref
+          ? <a href={contactHref}>{contactEmail}</a> : contactEmail}</p>}
+      </div>}
+    </section>
+    {ready && auth?.session && <PortalSections key={`${auth.session.user.id}:${auth.partner?.id ?? 'preview'}`} partner={auth.partner} preview={preview} userId={auth.session.user.id} />}
+    <footer className="partner__foot">© 2026 Gladiator Studio · A MetaWin Company</footer>
+  </main>;
 }
