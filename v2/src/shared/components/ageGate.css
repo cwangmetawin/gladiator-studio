@@ -269,10 +269,11 @@
 .gate[data-gate-phase='denied'] .gate__halo { opacity: 0.2; }
 .gate[data-gate-phase='denied'] .gate__steel { opacity: 0.85; }
 
-/* ── Exit: igniting (--gate-ignite) → lit (held until the site is there) → fading (--gate-fade) ──
+/* ── Exit: igniting (--gate-ignite) → lit (held until the first screen is ready) → fading (--gate-fade) ──
    The ignition's animations stay applied through all three phases (fill-mode both) so the lit
    frame holds still and nothing restarts when the phase changes. The fade then dissolves the
-   gate into the warp intro mounted underneath, which paints the same sky. */
+   gate into the first screen mounted underneath, whose 3D emblem is already lit in this emblem's
+   own rectangle (it does not grow or move here: a bigger 2D emblem would ghost against the 3D one). */
 
 .gate[data-exit] { pointer-events: none; }
 .gate[data-exit] .gate__bar { animation: gate-bar-out var(--gate-ignite) ease-out both; }
@@ -293,7 +294,6 @@
 .gate__emblem[data-mode='ignite'] .gate__current--left .gate__current-reveal { animation: gate-wipe-in-left var(--gate-ignite) cubic-bezier(0.3, 0.6, 0.4, 1) both; }
 
 .gate[data-gate-phase='fading'] { animation: gate-fade var(--gate-fade) cubic-bezier(0.4, 0, 0.7, 1) both; }
-.gate[data-gate-phase='fading'] .gate__emblem { animation: gate-emblem-push var(--gate-fade) cubic-bezier(0.4, 0, 0.8, 0.5) both; will-change: transform; }
 
 @keyframes gate-bar-out { 0% { opacity: 1; transform: none; } 24%, 100% { opacity: 0; transform: translateY(10px); } }
 @keyframes gate-title-out { 0%, 38% { opacity: 1; transform: none; } 85%, 100% { opacity: 0; transform: translateY(-6px) scale(1.02); } }
@@ -309,7 +309,6 @@
 @keyframes gate-wipe-out-left { 0% { transform: translateX(100%); } 61%, 100% { transform: translateX(0); } }
 @keyframes gate-wipe-in-left { 0% { transform: translateX(-100%); } 61%, 100% { transform: translateX(0); } }
 @keyframes gate-fade { from { opacity: 1; } to { opacity: 0; } }
-@keyframes gate-emblem-push { from { transform: none; } to { transform: scale(1.14); } }
 
 /* ── Portrait screens: the title breaks into two lines ─────────────────────── */
 

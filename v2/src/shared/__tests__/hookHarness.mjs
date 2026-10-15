@@ -1,6 +1,6 @@
 // A tiny hook runtime for testing a shipped component without a DOM or a renderer.
-// It implements useState, useRef, useMemo, useCallback, useId and useEffect / useLayoutEffect
-// (deps, cleanups, layout effects before passive ones, re-render until stable), plus a fake
+// It implements useState, useRef, useMemo, useCallback, useId, useSyncExternalStore and useEffect /
+// useLayoutEffect (deps, cleanups, layout effects before passive ones, re-render until stable), plus a fake
 // clock for window.setTimeout. The component's own JSX is real: `output` is the element tree it
 // returns. Host refs are attached after each render, as React does before the layout effects.
 //
@@ -13,7 +13,7 @@ const KEY = '__hookHarness';
 
 /** A module that forwards React's hooks to the harness that is rendering right now. */
 export function harnessHooksUrl(moduleUrl) {
-  const names = ['useState', 'useRef', 'useMemo', 'useCallback', 'useId', 'useEffect', 'useLayoutEffect'];
+  const names = ['useState', 'useRef', 'useMemo', 'useCallback', 'useId', 'useSyncExternalStore', 'useEffect', 'useLayoutEffect'];
   return moduleUrl(`
     ${names.map(name => `export const ${name} = (...args) => globalThis.${KEY}.${name}(...args);`).join('\n')}
     export const startTransition = callback => { (globalThis.__transitions ??= []).push(callback); callback(); };
@@ -94,6 +94,16 @@ export function createHarness(component, { attach } = {}) {
       const slot = slots[cursor] ??= { id: `:h${cursor}:` };
       cursor += 1;
       return slot.id;
+    },
+    /** Subscribes once (a passive effect, as React does) and reads the snapshot on every render; a store change is rendered by the next act(). */
+    useSyncExternalStore(subscribe, getSnapshot) {
+      const slot = slots[cursor] ??= { first: true, cleanup: undefined };
+      cursor += 1;
+      if (slot.first) {
+        slot.first = false;
+        passiveQueue.push(() => { slot.cleanup = subscribe(() => { dirty = true; }); });
+      }
+      return getSnapshot();
     },
     useLayoutEffect: effectHook(true),
     useEffect: effectHook(false),

@@ -1,0 +1,167 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   The first screen after the gate (Phase 4 M1): one emblem (drawn by the sky's WebGL canvas behind
+   this DOM, into the slot), one huge line, one rule of small print. No cards, no side stripes.
+   Letters move only by transform and opacity. The title never waits for the 3D: it is DOM text in
+   the self-hosted Saira face (@font-face 'Saira Title' lives in the gate's stylesheet).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.arena-hero {
+  --pad: clamp(16px, 4.2vw, 64px);
+  --bar: 56px;
+  --ticker: calc(38px + env(safe-area-inset-bottom, 0px));
+  /* How much of the slot's width the emblem takes; the scene reads this same value. */
+  --emblem-fraction: 0.92;
+  /* The headline's advance width in em (Saira 800 capitals: 10.87 em of letters, spaces and tracking, plus the lines' padding,
+     measured from the font file), so one line spans the content width at any viewport. */
+  --title-em: 11;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: var(--bar) minmax(0, 1fr) auto auto var(--ticker);
+  padding: 0 var(--pad);
+  row-gap: 0;
+}
+.arena-hero > * { min-width: 0; }
+
+.arena-hero__slot { grid-row: 2; position: relative; min-height: 0; }
+
+/* The flat emblem: where there is no WebGL, and until the 3D one has drawn. */
+.arena-hero__flat {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--emblem-fraction));
+  height: auto;
+  max-height: 94%; /* as the 3D emblem (SLOT_HEIGHT_FILL): never taller than the slot */
+  transform: translate(-50%, -50%);
+  filter: drop-shadow(0 0 18px rgba(79, 195, 247, 0.55));
+  transition: opacity 0.5s ease;
+}
+[data-arena='ready'] .arena-hero__flat { opacity: 0; }
+
+/* The emblem's box, for the constellation doors' obstacles (ArenaHero's KEEPOUTS): the same rectangle as the flat emblem. */
+.arena-hero__keepout {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: calc(100% * var(--emblem-fraction));
+  aspect-ratio: 935 / 237;
+  max-height: 94%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.arena-hero__keepout i { position: absolute; display: block; }
+
+.arena-hero__title {
+  grid-row: 3;
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+  font-family: 'Saira Title', 'Saira', 'Saira Gate Fallback', system-ui, sans-serif;
+  font-weight: 800;
+  font-size: calc((100vw - 2 * var(--pad)) / var(--title-em));
+  line-height: 0.88;
+  letter-spacing: 0.005em;
+  text-transform: uppercase;
+}
+
+.arena-hero__line { display: inline-block; overflow: hidden; padding: 0.05em 0.02em 0.07em; vertical-align: top; }
+.arena-hero__line + .arena-hero__line { margin-left: 0.26em; }
+.arena-hero__space { display: inline-block; width: 0.26em; }
+.arena-hero__ch {
+  display: inline-block;
+  background: linear-gradient(180deg, #ffffff 8%, #e3ebf4 50%, #95aac2 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  /* The section mounts when the first screen is released, so each letter arrives by keyframes, one after another,
+     with a flash of electric light as it lands. */
+  animation:
+    arena-rise 0.6s var(--ease-out-expo) calc(120ms + var(--i) * 24ms) both,
+    arena-zap 0.55s ease-out calc(180ms + var(--i) * 24ms) both;
+}
+@keyframes arena-rise {
+  from { transform: translateY(112%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes arena-zap {
+  0% { filter: brightness(2.6) drop-shadow(0 0 16px rgba(79, 195, 247, 0.95)); }
+  100% { filter: brightness(1) drop-shadow(0 0 0 rgba(79, 195, 247, 0)); }
+}
+
+/* Small print: the tagline on the left, the three numbers on the right. */
+.arena-hero__meta {
+  grid-row: 4;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-top: clamp(14px, 2.2vh, 24px);
+  padding-top: 14px;
+  padding-bottom: clamp(14px, 3vh, 28px);
+  border-top: 1px solid var(--color-line-bright);
+  animation: arena-meta-in 0.6s var(--ease-out-expo) 0.55s both;
+}
+@keyframes arena-meta-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.arena-hero__tagline {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--color-ice-200);
+}
+.arena-hero__tagline a { color: var(--color-holo-300); text-decoration: underline; text-underline-offset: 3px; }
+.arena-hero__stats { list-style: none; margin: 0; padding: 0; display: flex; align-items: baseline; gap: 18px; flex-shrink: 0; }
+.arena-hero__stat {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ice-200);
+  white-space: nowrap; /* a label never breaks in two ("MAX / RTP"): the tagline beside the numbers is what wraps */
+}
+.arena-hero__stat + .arena-hero__stat::before { content: '·'; color: var(--color-ice-600); margin-right: 8px; }
+.arena-hero__stat b {
+  font-family: 'Saira Title', var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--color-ice-50);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Phones: the headline breaks into two lines, the emblem spans the content column, the numbers go in three columns ── */
+@media (max-width: 767px) and (orientation: portrait) {
+  /* two lines; the wider one is 'THE ARENA', 5.61 em */
+  /* 1.0, not wider: at 1.14 both wing tips left a 390 px screen and the sway made it lopsided. */
+  .arena-hero { --emblem-fraction: 1; --title-em: 5.75; }
+  .arena-hero__title { line-height: 0.9; }
+  .arena-hero__line { display: block; width: fit-content; margin: 0 auto; }
+  .arena-hero__line + .arena-hero__line { margin-left: auto; }
+  .arena-hero__meta { flex-direction: column; align-items: stretch; gap: 14px; }
+  .arena-hero__tagline { text-align: center; font-size: 10px; letter-spacing: 0.2em; }
+  .arena-hero__stats { justify-content: space-between; gap: 0; }
+  .arena-hero__stat { flex-direction: column; align-items: center; gap: 6px; font-size: 9px; letter-spacing: 0.18em; }
+  .arena-hero__stat + .arena-hero__stat::before { display: none; }
+  .arena-hero__stat b { font-size: 26px; }
+}
+
+/* ── Reduced motion: one complete still, nothing moves ── */
+@media (prefers-reduced-motion: reduce) {
+  .arena-hero__ch, .arena-hero__meta { animation: none; }
+  .arena-hero__flat { transition: none; }
+}

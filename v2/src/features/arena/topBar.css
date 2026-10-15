@@ -1,0 +1,127 @@
+/* The top bar (Phase 4 M1): a hairline and a fade, never a frosted slab (no backdrop blur: the sky
+   canvas behind it is animating, and a blur would re-composite it every frame). */
+
+.topbar {
+  --pad: clamp(16px, 4.2vw, 64px);
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 50;
+  height: calc(56px + env(safe-area-inset-top, 0px));
+  padding: env(safe-area-inset-top, 0px) var(--pad) 0;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  border-bottom: 1px solid var(--color-line);
+  background: linear-gradient(180deg, rgba(5, 6, 9, 0.78), rgba(5, 6, 9, 0));
+  /* The bar mounts when the first screen is released, so it arrives by keyframes (a transition would have nothing to change from). */
+  animation: topbar-in 0.6s var(--ease-out-expo) 0.5s both;
+}
+.topbar[data-covered] { visibility: hidden; }
+@keyframes topbar-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.topbar__brand { display: flex; align-items: center; gap: 12px; flex-shrink: 0; margin-right: auto; color: var(--color-ice-50); }
+.topbar__mark { width: 46px; height: auto; display: block; opacity: 0.95; flex: none; }
+.topbar__name { font-family: 'Saira Title', var(--font-display); font-size: 14px; font-weight: 800; line-height: 1; letter-spacing: 0.34em; text-transform: uppercase; }
+.topbar__sub { font-family: var(--font-mono); font-size: 10px; line-height: 1; letter-spacing: 0.32em; text-transform: uppercase; color: var(--color-ice-200); }
+
+.topbar__nav ul { list-style: none; display: flex; gap: clamp(16px, 2.3vw, 36px); }
+.topbar__item {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ice-200);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.25s;
+}
+.topbar__item::after {
+  content: '';
+  position: absolute;
+  left: 0; right: 0.22em; bottom: 9px;
+  height: 1px;
+  background: var(--color-holo-500);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s var(--ease-out-expo);
+}
+.topbar__item:hover, .topbar__item[aria-pressed='true'] { color: var(--color-ice-50); }
+.topbar__item:hover::after, .topbar__item[aria-pressed='true']::after { transform: scaleX(1); }
+.topbar__item:focus-visible, .topbar__client:focus-visible, .topbar__menu:focus-visible { outline: 1px solid var(--color-holo-500); outline-offset: 4px; }
+
+/* The live feed's connection, as the dot before LIVE: green when connected, ember when not. */
+.topbar__dot { width: 6px; height: 6px; margin-right: 9px; border-radius: 50%; background: var(--color-ember); box-shadow: 0 0 10px var(--color-ember); }
+.topbar__dot[data-live='true'] { background: var(--color-live); box-shadow: 0 0 10px var(--color-live); }
+
+.topbar__end { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.topbar__client, .topbar__menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 0 14px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--color-ice-50);
+  background: none;
+  border: 1px solid rgba(198, 210, 226, 0.3);
+  cursor: pointer;
+  transition: border-color 0.25s, background 0.25s;
+}
+.topbar__client:hover, .topbar__menu:hover { border-color: var(--color-holo-500); background: rgba(79, 195, 247, 0.08); }
+
+/* Narrower desktops: the labels tighten before the bar wraps. */
+@media (max-width: 1180px) {
+  .topbar { gap: 20px; }
+  .topbar__sub { display: none; }
+  .topbar__item { letter-spacing: 0.16em; }
+}
+
+/* Tablets and landscape phones (768-1000 px: they get the desktop bar, not the phone's Menu button): the seven sections, the
+   sound toggle and Client Area need about 660 px once the brand is only its emblem, and the full bar about 900. The name stays
+   in the page for assistive tech, only out of sight. */
+@media (min-width: 768px) and (max-width: 1000px) {
+  .topbar { gap: 14px; }
+  .topbar__name { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .topbar__nav ul { gap: 14px; }
+  .topbar__item { letter-spacing: 0.12em; }
+  .topbar__item::after { right: 0.12em; }
+  .topbar__client { padding: 0 10px; gap: 8px; letter-spacing: 0.12em; }
+}
+
+@media (max-width: 767px) {
+  .topbar { gap: 12px; }
+  .topbar__name { font-size: 13px; letter-spacing: 0.28em; }
+  .topbar__sub { display: none; }
+}
+
+/* The narrowest phones (320 px): the brand, the sound toggle and the Menu button together need 341 px at the size above,
+   so they tighten rather than push the Menu button off the screen. */
+@media (max-width: 349px) {
+  .topbar { gap: 8px; }
+  .topbar__brand { gap: 8px; }
+  .topbar__mark { width: 36px; }
+  .topbar__name { font-size: 12px; letter-spacing: 0.18em; }
+  .topbar__end { gap: 8px; }
+  .topbar__menu { padding: 0 10px; gap: 8px; letter-spacing: 0.16em; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topbar { animation: none; }
+  .topbar__item::after { transition: none; }
+}

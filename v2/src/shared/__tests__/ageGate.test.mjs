@@ -1,4 +1,5 @@
-// Run with npm run test:unit. Phase 4 M0: the age gate is the site's first frame, a brand opening.
+// Run with npm run test:unit. Phase 4 M0/M1: the age gate is the site's first frame, a brand opening, and it
+// hands over to the 3D emblem's first screen only once that has drawn.
 // No browser: the shipped TSX is server-rendered for its markup and run on a tiny hook harness
 // (hookHarness.mjs) with a fake clock for its exit.
 // MUTATE_GATE_GAME_NAME=1 puts a catalogue title into the gate's copy (red).
@@ -6,7 +7,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
-import { source } from './sourceModule.mjs';
+import { moduleUrl, source } from './sourceModule.mjs';
 import { loadAgeGate, loadCuratedCatalogue } from './ageGateModules.mjs';
 import { createClock, createHarness, findAll, textOf } from './hookHarness.mjs';
 
@@ -32,7 +33,7 @@ const mutate = (path, text) => {
 };
 const server = await loadAgeGate({ transform: mutate });
 const gate = await loadAgeGate({ harness: true, transform: mutate });
-const { GATE_IGNITE_MS, GATE_FADE_MS, gatePhase, gateIsDialog, gateIsExiting, gateStepDelay } = gate.state;
+const { GATE_IGNITE_MS, GATE_FADE_MS, HOME_SAFETY_MS, gatePhase, gateIsDialog, gateIsExiting, gateStepDelay } = gate.state;
 
 const noop = () => {};
 const baseProps = { verified: false, rejected: false, onVerify: noop, onReject: noop, onExited: noop };
@@ -103,20 +104,22 @@ test('Under 18 leads to the refusal page: its own heading, no buttons, the help 
 // ── The phases ─────────────────────────────────────────────────────────────────
 
 test('phases: ask / denied until the answer, then igniting → lit → fading, or gone without motion', () => {
-  const state = (patch = {}) => ({ verified: false, rejected: false, entering: false, ignited: false, ...patch });
+  const state = (patch = {}) => ({ verified: false, rejected: false, entering: false, ignited: false, ready: false, ...patch });
   assert.equal(gatePhase(state()), 'ask');
   assert.equal(gatePhase(state({ rejected: true })), 'denied');
   assert.equal(gatePhase(state({ entering: true })), 'igniting');
-  assert.equal(gatePhase(state({ entering: true, verified: true })), 'igniting', 'the ignition always runs its course');
+  assert.equal(gatePhase(state({ entering: true, verified: true, ready: true })), 'igniting', 'the ignition always runs its course');
   assert.equal(gatePhase(state({ entering: true, ignited: true })), 'lit', 'lit frame held until the site is there');
-  assert.equal(gatePhase(state({ entering: true, ignited: true, verified: true })), 'fading');
+  assert.equal(gatePhase(state({ entering: true, ignited: true, verified: true })), 'lit', 'the site is mounted but the first screen has not drawn: still held');
+  assert.equal(gatePhase(state({ entering: true, ignited: true, ready: true })), 'lit', 'the first screen is ready but the site has not committed: still held');
+  assert.equal(gatePhase(state({ entering: true, ignited: true, verified: true, ready: true })), 'fading');
   assert.equal(gatePhase(state({ verified: true })), 'gone', 'no ignition (reduced motion): the gate goes at once');
   assert.deepEqual(['ask', 'denied', 'igniting', 'lit', 'fading', 'gone'].map(gateIsDialog), [true, true, false, false, false, false]);
   assert.deepEqual(['ask', 'denied', 'igniting', 'lit', 'fading', 'gone'].map(gateIsExiting), [false, false, true, true, true, false]);
   assert.deepEqual(['ask', 'denied', 'igniting', 'lit', 'fading', 'gone'].map(gateStepDelay), [null, null, GATE_IGNITE_MS, null, GATE_FADE_MS, 0]);
 });
 
-test('the ignition takes 0.6-0.9 s and the fade into the warp intro under 0.6 s', () => {
+test('the ignition takes 0.6-0.9 s and the fade into the first screen under 0.6 s', () => {
   assert.ok(GATE_IGNITE_MS >= 600 && GATE_IGNITE_MS <= 900, `ignition ${GATE_IGNITE_MS} ms`);
   assert.ok(GATE_FADE_MS >= 250 && GATE_FADE_MS <= 600, `fade ${GATE_FADE_MS} ms`);
   const css = source('../components/ageGate.css');
@@ -130,6 +133,8 @@ let clock = createClock();
 
 function mountGate({ reduced = false, ...patch } = {}) {
   clock = createClock(); // every test starts with no timers
+  gate.readiness.sceneReadiness.resetScene(); // ... no 3D scene ready, and no release
+  gate.reveal.homeReveal.reset();
   globalThis.window = { setTimeout: (...args) => clock.setTimeout(...args), clearTimeout: (...args) => clock.clearTimeout(...args) };
   globalThis.__reducedMotion = reduced;
   globalThis.__dialogFocusCalls = [];
@@ -140,13 +145,14 @@ function mountGate({ reduced = false, ...patch } = {}) {
   const press = text => harness.act(() => findAll(harness.output, el => el.type === 'button' && textOf(el) === text)[0].props.onClick());
   const update = next => { props = { ...props, ...next }; harness.update(props); };
   const advance = ms => harness.act(() => clock.advance(ms));
+  const sceneDraws = () => harness.act(() => gate.readiness.sceneReadiness.mark('home'));
   const phase = () => harness.output?.props['data-gate-phase'] ?? null;
   const emblemMode = () => findAll(harness.output, el => el.type?.name === 'GateEmblem')[0]?.props.mode;
   const dialogActive = () => globalThis.__dialogFocusCalls.at(-1)?.active;
-  return { harness, calls, press, update, advance, phase, emblemMode, dialogActive };
+  return { harness, calls, press, update, advance, sceneDraws, phase, emblemMode, dialogActive };
 }
 
-test('"I am 18 or older" verifies, ignites at once, holds the lit frame until the site is there, fades, then unmounts', () => {
+test('"I am 18 or older" verifies, ignites at once, holds the lit frame until the 3D emblem has drawn, releases the home as it fades, then unmounts', () => {
   const view = mountGate();
   assert.deepEqual([view.phase(), view.emblemMode(), view.dialogActive()], ['ask', 'idle', true]);
   view.press('I am 18 or older');
@@ -154,33 +160,89 @@ test('"I am 18 or older" verifies, ignites at once, holds the lit frame until th
   assert.deepEqual([view.phase(), view.emblemMode(), view.dialogActive()], ['igniting', 'ignite', false]);
   assert.equal(view.harness.output.props.inert, true, 'an inert overlay while it leaves');
   assert.equal(view.harness.output.props['aria-hidden'], true);
-  assert.deepEqual(clock.pending, [GATE_IGNITE_MS]);
+  assert.deepEqual(clock.pending.sort((a, b) => a - b), [GATE_IGNITE_MS, HOME_SAFETY_MS], 'the ignition step and the safety hold');
   view.advance(GATE_IGNITE_MS - 1);
   assert.equal(view.phase(), 'igniting');
   view.advance(1);
   assert.equal(view.phase(), 'lit', 'the site has not committed yet: the lit frame holds');
-  assert.deepEqual(clock.pending, [], 'nothing runs while it holds');
-  view.advance(5000);
-  assert.deepEqual([view.phase(), view.calls.exited], ['lit', 0], 'the gate stays mounted for as long as the site is missing');
   view.update({ verified: true });
+  assert.equal(view.phase(), 'lit', 'the site is mounted, but the 3D emblem has not drawn: the lit frame still holds');
+  assert.equal(gate.reveal.homeReveal.getSnapshot(), null, 'the home is not released while the gate holds');
+  view.advance(1500);
+  assert.deepEqual([view.phase(), view.calls.exited], ['lit', 0], 'the gate stays mounted for as long as the 3D emblem is missing');
+  view.sceneDraws();
   assert.equal(view.phase(), 'fading');
-  assert.deepEqual(clock.pending, [GATE_FADE_MS]);
+  assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null, 'the home is released in the commit that starts the fade');
+  assert.deepEqual(clock.pending.filter(delay => delay === GATE_FADE_MS), [GATE_FADE_MS]);
   view.advance(GATE_FADE_MS - 1);
-  assert.deepEqual([view.phase(), view.calls.exited], ['fading', 0], 'still mounted, above the warp intro, until the fade ends');
+  assert.deepEqual([view.phase(), view.calls.exited], ['fading', 0], 'still mounted, above the first screen, until the fade ends');
   view.advance(1);
   assert.equal(view.calls.exited, 1, 'unmounted when the fade ends');
   assert.equal(view.calls.verify, 1);
   view.harness.unmount();
 });
 
-test('when the site is already there the ignition goes straight into the fade, without a hold', () => {
+test('a site that is mounted but whose 3D emblem never draws is shown after the safety hold, counted from the click', () => {
+  const view = mountGate();
+  view.press('I am 18 or older');
+  view.update({ verified: true });
+  view.advance(HOME_SAFETY_MS - 1);
+  assert.equal(view.phase(), 'lit');
+  assert.equal(gate.reveal.homeReveal.getSnapshot(), null);
+  view.advance(1);
+  assert.equal(view.phase(), 'fading', 'no WebGL or a stalled download never traps the visitor on the gate');
+  assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null);
+  assert.ok(HOME_SAFETY_MS <= 5000, 'a slow network must not hold the gate far beyond a few seconds');
+  view.harness.unmount();
+});
+
+test('with no WebGL at all nothing is worth waiting for: the fade follows the ignition at once', () => {
+  const view = mountGate();
+  const realDocument = globalThis.document;
+  globalThis.document = { createElement: () => ({ getContext: () => null }) };
+  try {
+    view.press('I am 18 or older');
+    view.update({ verified: true });
+    view.advance(GATE_IGNITE_MS);
+    assert.equal(view.phase(), 'fading', 'no 3D emblem is coming');
+    assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null);
+    assert.equal(gate.readiness.sceneReadiness.getSnapshot(), 'home');
+  } finally {
+    if (realDocument === undefined) delete globalThis.document; else globalThis.document = realDocument;
+    view.harness.unmount();
+  }
+});
+
+test('webglAvailable asks once, releases the throwaway context, and treats a failing canvas as no WebGL', async () => {
+  const fresh = () => import(moduleUrl(`${source('../utils/webgl.ts')}\n// ${Math.random()}`));
+  const realDocument = globalThis.document;
+  try {
+    let created = 0, lost = 0;
+    globalThis.document = { createElement: () => { created++; return { getContext: type => (type === 'webgl2' ? { getExtension: () => ({ loseContext: () => { lost++; } }) } : null) }; } };
+    const { webglAvailable } = await fresh();
+    assert.equal(webglAvailable(), true);
+    assert.equal(webglAvailable(), true);
+    assert.deepEqual([created, lost], [1, 1], 'one throwaway canvas, its context released');
+    globalThis.document = { createElement: () => ({ getContext: () => { throw new Error('blocked'); } }) };
+    assert.equal((await fresh()).webglAvailable(), false);
+    delete globalThis.document;
+    assert.equal((await fresh()).webglAvailable(), true, 'no DOM to ask: assume yes');
+  } finally {
+    if (realDocument === undefined) delete globalThis.document; else globalThis.document = realDocument;
+  }
+});
+
+test('when the 3D emblem has already drawn the ignition goes straight into the fade, without a hold', () => {
   const view = mountGate();
   view.press('I am 18 or older');
   view.advance(300);
   view.update({ verified: true });
-  assert.equal(view.phase(), 'igniting', 'verification never cuts the ignition short');
+  view.sceneDraws();
+  assert.equal(view.phase(), 'igniting', 'readiness never cuts the ignition short');
+  assert.equal(gate.reveal.homeReveal.getSnapshot(), null, 'and the home is not released during the ignition');
   view.advance(GATE_IGNITE_MS - 300);
   assert.equal(view.phase(), 'fading');
+  assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null);
   view.advance(GATE_FADE_MS);
   assert.equal(view.calls.exited, 1);
   view.harness.unmount();
@@ -213,7 +275,7 @@ test('"Under 18" asks for the refusal page and never verifies', () => {
 test('leaving the page mid-exit leaves no timer behind', () => {
   const view = mountGate();
   view.press('I am 18 or older');
-  assert.equal(clock.pending.length, 1);
+  assert.equal(clock.pending.length, 2, 'the ignition step and the safety hold');
   view.harness.unmount();
   assert.deepEqual(clock.pending, []);
 });
@@ -229,8 +291,25 @@ test('the gate keeps its place above the site until its exit ends; a visitor ver
   layer.act(() => layer.output.props.onExited());
   assert.equal(layer.output, null, 'unmounted once its exit ends');
   const returning = createHarness(gate.AgeGateLayer);
+  gate.reveal.homeReveal.reset();
   returning.mount({ ...layerProps, verified: true });
   assert.equal(returning.output, null);
+  assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null, 'with no gate to wait for, the first screen is released at once');
+});
+
+test('a gate that closes without having faded (reduced motion) still releases the home, as it closes; never while it is asking', () => {
+  globalThis.__reducedMotion = true;
+  gate.reveal.homeReveal.reset();
+  const layer = createHarness(gate.AgeGateLayer);
+  const layerProps = { verified: false, rejected: false, onVerify: noop, onReject: noop };
+  layer.mount(layerProps);
+  assert.equal(gate.reveal.homeReveal.getSnapshot(), null, 'the gate is asking');
+  layer.update({ ...layerProps, verified: true });
+  assert.equal(gate.reveal.homeReveal.getSnapshot(), null, 'verified, but the gate has not closed yet');
+  layer.act(() => layer.output.props.onExited());
+  assert.notEqual(gate.reveal.homeReveal.getSnapshot(), null, 'the gate is gone, so the first screen starts its arrival');
+  gate.reveal.homeReveal.reset();
+  globalThis.__reducedMotion = false;
 });
 
 test('useAgeGate: starts verified from the session, verify stores the answer as a transition, reject shows the refusal', () => {

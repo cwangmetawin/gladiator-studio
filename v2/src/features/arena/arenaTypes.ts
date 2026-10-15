@@ -1,0 +1,9 @@
+export type BabylonModule = typeof import('@/shared/babylon/babylonCore');
+export type ArenaModule = typeof import('./arenaCore');
+export type Scene = InstanceType<BabylonModule['Scene']>;
+export type Engine = InstanceType<BabylonModule['Engine']>;
+export type Mesh = InstanceType<BabylonModule['Mesh']>;
+export type TransformNode = InstanceType<BabylonModule['TransformNode']>;
+export type ShaderMaterial = InstanceType<BabylonModule['ShaderMaterial']>;
+export type PointLight = InstanceType<BabylonModule['PointLight']>;
+export type PBRMaterial = InstanceType<ArenaModule['PBRMaterial']>;

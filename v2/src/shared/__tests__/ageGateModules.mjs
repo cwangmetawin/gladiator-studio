@@ -2,7 +2,7 @@ import { moduleUrl, source } from './sourceModule.mjs';
 import { harnessHooksUrl } from './hookHarness.mjs';
 
 /**
- * Compile the shipped age gate (AgeGate.tsx, ageGateState.ts, brandSky.ts) with its imports wired.
+ * Compile the shipped age gate (AgeGate.tsx, ageGateState.ts, brandSky.ts, with the real sceneReadiness and homeReveal stores) with its imports wired.
  *   harness: true  React's hooks go to hookHarness (no DOM), the emblem is a stub (its props are read from the element tree).
  *   harness: false real React for react-dom/server markup, with the real GateEmblem.
  * `transform(path, text)` lets a mutation test change a source before it is compiled.
@@ -12,7 +12,12 @@ export async function loadAgeGate({ harness = false, transform = (_path, text) =
   const hooks = harness ? harnessHooksUrl(moduleUrl) : null;
   const withHooks = text => (hooks ? text.replaceAll("from 'react'", `from '${hooks}'`) : text);
 
-  const stateUrl = moduleUrl(withHooks(read('../components/ageGateState.ts')));
+  const readinessUrl = moduleUrl(read('../../features/starfield/sceneReadiness.ts'));
+  const revealUrl = moduleUrl(read('../brand/homeReveal.ts'));
+  const webglUrl = moduleUrl(read('../utils/webgl.ts'));
+  const stateUrl = moduleUrl(withHooks(read('../components/ageGateState.ts'))
+    .replace("from '@/features/starfield/sceneReadiness'", `from '${readinessUrl}'`)
+    .replace("from '../utils/webgl'", `from '${webglUrl}'`));
   const skyUrl = moduleUrl(read('../brand/brandSky.ts'));
   const dialogFocusUrl = moduleUrl(harness
     ? 'export const useDialogFocus = options => { (globalThis.__dialogFocusCalls ??= []).push(options); return { current: null }; };'
@@ -37,10 +42,11 @@ export async function loadAgeGate({ harness = false, transform = (_path, text) =
     .replace("from '../hooks/useDialogFocus'", `from '${dialogFocusUrl}'`)
     .replace("from '../motion/useMotionPreference'", `from '${motionUrl}'`)
     .replace("from '../brand/brandSky'", `from '${skyUrl}'`)
+    .replace("from '../brand/homeReveal'", `from '${revealUrl}'`)
     .replace("from './ageGateState'", `from '${stateUrl}'`)
     .replace("from './GateEmblem'", `from '${emblemUrl}'`));
 
-  return { ...(await import(gateUrl)), state: await import(stateUrl) };
+  return { ...(await import(gateUrl)), state: await import(stateUrl), readiness: await import(readinessUrl), reveal: await import(revealUrl), webgl: await import(webglUrl) };
 }
 
 /** The curated catalogue the site ships (what a visitor must not see before the gate answers). */

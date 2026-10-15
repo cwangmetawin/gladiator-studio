@@ -3,6 +3,7 @@ import { sceneEvents } from '@/shared/utils/sceneEvents';
 import { approach, approachRate, perSecond, secondsFromFrames, tweenProgress } from '@/shared/utils/frameTime';
 import { createRenderLoop, shouldRunRenderLoop } from './renderLoop';
 import { createStarTwinkle, type StarTwinkleData } from './starTwinkle';
+import { fadeBodies } from './skyBodies';
 import { transitionStore } from '@/shared/motion/transitionStore';
 import { journeyMotion } from '@/features/journey/journeyMotion';
 import { createCameraNarrative, panelCameraPose } from './cameraNarrative';
@@ -10,7 +11,10 @@ import { installGameSky } from './gameSkyRenderer';
 import { skyStore } from './skyStore';
 import { sceneReadiness } from './sceneReadiness';
 import { loadSceneModule } from '@/shared/utils/preloadScene';
+import { webglAvailable } from '@/shared/utils/webgl';
 import { installSceneEffects } from './sceneEffects';
+import { arenaQuality } from '@/features/arena/arenaQuality';
+import type { Arena } from '@/features/arena/installArena';
 
 // ─── Dynamic Babylon.js import type alias ─────────────────────────────────────
 type BabylonModule = typeof import('@/shared/babylon/babylonCore');
@@ -27,6 +31,8 @@ const CAMERA_BETA = IS_MOBILE ? Math.PI / 2 : Math.PI / 2.5; // mobile: straight
 const CAMERA_RADIUS = IS_MOBILE ? 36 : 30;
 const CAMERA_FAST_RATE = approachRate(0.06);
 const CAMERA_OFFSET_RATE = approachRate(0.04);
+/** The planets and the sun glow leave this much faster than they come (see showBodies). */
+const BODY_OUT_RATE = CAMERA_FAST_RATE * 3;
 const PANEL_LIGHT_DURATION = secondsFromFrames(30);
 
 // ─── Starfield builder ────────────────────────────────────────────────────────
@@ -108,6 +114,7 @@ function buildStarField(
 interface PlanetMeshes {
   readonly mars: InstanceType<BabylonModule['Mesh']>;
   readonly gasGiant: InstanceType<BabylonModule['Mesh']>;
+  readonly gasRing: InstanceType<BabylonModule['Mesh']>;
   readonly iceMoon: InstanceType<BabylonModule['Mesh']>;
   readonly nebula1: InstanceType<BabylonModule['Mesh']>;
   readonly nebula2: InstanceType<BabylonModule['Mesh']>;
@@ -245,7 +252,7 @@ function buildDistantPlanets(
   neb2Mat.backFaceCulling = false;
   nebula2.material = neb2Mat;
 
-  return { mars, gasGiant, iceMoon, nebula1, nebula2 };
+  return { mars, gasGiant, gasRing: ring, iceMoon, nebula1, nebula2 };
 }
 
 // ─── Solar-system nav planets — one per section, flown into on click ──────────
@@ -600,6 +607,22 @@ function buildScene(
   const unsubscribeCameraTarget = transitionStore.subscribe(syncCameraTarget);
   syncCameraTarget();
 
+  // ── Planets and sun glow: out of the picture at home, in for a panel's camera flight ──────────────────────
+  // (Phones never fly a camera, so they never show them: their panels cover the scene.) Each nav planet is its
+  // own group (with its ring), so only the focal one comes in; the distant bodies and the sun glow come in together.
+  const navGroups = navPlanets.map(p => ({ planet: p, meshes: p.ring ? [p.mesh, p.ring] : [p.mesh] }));
+  const distantBodies = [planets.mars, planets.gasGiant, planets.gasRing, planets.iceMoon];
+  // They come in at the camera's pace and go out three times as fast, so nothing lingers once the emblem is back.
+  const fadeGroup = (meshes: readonly InstanceType<BabylonModule['Mesh']>[], shown: boolean, dt: number, instant: boolean): void => {
+    fadeBodies(meshes, shown ? 1 : 0, shown ? CAMERA_FAST_RATE : BODY_OUT_RATE, dt, instant);
+  };
+  const showBodies = (dt: number, instant: boolean): void => {
+    for (const { planet, meshes } of navGroups) fadeGroup(meshes, cameraHasPanel && planet.panelId === focalPanelId, dt, instant);
+    fadeGroup(distantBodies, cameraHasPanel, dt, instant);
+    fadeGroup([sunGlow], cameraHasPanel, dt, instant);
+  };
+  showBodies(0, true); // the very first frame is already the home picture
+
   // ── Blackhole effect state ────────────────────────────────────────────────
   let blackholeActive = false;
   let wasBlackhole = false;
@@ -696,16 +719,10 @@ function buildScene(
     planets.gasGiant.rotation.y += perSecond(0.00015) * dt;
     planets.iceMoon.rotation.y += perSecond(0.0008) * dt;
 
-    // Solar-system nav planets spin; fade out the non-focal ones while a panel is
-    // open so the framed planet stands alone (no others crowding the close-up).
-    for (const p of navPlanets) {
-      p.mesh.rotation.y += p.spin * dt;
-      const targetVis = !cameraHasPanel || p.panelId === focalPanelId ? 1 : 0;
-      const vis = transitionStore.getSnapshot().mode === 'reduced' ? targetVis : approach(p.mesh.visibility, targetVis, CAMERA_FAST_RATE, dt);
-      p.mesh.visibility = vis;
-      p.mesh.setEnabled(vis > 0.012);
-      if (p.ring) { p.ring.visibility = vis; p.ring.setEnabled(vis > 0.012); }
-    }
+    // Solar-system nav planets spin. Only the framed planet is in the picture, and only while a panel's camera
+    // flight has it (no others crowding the close-up; none at home, where the emblem has the stage).
+    for (const p of navPlanets) p.mesh.rotation.y += p.spin * dt;
+    showBodies(dt, transitionStore.getSnapshot().mode === 'reduced');
 
     // Ice moon orbits earth
     moonOrbitAngle += 0.05 * dt;
@@ -738,6 +755,28 @@ function buildScene(
   return scene;
 }
 
+/**
+ * The engine, or null where there is no WebGL at all: the static sky and the flat emblem are then the first screen,
+ * which is not an error to throw at the boundary (React logs a caught error to the console). Any other failure
+ * still goes to the boundary.
+ */
+function createEngine(BABYLON: BabylonModule, canvas: HTMLCanvasElement, hardwareScaling: number): InstanceType<BabylonModule['Engine']> | null {
+  try {
+    const engine = new BABYLON.Engine(canvas, true, {
+      antialias: true,
+      powerPreference: 'high-performance',
+      // Keep the last frame painted so the reduced-motion / hidden-tab static
+      // frame survives page compositing instead of clearing to black.
+      preserveDrawingBuffer: true,
+    });
+    engine.setHardwareScalingLevel(hardwareScaling);
+    return engine;
+  } catch (error) {
+    if (!webglAvailable()) return null;
+    throw error;
+  }
+}
+
 // ─── React component ──────────────────────────────────────────────────────────
 
 interface StarfieldBackgroundProps {
@@ -768,19 +807,18 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       if (disposed) return;
       sceneReadiness.mark('module');
 
-      const engine = new BABYLON.Engine(canvas, true, {
-        antialias: true,
-        powerPreference: 'high-performance',
-        // Keep the last frame painted so the reduced-motion / hidden-tab static
-        // frame survives page compositing instead of clearing to black.
-        preserveDrawingBuffer: true,
-      });
+      // The 3D emblem shares this engine, so its quality tier sets the canvas's render scale: up to 1.5x the CSS
+      // size, with MSAA, on a phone and on a desktop alike (see arenaQuality).
+      const quality = arenaQuality(IS_MOBILE, window.devicePixelRatio || 1);
+      const created = createEngine(BABYLON, canvas, quality.hardwareScaling);
+      if (!created) { sceneReadiness.mark('home'); return; } // no 3D scene is coming: the age gate need not wait
+      const engine = created; // (a function declaration below captures it: narrowing does not reach those)
       cleanupRef.current = () => engine.dispose();
-      if (IS_MOBILE) engine.setHardwareScalingLevel(1.5);
 
       let dt = 0;
       let sceneReady = false;
       let frameReady = false;
+      let arena: Arena | null = null;
       const scene = buildScene(BABYLON, engine, () => dt);
 
       // Keep the last frame when preferences, hidden tabs or full-screen
@@ -804,6 +842,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
             setRevealed(true);
             sceneReadiness.mark('frame');
           }
+          // The 3D emblem draws over the finished starfield frame, and only over a complete one.
+          if (sceneReady) arena?.render(deltaSeconds);
         },
         start: (render) => engine.runRenderLoop(render),
         stop: () => { effects.setRunning(false); engine.stopRenderLoop(); },
@@ -829,6 +869,25 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
       }
       window.addEventListener('resize', handleResize);
 
+      // The 3D emblem: a second scene on this engine, built from files warmed while the age gate was up. If it
+      // cannot be built the flat emblem in the page stays and the first screen is released all the same.
+      const hubRoot = canvas.closest<HTMLElement>('[data-trail]');
+      import('@/features/arena/installArena').then(({ installArena }) => installArena(BABYLON, engine, {
+        canvas, starScene: scene, root: hubRoot, phone: IS_MOBILE,
+        reducedMotion: () => motionQuery.matches,
+        hubVisible: () => transitionStore.getSnapshot().hubVisible,
+        onReady: () => { if (!shouldRunRenderLoop(getState()) && !suspendedRef.current && !document.hidden) renderStatic(); },
+        onFirstFrame: () => sceneReadiness.mark('home'),
+      })).then((instance) => {
+        if (disposed) { instance.dispose(); return; }
+        arena = instance;
+      }).catch((error: unknown) => {
+        if (disposed) return;
+        console.warn('[StarfieldBackground] the 3D emblem is unavailable:', error);
+        if (hubRoot) hubRoot.dataset.arena = 'unavailable';
+        sceneReadiness.mark('home');
+      });
+
       // Only a render after executeWhenReady may release the normal-motion intro.
       scene.executeWhenReady(() => {
         if (disposed) return;
@@ -846,6 +905,8 @@ export default function StarfieldBackground({ suspended }: StarfieldBackgroundPr
         unsubscribeStaticTransition();
         unsubscribeStaticSky();
         loop.dispose();
+        arena?.dispose();
+        arena = null;
         scene.dispose();
         engine.dispose();
       };
