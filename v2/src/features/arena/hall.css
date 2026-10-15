@@ -21,6 +21,24 @@
   cursor: auto;
 }
 .hall-copy__game { min-width: 0; animation: hall-copy-in 350ms ease-out both; }
+/* The small lines read over any cover: a feathered shade as wide as their text. The huge title needs
+   none, and a shade as wide as the title would dim the centre card. */
+.hall-meta, .hall-facts {
+  position: relative;
+  isolation: isolate;
+  width: fit-content;
+  max-width: 100%;
+  text-shadow: 0 1px 2px #02060a, 0 0 8px #02060a;
+}
+.hall-meta::before, .hall-facts::before {
+  content: '';
+  position: absolute;
+  inset: -8px -24px;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(2, 6, 10, 0.86), rgba(2, 6, 10, 0.72) 70%, rgba(2, 6, 10, 0));
+  filter: blur(10px);
+}
 .hall-meta {
   display: flex;
   align-items: center;
