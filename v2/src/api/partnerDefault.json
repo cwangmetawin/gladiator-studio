@@ -1,7 +1,7 @@
 {
-  "eyebrow": "Partners",
-  "title": "Integrate Gladiator Studio",
-  "lede": "One API connection. The full catalogue of high-volatility, crypto-native titles — backed by the same infrastructure that powers MetaWin's global casino.",
+  "eyebrow": "Client Area",
+  "title": "Partner console",
+  "lede": "Docs, sandbox keys, game assets and certificates — everything your integration team needs, behind one gate.",
   "ctaLabel": "Request access",
   "ctaUrl": "mailto:cwang@metawin.inc?subject=Partner access — Gladiator Studio",
   "contactEmail": "cwang@metawin.inc",
@@ -21,7 +21,7 @@
     "Full sandbox environment",
     "Real-time bet data via the feeder",
     "Certified RNG + audit trails",
-    "Live across 7 markets"
+    "Live across international markets"
   ],
   "catalogue": [
     { "title": "To The Top", "genre": "Escalating multiplier", "rtp": "96.5%" },

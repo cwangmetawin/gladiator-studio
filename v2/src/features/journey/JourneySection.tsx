@@ -1,8 +1,10 @@
 import { ARENA_PAGE_COPY } from '@/features/arena-page/pageCopy';
 import { ArenaPageContent } from '@/features/arena-page/ArenaPageContent';
+import { EditorialChapter, EditorialIndex, EditorialTimeline } from '@/features/arena-page/Editorial';
 import { useSection } from '@/shared/content/SiteContentContext';
 import { useStudioStats } from '@/shared/content/StudioStats';
 import { withCatalogueCounts } from '@/shared/utils/catalogueText';
+import { withStudioMarkets } from '@/shared/utils/studioText';
 import journeyDefault from '@/api/journeyDefault.json';
 import { groupJourneyChapters } from './chapters';
 
@@ -13,13 +15,18 @@ interface JourneyContent {
 export function JourneySection({ titleId, bodyOnly = false }: { readonly titleId: string; readonly bodyOnly?: boolean }) {
   const s = useStudioStats(), journey = useSection('journey', journeyDefault as JourneyContent);
   const chapters = groupJourneyChapters((journey.milestones ?? []).filter(row => row && row.title));
-  return <ArenaPageContent titleId={titleId} bodyOnly={bodyOnly} {...ARENA_PAGE_COPY.journey} lede={withCatalogueCounts(ARENA_PAGE_COPY.journey.lede, s)}>
-    {chapters.map(chapter => <section className="arena-page__section" key={chapter.index}>
-      <p className="arena-page__meta">{String(chapter.index + 1).padStart(2, '0')} · {chapter.milestones[0]?.date} — {chapter.milestones.at(-1)?.date}</p>
-      <h2>{chapter.label}</h2><ol className="arena-page__rows">{chapter.milestones.map((row, i) => <li key={`${row.date}-${i}`}>
-        <p className="arena-page__meta"><time dateTime={row.date}>{row.date}</time> · {['COMPLETE', 'ACTIVE', 'QUEUED'].includes(row.status) ? row.status : 'QUEUED'}</p>
-        <h3>{row.title.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())}</h3><p>{row.description}</p>
-      </li>)}</ol>
-    </section>)}
+  const lede = withStudioMarkets(withCatalogueCounts(ARENA_PAGE_COPY.journey.lede, s), s);
+  return <ArenaPageContent titleId={titleId} bodyOnly={bodyOnly} {...ARENA_PAGE_COPY.journey} lede={lede}>
+    <EditorialIndex chapters={chapters.map(chapter => ({ id: `journey-${chapter.index + 1}`, label: chapter.label }))} />
+    <EditorialTimeline>
+      {chapters.map(chapter => <EditorialChapter id={`journey-${chapter.index + 1}`} key={chapter.index}
+        number={String(chapter.index + 1).padStart(2, '0')} kicker={`${chapter.milestones[0]?.date} — ${chapter.milestones.at(-1)?.date}`} title={chapter.label}>
+        <ol className="editorial-ledger editorial-timeline__milestones">{chapter.milestones.map((row, i) => <li className="editorial-ledger__row" key={`${row.date}-${i}`}>
+          <div className="editorial-timeline__meta"><time className="editorial-timeline__date">{row.date}</time>
+            <span className="editorial-status">{['COMPLETE', 'ACTIVE', 'QUEUED'].includes(row.status) ? row.status : 'QUEUED'}</span></div>
+          <div><h3>{row.title}</h3><p>{withStudioMarkets(row.description, s)}</p></div>
+        </li>)}</ol>
+      </EditorialChapter>)}
+    </EditorialTimeline>
   </ArenaPageContent>;
 }

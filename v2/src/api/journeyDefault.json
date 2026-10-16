@@ -27,7 +27,7 @@
     {
       "date": "Q4 2024",
       "title": "INFRASTRUCTURE SCALE",
-      "description": "Feeder system upgraded for global real-time bet data. Live integration across 7 markets with sub-100ms round-trip performance benchmarks met in production.",
+      "description": "Feeder system upgraded for global real-time bet data. Live integration across {{markets}} markets with sub-100ms round-trip performance benchmarks met in production.",
       "status": "COMPLETE"
     },
     {

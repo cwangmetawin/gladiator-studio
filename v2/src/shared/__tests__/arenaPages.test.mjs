@@ -20,12 +20,12 @@ const infra = {
   'lucide-react': pathToFileURL(require.resolve('lucide-react')).href,
   'framer-motion': pathToFileURL(require.resolve('framer-motion')).href,
   '@/shared/content/SiteContentContext': data('export const useSection = (_key, fallback) => fallback;'),
-  '@/shared/content/StudioStats': data(`export const useStudioStats = () => (${JSON.stringify(stats)});`),
+  '@/shared/content/StudioStats': data(`export const useStudioStats = () => (${JSON.stringify(stats)}); export const useCatalogueGames = () => [{ title: 'Published title', rtp: ${stats.rtp} }];`),
   '@/shared/utils/soundEngine': data('export const soundEngine = { subscribeMute: () => () => {}, isMuted: () => false, click() {}, hover() {}, transmission() {}, alert() {} };'),
   '@/shared/constants/urls': data('export const CONTACT = { email: "cwang@metawin.inc", phone: "+44 20 0000 0000", location: "London" };'),
   '@/lib/supabase': data('export const supabase = { functions: { invoke: (...args) => globalThis.__enquiry(...args) } };'),
   './liveCatalogue': data('export const lookupGame = () => undefined;'),
-  '@/features/arena/topBar.css': data(''), './arenaPage.css': data(''), './partner.css': data(''),
+  '@/features/arena/topBar.css': data(''), './arenaPage.css': data(''), './partner.css': data(''), './teamDossier.css': data(''),
 };
 for (const name of ['about', 'team', 'journey', 'careers', 'partner']) infra[`@/api/${name}Default.json`] = data(`export default ${JSON.stringify(json(name))};`);
 const feed = { events: [], isConnected: false, eventsPerSecond: 0, totalAmount: 0,

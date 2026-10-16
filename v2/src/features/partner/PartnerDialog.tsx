@@ -1,6 +1,5 @@
 import type { ComponentProps } from 'react';
 import { ArenaPageShell } from '@/features/arena-page/ArenaPageShell';
-import './partner.css';
 
 type PartnerDialogProps = Omit<ComponentProps<typeof ArenaPageShell>, 'page' | 'onNavigate'>;
 

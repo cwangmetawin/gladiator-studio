@@ -1,5 +1,20 @@
 /* The arena continues: steel, large Saira type and open sections divided by fine rules. */
 .partner {
+  --color-ice-100: #e3ebf4;
+  --color-ice-400: #c6d2e2;
+  --color-text-soft: var(--color-ice-100);
+  --color-text-mute: var(--color-ice-200);
+  --color-text-dim: var(--color-ice-200);
+  --page-body-colour: var(--color-ice-100);
+  --page-meta-colour: var(--color-ice-200);
+  --page-list-colour: var(--color-ice-100);
+  --page-chapter-size: clamp(36px, 4.4vw, 72px);
+  --page-deck-size: clamp(20px, 1.9vw, 30px);
+  --page-body-size: clamp(17px, 1.25vw, 18px);
+  /* The body face's longest lines fit about 1.6 characters per ch (measured in Chromium):
+     40ch keeps every line at or under 66 characters. */
+  --page-measure: 40ch;
+  --page-meta-size: 11px;
   --partner-pad: clamp(16px, 4.2vw, 64px);
   --partner-rule: rgba(174, 198, 218, 0.22);
   position: fixed;
@@ -53,12 +68,10 @@
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
-/* The copy shade bleeds 32 px past each line. clip (not hidden) keeps that bleed out of the
-   scroll box's scrollable width, so a phone cannot drag the page sideways. */
+/* Clip decorative backdrop bleed without adding horizontal scrollable width. */
 .partner__stage { min-width: 0; padding-inline: var(--partner-pad); overflow-x: clip; }
-.partner__stage p { color: var(--color-ice-200); line-height: 1.8; }
+.partner__stage p { max-width: var(--page-measure); color: var(--page-body-colour); font-size: var(--page-body-size); line-height: 1.65; }
 .partner__stage h2, .partner__stage h3 { text-wrap: balance; }
-.partner__stage h3 { margin: 0 0 12px; font-size: 20px; font-weight: 600; line-height: 1.3; }
 .partner__stage a { color: inherit; }
 .partner__stage a:focus-visible, .partner__bar button:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 4px; }
 /* The global :focus-visible curves its corners (2px, grown by the offset); the Client Area keeps square corners. */
@@ -68,7 +81,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  min-height: calc(100dvh - 94px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  min-height: calc(100dvh - 274px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
   padding-block: clamp(36px, 6vh, 72px);
 }
 .partner__identity { display: flex; align-items: center; justify-content: space-between; gap: 28px; }
@@ -87,95 +100,73 @@
   font-family: 'Saira Title', 'Saira', 'Saira Gate Fallback', system-ui, sans-serif;
   font-size: clamp(96px, 8.6vw, 148px);
   font-weight: 800;
-  line-height: 0.98;
+  line-height: 0.9;
   letter-spacing: -0.03em;
   text-transform: uppercase;
   text-wrap: balance;
-  background: linear-gradient(180deg, #fff 12%, #e3ebf4 56%, #95aac2);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: var(--color-ice-50);
 }
-.partner__lede { max-width: 62ch; margin: 0; font-size: clamp(16px, 1.5vw, 20px); }
+.partner__stage .partner__lede { min-height: calc(var(--page-deck-size) * 4.05); max-width: 32ch; margin: 0; font-size: var(--page-deck-size); line-height: 1.35; color: var(--color-ice-50); }
 .partner__load-status { margin-top: 32px; font: 11px/1.6 var(--font-mono); }
 @keyframes partner-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes partner-lines { from { clip-path: inset(0 0 100%); } to { clip-path: inset(0); } }
-
-
 @media (max-width: 767px) {
-  .partner__bar { gap: 8px; }
-  .partner__bar .topbar__end { gap: 4px; }
-  .partner__identity { gap: 16px; }
-  .partner__emblem { width: min(55%, 240px); }
-  .partner__title { font-size: clamp(44px, 11.5vw, 80px); line-height: 1.02; margin-block: 32px 24px; }
-  .partner__hero { padding-block: 36px 40px; }
-  .partner__stage .partner__eyebrow { margin-bottom: 12px; }
-  .partner__identity .partner__eyebrow { margin: 0; }
+.partner { --page-chapter-size: clamp(36px, 9vw, 48px); --page-deck-size: 18px; --page-body-size: 16px; }
+.partner__bar { gap: 8px; }
+.partner__bar .topbar__end { gap: 4px; }
+.partner__identity { gap: 16px; }
+.partner__emblem { width: min(55%, 240px); }
+.partner__title { font-size: clamp(44px, 11.5vw, 80px); line-height: 0.9; margin-block: 32px 24px; }
+.partner__hero { padding-block: 36px 40px; min-height: calc(100dvh - 260px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.partner__stage .partner__eyebrow { margin-bottom: 12px; }
+.partner__identity .partner__eyebrow { margin: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .partner, .partner__backdrop { animation: none; }
-  .partner *, .partner *::before, .partner *::after { animation: none; transition: none; scroll-behavior: auto; }
+.partner, .partner__backdrop { animation: none; }
+.partner *, .partner *::before, .partner *::after { animation: none; transition: none; scroll-behavior: auto; }
 }
 /* Section pages share the Client Area composition, with navigation inside the same focus scope. */
-.arena-page--section .partner__hero { background: #050609; margin-inline: calc(-1 * var(--partner-pad)); padding-inline: var(--partner-pad); }
-/* A small soft pool sits behind the headline; copy carries its own scrim as it scrolls. */
-.arena-page[data-scene='live'] { --color-ice-400: #a1b1c5; --page-copy-shade: rgba(5, 6, 9, 0.86); --page-copy-feather: 12px; --page-copy-bleed: 32px; background: transparent; animation: none; }
+.arena-page--section .partner__hero { margin-inline: calc(-1 * var(--partner-pad)); padding-inline: var(--partner-pad); }
+/* One plane spans hero and details, so there is no overlapping shade at their join. */
+.arena-page[data-scene='live'] { --color-ice-400: #c6d2e2; background: transparent; animation: none; }
 .arena-page[data-scene='live'] .partner__hero { background: transparent; }
-.arena-page[data-scene='live'] .partner__shade {
-  inset: 28% auto auto 0;
-  width: min(78%, 1080px);
-  height: 52%;
-  background: rgba(5, 6, 9, 0.81);
-  mask-image: radial-gradient(ellipse at center, #000 8%, transparent 72%);
-  transition: opacity 180ms ease-out;
+.arena-page .partner__shade { display: none; }
+.partner__body {
+  --page-body-shade: rgba(5, 6, 9, 0.84);
+  --page-body-feather-x: 12%;
+  --page-body-feather-top: 140px;
+  --page-body-outset: max(12vw, calc(16vw - var(--partner-pad)));
+  position: relative;
+  isolation: isolate;
+  display: flow-root;
+  min-width: 0;
 }
-/* Blur an expanded layer, not the glyphs: the text edges stay inside its full-opacity plateau. */
-.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3)::after,
-.arena-page[data-scene='live'] .partner__stats::after,
-.arena-page[data-scene='live'] .arena-page__stats::after,
-.arena-page[data-scene='live'] .partner__access::after,
-.arena-page[data-scene='live'] .arena-page__action::after,
-.arena-page[data-scene='live'] .partner__foot::after,
-.arena-page[data-scene='live'] .partner__dots li::after,
-.arena-page[data-scene='live'] .arena-page__dots li::after,
-.arena-page[data-scene='live'] .arena-page__meta::after,
-.arena-page[data-scene='live'] .arena-page__details summary::after,
-.arena-page[data-scene='live'] .field-label::after,
-.arena-page[data-scene='live'] .arena-page__feed li > :is(span, strong)::after,
-.arena-page[data-scene='live'] .arena-page__row > :is(a, span)::after,
-.arena-page[data-scene='live'] .arena-page__contact-form > [aria-live='polite']::after,
-.arena-page[data-scene='live'] .field-error::after,
-.arena-page[data-scene='live'] .readout::after {
+.partner__body::before {
   content: '';
   position: absolute;
-  inset: calc(-1 * var(--page-copy-bleed));
+  inset-block: calc(-1 * var(--page-body-feather-top)) 0;
+  inset-inline: calc(-1 * (var(--partner-pad) + var(--page-body-outset)));
   z-index: -1;
-  background: var(--page-copy-shade);
-  filter: blur(var(--page-copy-feather));
+  background: var(--page-body-shade);
   pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 var(--page-body-feather-x), #000 calc(100% - var(--page-body-feather-x)), transparent), linear-gradient(180deg, transparent, #000 var(--page-body-feather-top));
+  mask-image: linear-gradient(90deg, transparent, #000 var(--page-body-feather-x), #000 calc(100% - var(--page-body-feather-x)), transparent), linear-gradient(180deg, transparent, #000 var(--page-body-feather-top));
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
 }
-.arena-page[data-scene='live'] .partner__stage :is(p, h2, h3),
-.arena-page[data-scene='live'] :is(.partner__stats, .arena-page__stats, .partner__access, .arena-page__action, .partner__foot, .partner__dots li, .arena-page__dots li, .arena-page__meta, .arena-page__details summary, .field-label),
-.arena-page[data-scene='live'] .arena-page__feed li > :is(span, strong),
-.arena-page[data-scene='live'] .arena-page__row > :is(a, span),
-.arena-page[data-scene='live'] .arena-page__contact-form > [aria-live='polite'],
-.arena-page[data-scene='live'] .field-error,
-.arena-page[data-scene='live'] .readout { position: relative; isolation: isolate; }
-.arena-page[data-scene='live'] .partner__stage :is(h2, h3) { width: fit-content; max-width: 100%; }
 .arena-page[data-scene='live'] .partner__title { filter: drop-shadow(0 3px 8px #050609); }
 .arena-page[data-scene='live'] .partner__hero-foot { border-color: rgba(174, 198, 218, 0.4); }
-.arena-page[data-scene='live'] :is(.partner__access, .arena-page__action):hover { background: var(--color-ice-50); color: #050609; }
 .arena-page[data-scene='live'] .partner__bar { background: rgba(5, 6, 9, 0.9); }
 .arena-page[data-flight='flying'] .partner__shade, .arena-page[data-flight='closing'] .partner__shade { opacity: 0; }
 .arena-page[data-flight='flying'] .partner__scroll, .arena-page[data-flight='closing'] .partner__scroll { visibility: hidden; }
 .arena-page[data-flight='settled'][data-scene='live'] .partner__title { animation: partner-title-in 140ms var(--ease-out-expo) both; }
 .arena-page[data-flight='settled'][data-scene='live'] .partner__lede,
-.arena-page[data-flight='settled'][data-scene='live'] .partner__stage > :not(.partner__hero),
+
 .arena-page[data-flight='settled'][data-scene='live'] .partner__hero-foot { animation: partner-body-in 100ms ease-out 80ms both; }
 @keyframes partner-title-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes partner-body-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
-  .arena-page[data-scene='live'] *, .arena-page[data-scene='live'] *::before, .arena-page[data-scene='live'] *::after { animation: none; transition: none; }
+.arena-page[data-scene='live'] *, .arena-page[data-scene='live'] *::before, .arena-page[data-scene='live'] *::after { animation: none; transition: none; }
 }
 .arena-page__nav { min-width: 0; }
 .arena-page__nav ul { display: flex; flex-wrap: wrap; gap: 6px 20px; list-style: none; padding: 0; margin: 0; }
@@ -183,54 +174,58 @@
 .arena-page__nav a[aria-current='page'], .arena-page__nav a:hover { color: var(--color-ice-50); text-decoration: underline; text-underline-offset: 6px; }
 .arena-page__nav a:focus-visible { outline: 2px solid var(--color-ice-50); outline-offset: 3px; }
 .arena-page__section { border-top: 1px solid var(--partner-rule); padding-block: clamp(36px, 5vw, 72px); }
-.arena-page__section h2 { margin: 0 0 28px; font: 800 clamp(28px, 3vw, 44px)/1.15 'Saira Title', var(--font-display); }
-.arena-page__section p { max-width: 72ch; }
-.arena-page__rows, .arena-page__dots { list-style: none; margin: 0; padding: 0; }
-.arena-page__rows > li, .arena-page__row { border-top: 1px solid var(--partner-rule); padding-block: 28px; min-width: 0; }
-.arena-page__dots li { padding-left: 18px; position: relative; color: var(--color-ice-200); line-height: 1.8; overflow-wrap: anywhere; }
-.arena-page__dots li::before { content: '·'; position: absolute; left: 0; }
-.arena-page__meta { color: var(--color-ice-400); font: 11px/1.8 var(--font-mono); overflow-wrap: anywhere; }
-.arena-page__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 28px; margin-top: 24px; }
-.arena-page__action { display: inline-flex; align-items: center; justify-content: center; gap: 12px; min-height: 44px; max-width: 100%; padding: 10px 16px; border: 1px solid var(--partner-rule); border-radius: 0; background: transparent; color: inherit; font: 11px/1.6 var(--font-mono); text-transform: uppercase; text-decoration: none; cursor: pointer; overflow-wrap: anywhere; }
-.arena-page__action:hover { background: var(--color-ice-50); color: #050609; }
-.arena-page__stats { display: flex; flex-wrap: wrap; gap: 28px 64px; margin: 0; }
-.arena-page__stats div { min-width: 0; }
-.arena-page__stats dt { font: 10px/1.6 var(--font-mono); color: var(--color-ice-400); }
-.arena-page__stats dd { margin: 8px 0 0; font: 800 32px/1.2 'Saira Title', var(--font-display); }
-.arena-page__columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 64px; }
-.arena-page__columns > * { min-width: 0; }
-.arena-page__portrait { display: block; width: 88px; height: 100px; object-fit: cover; margin-bottom: 24px; }
-.arena-page__number { font: 800 32px/1 'Saira Title', var(--font-display); color: var(--color-ice-400); }
-.arena-page__details summary { min-height: 44px; padding-block: 12px; cursor: pointer; font-family: var(--font-mono); }
-.arena-page__details[open] summary { margin-bottom: 20px; }
-.arena-page__contact-form { max-width: 760px; }
-.arena-page .field { border-radius: 0; background: rgba(5, 6, 9, 0.85); }
-.arena-page .field-label { color: var(--color-ice-200); }
-.arena-page .field:focus { border-color: var(--color-ice-200); box-shadow: none; }
-.arena-page__games { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 28px; list-style: none; padding: 0; margin: 32px 0; }
-.arena-page__games > li { min-width: 0; border-top: 1px solid var(--partner-rule); padding-top: 24px; }
-.arena-page__cover { aspect-ratio: 2 / 3; background: rgba(174, 198, 218, 0.04); margin-bottom: 20px; }
-.arena-page__cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
-.arena-page__cover img[hidden] { display: none; }
-.arena-page__filters { display: flex; flex-wrap: wrap; gap: 12px; }
-.arena-page__filters button[aria-pressed='true'] { border-color: var(--color-ice-50); }
-.arena-page__feed li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px 16px; }
-.arena-page__feed strong { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.arena-page__section h2 { margin: 0 0 28px; font: 800 var(--page-chapter-size)/0.95 'Saira Title', var(--font-display); text-transform: uppercase; }
+.arena-page__section p { max-width: var(--page-measure); }
 @media (max-width: 1180px) {
-  .arena-page--section .partner__bar { gap: 16px; }
-  .arena-page__nav ul { gap: 4px 12px; }
+.arena-page--section .partner__bar { gap: 16px; }
+.arena-page__nav ul { gap: 4px 12px; }
 }
 @media (max-width: 1000px) {
-  .arena-page--section .partner__bar { height: auto; min-height: calc(56px + env(safe-area-inset-top, 0px)); flex-wrap: wrap; }
-  .arena-page__nav { order: 3; flex-basis: 100%; border-top: 1px solid var(--partner-rule); }
-  .arena-page__nav ul { justify-content: space-between; }
-  .arena-page__games { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.arena-page--section .partner__bar { height: auto; min-height: calc(56px + env(safe-area-inset-top, 0px)); flex-wrap: wrap; }
+.arena-page__nav { order: 3; flex-basis: 100%; border-top: 1px solid var(--partner-rule); }
+.arena-page__nav ul { justify-content: space-between; }
 }
 @media (max-width: 767px) {
-  .arena-page[data-scene='live'] .partner__shade { width: min(94%, 1080px); height: 40%; inset-block-start: 32%; }
-  .arena-page--section .partner__bar { gap: 0 8px; }
-  .arena-page__nav ul { justify-content: flex-start; gap: 0 16px; }
-  .arena-page__nav a { font-size: 9px; letter-spacing: 0.08em; }
-  .arena-page__columns { grid-template-columns: minmax(0, 1fr); }
-  .arena-page__games { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 16px; }
+.arena-page--section .partner__bar { gap: 0 8px; }
+.arena-page__nav ul { justify-content: flex-start; gap: 0 16px; }
+.arena-page__nav a { font-size: 9px; letter-spacing: 0.08em; }
 }
+/* Editorial rhythm: one type scale, open ledgers, and a quiet rail beside the copy. */
+.partner__stage .partner__eyebrow,
+.partner__section-name,
+.arena-page__nav a,
+.partner__stage .arena-page__meta,
+.partner__stage .field-label,
+.editorial-kicker { color: var(--page-meta-colour); font-size: var(--page-meta-size); letter-spacing: 0.22em; }
+.partner__hero { position: relative; isolation: isolate; }
+/* JS adds pending only after mount. Without JS, observer support or a ready signal,
+   the source text is visible; the lifecycle's safety timer also removes pending. */
+.editorial-word { display: inline-block; }
+.editorial-word-clip { display: inline-block; overflow: clip; vertical-align: bottom; padding-block: 0.06em; margin-block: -0.06em; }
+[data-editorial-state='pending'] .editorial-word { opacity: 0; transform: translateY(105%); }
+[data-editorial-state='visible'] .editorial-word { animation: editorial-word-in 650ms cubic-bezier(.2,.8,.2,1) var(--word-delay,0ms) both; }
+@keyframes editorial-word-in { from { opacity: 0; transform: translateY(105%); } to { opacity: 1; transform: translateY(0); } }
+.partner__title [data-editorial-state='visible'] .editorial-word { animation-duration: 140ms; animation-delay: min(var(--word-delay,0ms),30ms); }
+@media (min-width: 1024px) {
+.partner__stage { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); column-gap: 24px; }
+.partner__stage > * { grid-column: 1/-1; }
+.partner__body { display: grid; grid-template-columns: repeat(12,minmax(0,1fr)); column-gap: 24px; }
+.partner__body > * { grid-column: 1/-1; }
+}
+@media (prefers-reduced-motion: reduce) {
+.partner [data-editorial-state] .editorial-word,
+  .partner .editorial-chapter__content > p,
+  .partner .editorial-chapter__kicker { opacity: 1; transform: none; clip-path: none; animation: none; }
+}
+/* The existing settled signal starts headline words on the landing frame. Later
+   observer state changes keep the same animation, so they cannot restart it. */
+.arena-page[data-flight='settled'] .partner__title .editorial-word { animation: editorial-word-in 140ms cubic-bezier(.2,.8,.2,1) min(var(--word-delay,0ms),30ms) both; }
+.editorial-word-clip, .editorial-word { max-width: 100%; overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+.arena-page[data-flight='settled'] .partner__title .editorial-word { animation: none; opacity: 1; transform: none; }
+}
+/* The shared ticker stays readable when it belongs to an arena page. */
+.partner .ticker { background: #050609; }
+.partner .ticker__viewport { mask-image: none; -webkit-mask-image: none; }
+.partner .ticker__loc, .partner .ticker__sep { color: var(--page-meta-colour); }
+.partner .ticker__dot { border-radius: 0; }

@@ -2,59 +2,77 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createLoader } from './loadTs.mjs';
+import { bodyBackdropCoverage, bodyBleedShadeSelectors, colourChannels as rgb, compositeShade, contrastRatio, cssRules, editorialCss, shadeAlpha } from './editorialCssGuard.mjs';
 
-const css = readFileSync(new URL('../../features/arena-page/arenaPage.css', import.meta.url), 'utf8');
+const css = editorialCss();
 const theme = readFileSync(new URL('../design/theme.css', import.meta.url), 'utf8');
-const luminance = rgb => rgb.map(v => v / 255).map(v => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)
-  .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
-const contrast = (text, pixel) => (luminance(text) + 0.05) / (luminance(pixel) + 0.05);
-const token = (text, name) => text.match(new RegExp(`--${name}:\\s*#([\\da-f]{6})`, 'i'))[1].match(/../g).map(v => parseInt(v, 16));
-const cdf = z => { // Normal CDF for CSS blur's separable Gaussian kernel.
-  const t = 1 / (1 + 0.2316419 * Math.abs(z));
-  const tail = Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI) * t
-    * (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
-  return z < 0 ? tail : 1 - tail;
-};
+const definitions = `${theme}\n${css}`;
+const token = name => rgb([...definitions.matchAll(new RegExp(`--${name}:\\s*#([\\da-f]{6})`, 'gi'))].at(-1)?.[1] ?? '000000');
 
-test('every copy scrim feathers a separate backdrop, leaving text, bullets and controls unmasked', () => {
-  const selectors = ['.partner__stage :is(p, h2, h3)', '.partner__stats', '.arena-page__stats', '.partner__access',
-    '.arena-page__action', '.partner__foot', '.partner__dots li', '.arena-page__dots li', '.arena-page__meta',
-    '.arena-page__details summary', '.field-label', '.arena-page__feed li > :is(span, strong)',
-    '.arena-page__row > :is(a, span)', '.arena-page__contact-form > [aria-live=\'polite\']', '.field-error', '.readout'];
-  for (const selector of selectors) {
-    const at = css.indexOf(`${selector}::after`), block = at < 0 ? '' : css.slice(at, css.indexOf('}', at));
-    assert.ok(block.includes('background: var(--page-copy-shade)'), `${selector} gets shade on its own pseudo-element`);
-    assert.match(block, /filter:\s*blur\(var\(--page-copy-feather\)\)/);
-    assert.match(block, /pointer-events:\s*none/);
-    assert.match(block, /z-index:\s*-1/);
-  }
-  assert.doesNotMatch(css, /\.partner__stage :is\(p, h2, h3\)\s*\{[^}]*\b(?:mask-image|filter|background):/);
+const bodyBackdrop = () => cssRules(css).find(({ selectors, declarations }) => /\.partner__body::before\b/.test(selectors) && /\bbackground\s*:/.test(declarations));
+
+test('one continuous body backdrop feathers only its own layer and stays behind every chapter', () => {
+  const backdrop = bodyBackdrop();
+  assert.ok(backdrop, 'the full body owns its shared backdrop');
+  assert.match(backdrop.declarations, /background:\s*var\(--page-body-shade\)/);
+  assert.match(backdrop.declarations, /mask-image:\s*linear-gradient\(90deg,\s*transparent,\s*#000 var\(--page-body-feather-x\),\s*#000 calc\(100% - var\(--page-body-feather-x\)\),\s*transparent\),\s*linear-gradient\(180deg,\s*transparent,\s*#000 var\(--page-body-feather-top\)\)/, 'coverage calculation follows these actual linear stops');
+  assert.match(backdrop.declarations, /mask-composite:\s*intersect/);
+  assert.match(backdrop.declarations, /pointer-events:\s*none/);
+  assert.match(backdrop.declarations, /z-index:\s*-1/);
+  assert.doesNotMatch(backdrop.declarations, /\bfilter\s*:/, 'the continuous backdrop does not blur or mask any text');
+  assert.match(backdrop.declarations, /(?:inset-block|inset-block-start|top):\s*calc\(-1\s*\*\s*var\(--page-body-feather-top\)\)/);
+  assert.equal(bodyBleedShadeSelectors(css).length, 0, 'later reveal contexts cannot paint a shade across earlier copy');
   assert.match(css, /\.arena-page__dots li::before\s*\{\s*content: '·'/, 'the dot keeps its existing pseudo-element');
 });
 
-test('feathered shade keeps all body tokens above 4.5:1 at glyph-box edges over the lit arena and white', async () => {
-  const blur = Number(css.match(/--page-copy-feather:\s*([\d.]+)px/)?.[1] ?? 0);
-  const bleed = Number(css.match(/--page-copy-bleed:\s*([\d.]+)px/)?.[1] ?? 0);
-  assert.ok(blur >= 8 && bleed >= blur * 2, 'expanded soft backdrop keeps the blur outside the copy');
-  assert.match(css, /inset:\s*calc\(-1 \* var\(--page-copy-bleed\)\)/);
-  const base = Number(css.match(/--page-copy-shade:\s*rgba\(5, 6, 9, ([\d.]+)\)/)[1]);
-  const mask = (x, y, width = 100, height = 24) =>
-    (cdf((x + bleed) / blur) - cdf((x - width - bleed) / blur))
-    * (cdf((y + bleed) / blur) - cdf((y - height - bleed) / blur));
-  const coverage = Math.min(...[[0, 0], [100, 0], [0, 24], [100, 24], [50, 12]].map(([x, y]) => mask(x, y)));
-  assert.ok(mask(-bleed - blur * 3, 12) < 0.002, 'the outer edge dissolves into the arena');
-  assert.ok(mask(-bleed, 12) > mask(-bleed - blur, 12), 'edge coverage changes smoothly');
+test('the text region is inside the body feather plateau at desktop and phone widths', () => {
+  const horizontal = Number(css.match(/--page-body-feather-x:\s*([\d.]+)%/)?.[1]);
+  const vertical = Number(css.match(/--page-body-feather-top:\s*([\d.]+)px/)?.[1]);
+  assert.ok(horizontal >= 10 && horizontal <= 16, 'side feather occupies 10–16% of the backdrop plane');
+  assert.equal(vertical, 140, 'top feather dissolves over 140px before the first text');
+  for (const width of [320, 390, 767, 1024, 1440, 1920, 2560, 3840, 5120]) {
+    const pad = Math.max(16, Math.min(64, width * 0.042));
+    for (const x of [pad, width - pad, width / 2]) {
+      const coverage = bodyBackdropCoverage(css, width, x, 0);
+      assert.ok(coverage === 1, `${width}px: first and last text glyphs have ${coverage} mask coverage`);
+    }
+    assert.equal(bodyBackdropCoverage(css, width, width / 2, -vertical), 0, 'outer top edge is fully transparent');
+    assert.ok(bodyBackdropCoverage(css, width, width / 2, -vertical / 2) > 0, 'top feather changes smoothly');
+  }
+});
+
+test('feathered body composition keeps body and lists above 7:1 and every other token above 4.5:1 over arena and white', async () => {
   const { sampleArenaFloor } = await createLoader().load('features/arena/arenaLighting.ts');
-  const foregrounds = [token(theme, 'color-ice-50'), token(theme, 'color-ice-200'), token(css, 'color-ice-400'), token(theme, 'color-ember')];
-  let minimum = Infinity;
+  const foregrounds = [
+    ['body/list', token('color-ice-100'), 7], ['primary', token('color-ice-50'), 4.5],
+    ['metadata', token('color-ice-200'), 4.5], ['legacy muted', token('color-ice-400'), 4.5],
+    ['error', token('color-ember'), 4.5],
+  ];
+  const base = shadeAlpha(css), pad2560 = 64;
+  const coverage = Math.min(1, ...[320, 390, 1440, 2560].flatMap(width => {
+    const pad = width === 2560 ? pad2560 : Math.max(16, Math.min(64, width * 0.042));
+    return [pad, width - pad].map(x => bodyBackdropCoverage(css, width, x, 0));
+  }));
+  assert.ok(Number.isFinite(base * coverage), 'contrast uses the new body alpha and the source mask geometry');
+  const minimum = new Map(foregrounds.map(([name]) => [name, Infinity]));
   const check = pixel => {
-    const alpha = base * coverage, background = [5, 6, 9].map((v, i) => v * alpha + pixel[i] * (1 - alpha));
-    for (const text of foregrounds) minimum = Math.min(minimum, contrast(text, background));
+    const background = compositeShade(pixel, base * coverage);
+    for (const [name, colour] of foregrounds) minimum.set(name, Math.min(minimum.get(name), contrastRatio(colour, background)));
   };
   for (let y = 0; y < 128; y++) for (let x = 0; x < 192; x++) {
     check(sampleArenaFloor((x / 191 - 0.5) * 48, (y / 127 - 0.5) * 48, 2.4).map(v => Math.max(0, Math.min(255, v * 255))));
   }
-  check([255, 255, 255]);
-  assert.ok(minimum >= 4.5, `minimum feathered copy contrast ${minimum.toFixed(2)}:1`);
-  console.log(`feathered composition: ${blur}px Gaussian, ${bleed}px bleed; glyph-edge coverage ${coverage.toFixed(4)}; minimum ${minimum.toFixed(2)}:1`);
+  check([255, 255, 255]); // Preserve round 1's worst case, beyond even a fully lit arena edge.
+  for (const [name, , required] of foregrounds) assert.ok(minimum.get(name) >= required, `${name}: ${minimum.get(name).toFixed(2)}:1 at feathered glyph edges`);
+  console.log(`body composition: alpha ${base}; minimum glyph coverage ${coverage.toFixed(4)}; ${[...minimum].map(([name, value]) => `${name} ${value.toFixed(2)}:1`).join(', ')}`);
+});
+
+test('the hero shares the protected page plateau without a second backing layer or overlap seam', () => {
+  assert.equal(cssRules(css).some(({ selectors, declarations }) => /\.partner__hero::before\b/.test(selectors) && /\bbackground\s*:/.test(declarations)), false, 'hero must not double-layer the top 140px of the body backdrop');
+  const coverage = bodyBackdropCoverage(css, 1440, 1440 * 0.042, 0);
+  const background = compositeShade([255, 255, 255], shadeAlpha(css) * coverage);
+  for (const [name, minimum] of [['color-ice-50', 4.5], ['color-ice-100', 7], ['color-ice-200', 4.5], ['color-ember', 4.5]]) {
+    assert.ok(contrastRatio(token(name), background) >= minimum, `${name} preserves the hero white-background proof on the shared plane`);
+  }
+  assert.equal(cssRules(css).some(({ declarations }) => /var\(--page-copy-bleed\)/.test(declarations)), false, 'hero and body no longer need overlapping element shadows');
 });

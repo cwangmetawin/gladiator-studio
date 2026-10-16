@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import { LayoutDashboard, Gamepad2, FileText, Mail, Menu } from 'lucide-react';
+import { LayoutDashboard, Gamepad2, FileText, Mail, Menu, Handshake } from 'lucide-react';
 import { fetchEnquiryCount } from '@/api/enquiriesDb';
 import { useAdminAuth, signIn, signOut } from './useAdminAuth';
 import { DashboardPanel } from './DashboardPanel';
 import { GamesPanel } from './GamesPanel';
 import { ContentPanel } from './ContentPanel';
+import { PartnersPanel } from './PartnersPanel';
 import { EnquiriesPanel } from './EnquiriesPanel';
 import { ConfirmDialog } from './ConfirmDialog';
 import { ToastProvider, useToast } from './Toast';
@@ -18,6 +19,7 @@ const NAV: readonly { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={17} aria-hidden="true" /> },
   { id: 'games', label: 'Catalogue', icon: <Gamepad2 size={17} aria-hidden="true" /> },
   { id: 'content', label: 'Content', icon: <FileText size={17} aria-hidden="true" /> },
+  { id: 'partners', label: 'Partners', icon: <Handshake size={17} aria-hidden="true" /> },
   { id: 'enquiries', label: 'Enquiries', icon: <Mail size={17} aria-hidden="true" /> },
 ];
 
@@ -143,6 +145,7 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
         {tab === 'dashboard' && <DashboardPanel onNavigate={go} />}
         {destination.tab === 'games' && <GamesPanel initialState={destination.state} />}
         {tab === 'content' && <ContentPanel />}
+        {tab === 'partners' && <PartnersPanel />}
         {destination.tab === 'enquiries' && <EnquiriesPanel initialFilter={destination.filter} onChanged={refreshBadge} />}
       </main>
 
