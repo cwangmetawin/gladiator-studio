@@ -17,8 +17,9 @@ async function setup(stored = session('admin-a')) {
     auth: {
       getSession: async () => ({ data: { session: stored }, error: null }),
       onAuthStateChange: callback => { listener = callback; return { data: { subscription: { unsubscribe() {} } } }; },
-      // supabase-js notifies SIGNED_OUT from inside signOut, after its own awaits.
-      signOut: async options => { signOuts.push(options); await Promise.resolve(); listener('SIGNED_OUT', null); return { error: null }; },
+      // supabase-js notifies SIGNED_OUT from inside signOut, after its own awaits; its auth lock runs a
+      // second sign-out after the first has finished.
+      signOut: async options => { signOuts.push(options); await new Promise(done => setTimeout(done, signOuts.length * 5)); listener('SIGNED_OUT', null); return { error: null }; },
     },
     from: () => ({ select() { return this; }, eq() { return this; }, maybeSingle: async () => ({ data: { user_id: 'admin-a' }, error: null }) }),
   };
@@ -51,6 +52,13 @@ test('signing out from the console, or opening it signed out, shows the plain si
     assert.equal(s.h.output.session, null);
     assert.equal(s.h.output.notice, null);
   } finally { s.h.unmount(); delete globalThis.__adminAuthSb; }
+  const twice = await setup();
+  try {
+    // A double click runs two sign-outs at once; neither may read as an ended session.
+    await Promise.all([twice.auth.signOut(), twice.auth.signOut()]); await tick(twice.h);
+    assert.equal(twice.signOuts.length, 2);
+    assert.equal(twice.h.output.notice, null);
+  } finally { twice.h.unmount(); delete globalThis.__adminAuthSb; }
   const fresh = await setup(null);
   try {
     assert.equal(fresh.h.output.session, null);

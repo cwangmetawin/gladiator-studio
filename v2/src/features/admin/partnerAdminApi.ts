@@ -55,7 +55,12 @@ export class AdminSessionEndedError extends Error {
 async function sessionEnded(error: unknown): Promise<boolean> {
   if ((error as { readonly context?: Response } | null)?.context?.status !== 401) return false;
   const { error: userError } = await supabase.auth.getUser().catch(() => ({ error: null }));
-  return userError?.name === 'AuthSessionMissingError';
+  if (userError?.name !== 'AuthSessionMissingError') return false;
+  // With nothing stored (cleared without a broadcast) supabase-js emits no SIGNED_OUT itself; a local
+  // sign-out always does. A session stored meanwhile is a newer sign-in, so it is left alone.
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) await supabase.auth.signOut({ scope: 'local' });
+  return true;
 }
 
 type PartnerActiveAction = { readonly action: 'setActive'; readonly partnerId: string; readonly active: boolean };

@@ -11,8 +11,8 @@ export interface AdminAuthState {
 }
 
 const SESSION_ENDED = 'Your session has ended. Please sign in again.';
-// True while this console's own Sign out runs, so its SIGNED_OUT needs no explanation.
-let signingOut = false;
+// This console's own sign-outs in progress (a double click runs two), so their SIGNED_OUT needs no explanation.
+let ownSignOuts = 0;
 
 /** Tracks the Supabase session and whether the signed-in user is an admin. */
 export function useAdminAuth(): AdminAuthState {
@@ -30,7 +30,7 @@ export function useAdminAuth(): AdminAuthState {
     supabase.auth.getSession().then(({ data }) => { if (alive) { setSession(data.session); setSessionReady(true); } });
     // A SIGNED_OUT we did not start: another tab or window signed out, or the session was revoked or expired.
     const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
-      if (evt === 'SIGNED_OUT') setNotice(signingOut ? null : SESSION_ENDED);
+      if (evt === 'SIGNED_OUT') setNotice(ownSignOuts > 0 ? null : SESSION_ENDED);
       else if (s) setNotice(null);
       setSession(s); setSessionReady(true);
     });
@@ -57,7 +57,7 @@ export async function signIn(email: string, password: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  signingOut = true;
+  ownSignOuts += 1;
   try { await supabase.auth.signOut(); }
-  finally { signingOut = false; }
+  finally { ownSignOuts -= 1; }
 }
