@@ -8,6 +8,7 @@
 //   MUTATE_TARGET_GUARD  "never change an admin login"
 //   MUTATE_LOOKUP_ERROR  "a failed target lookup refuses"
 //   MUTATE_RPC_CHECK     setActive checks what the database confirmed
+//   MUTATE_NONCE_SCRUB   create removes the nonce GoTrue writes back on confirm
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -27,6 +28,7 @@ const MUTATIONS = {
   MUTATE_TARGET_GUARD: ["if (targetAdmin) throw new HttpError(403, 'Admin logins cannot be changed here.');", ''],
   MUTATE_LOOKUP_ERROR: ["if (adminErr) throw new HttpError(500, 'Could not check the login.');", ''],
   MUTATE_RPC_CHECK: ["if (data !== active) throw new HttpError(500, 'Could not update the partner.');", ''],
+  MUTATE_NONCE_SCRUB: ["await sb.auth.admin.updateUserById(linkedUser, { user_metadata: { partner_nonce: null } })", 'await Promise.resolve({ error: null })'],
 };
 
 function loadHandler(state) {
@@ -106,7 +108,8 @@ function loadHandler(state) {
         deleteUser: async (id) => { state.log.push(['deleteUser', id]); return { error: null }; },
         updateUserById: async (id, attrs) => {
           state.log.push(['updateUserById', id, attrs]);
-          return { error: state.failBan && attrs.ban_duration ? { message: 'boom' } : null };
+          if (state.scrubThrows && attrs.user_metadata) throw new Error('network');
+          return { error: (state.failBan && attrs.ban_duration) || (state.failScrub && attrs.user_metadata) ? { message: 'boom' } : null };
         },
       },
     },
@@ -165,7 +168,7 @@ test('create sends the stored one-time nonce, links the row and returns a strong
   assert.match(body.password, /[A-Z]/);
   assert.match(body.password, /[a-z]/);
   assert.match(body.password, /[0-9]/);
-  assert.deepEqual(steps(state), ['upsert:partner_signup_allow', 'createUser:ops@acme.test', 'insert:partners', 'delete:partner_signup_allow']);
+  assert.deepEqual(steps(state), ['upsert:partner_signup_allow', 'createUser:ops@acme.test', 'insert:partners', 'updateUserById:new-user-1', 'delete:partner_signup_allow']);
   const permit = state.log.find(([op]) => op === 'upsert')[2];
   const createArgs = state.log.find(([op]) => op === 'createUser')[2];
   assert.match(permit.nonce, /^[0-9a-f]{64}$/);
@@ -178,6 +181,30 @@ test('create sends the stored one-time nonce, links the row and returns a strong
   assert.equal(insert.contact_email, 'ops@acme.test');
   assert.equal(insert.created_by, CALLER_ID);
   assert.equal(res.headers.get('Cache-Control'), 'no-store');
+});
+
+test('create removes the nonce that GoTrue writes back when it confirms the email', async () => {
+  // Production, 2026-10-16: the sign-up gate strips partner_nonce on INSERT, but GoTrue's
+  // User.Confirm (email_confirm: true) then saves its in-memory user_metadata, nonce included.
+  const state = newState();
+  const res = await loadHandler(state)(post('valid-session', create));
+  assert.equal(res.status, 200);
+  const scrub = state.log.find(([op, , attrs]) => op === 'updateUserById' && attrs?.user_metadata);
+  assert.ok(scrub, 'the nonce must be removed through the admin API after the login is linked');
+  assert.equal(scrub[1], 'new-user-1');
+  assert.deepEqual(scrub[2], { user_metadata: { partner_nonce: null } }, 'a null value deletes the key in GoTrue');
+  const order = steps(state);
+  assert.ok(order.indexOf('insert:partners') < order.indexOf('updateUserById:new-user-1'), 'scrub only after the row is linked');
+});
+
+test('a failed or throwing nonce removal does not undo a linked login', async () => {
+  for (const extra of [{ failScrub: true }, { scrubThrows: true }]) {
+    const state = newState(extra);
+    const res = await loadHandler(state)(post('valid-session', create));
+    assert.equal(res.status, 200, JSON.stringify(extra));
+    assert.match((await res.json()).password, PASSWORD);
+    assert.equal(state.log.some(([op]) => op === 'deleteUser'), false, 'the linked login stays');
+  }
 });
 
 test('passwords and nonces never repeat', async () => {

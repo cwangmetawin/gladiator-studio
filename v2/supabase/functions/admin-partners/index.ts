@@ -139,7 +139,14 @@ async function createPartner(sb: Sb, adminId: string, payload: Record<string, un
       .select('id').single();
     if (rowErr || !row) throw new HttpError(500, 'Could not save the partner.');
     const partnerId = row.id;
+    const linkedUser = userId;
     userId = undefined; // linked: nothing to roll back
+    // The sign-up gate strips partner_nonce on INSERT, but GoTrue's email confirmation
+    // then saves its in-memory user_metadata, nonce included. The permit is already
+    // consumed, so a leftover nonce is inert; remove it anyway (null deletes the key).
+    const { error: scrubErr } = await sb.auth.admin.updateUserById(linkedUser, { user_metadata: { partner_nonce: null } })
+      .catch((e: unknown) => ({ error: e }));
+    if (scrubErr) console.error('admin-partners nonce removal failed', linkedUser, scrubErr);
     return ok({ partnerId, email: login, password });
   } finally {
     if (userId) {
