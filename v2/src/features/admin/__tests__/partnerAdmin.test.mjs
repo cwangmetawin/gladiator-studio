@@ -5,11 +5,13 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(new URL('../../../../package.json', import.meta.url));
 const ts = require('typescript');
-async function loadApi(invoke, from) {
+async function loadApi(invoke, from, getUser = async () => { throw new Error('getUser must not run'); }, auth = {}) {
   globalThis.__partnerAdminInvoke = invoke;
   globalThis.__partnerAdminFrom = from;
+  globalThis.__partnerAdminGetUser = getUser;
+  globalThis.__partnerAdminAuth = { getSession: async () => ({ data: { session: null }, error: null }), signOut: async () => ({ error: null }), ...auth };
   let source = readFileSync(new URL('../partnerAdminApi.ts', import.meta.url), 'utf8');
-  source = source.replace(/import \{ supabase \} from '[^']+';/, 'const supabase = { functions: { invoke: (...args) => globalThis.__partnerAdminInvoke(...args) }, from: (...args) => globalThis.__partnerAdminFrom(...args) };');
+  source = source.replace(/import \{ supabase \} from '[^']+';/, 'const supabase = { functions: { invoke: (...args) => globalThis.__partnerAdminInvoke(...args) }, from: (...args) => globalThis.__partnerAdminFrom(...args), auth: { getUser: (...args) => globalThis.__partnerAdminGetUser(...args), getSession: (...args) => globalThis.__partnerAdminAuth.getSession(...args), signOut: (...args) => globalThis.__partnerAdminAuth.signOut(...args) } };');
   const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ESNext } }).outputText;
   return import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 }
@@ -263,4 +265,39 @@ test('direct partner metadata updates discard an injected active field', async (
   await api.updatePartner('partner-a', { company: 'Example', contact_email: 'a@example.com', active: false });
   assert.equal(hasActive, false);
   assert.equal(company, 'Example');
+});
+
+const unauthorized = async () => ({ data: null, error: { message: 'non-2xx response', context: new Response(JSON.stringify({ ok: false, error: 'Invalid or expired session.' }), { status: 401 }) } });
+
+test('a 401 for a session GoTrue no longer has ends the admin session with a clear message', async () => {
+  let checks = 0;
+  const api = await loadApi(unauthorized, undefined, async () => { checks += 1; return { data: { user: null }, error: { name: 'AuthSessionMissingError', message: 'Auth session missing!', status: 400 } }; });
+  await assert.rejects(api.setPartnerActive('partner-a', false), error => error instanceof api.AdminSessionEndedError && error.message === 'Your session has ended. Please sign in again.');
+  assert.equal(checks, 1);
+});
+
+test('a 401 while the session is still valid, or cannot be checked, keeps the backend message', async () => {
+  const checks = [
+    async () => ({ data: { user: { id: 'admin-a' } }, error: null }),
+    async () => ({ data: { user: null }, error: { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 } }),
+    async () => { throw new Error('offline'); },
+  ];
+  for (const getUser of checks) {
+    const api = await loadApi(unauthorized, undefined, getUser);
+    await assert.rejects(api.invokePartnerAction({ action: 'reset', partnerId: 'p2' }), error => !(error instanceof api.AdminSessionEndedError) && /Invalid or expired session\./.test(error.message));
+  }
+});
+
+test('an ended session always signs the page out locally, but never a newer session', async () => {
+  const missing = async () => ({ data: { user: null }, error: { name: 'AuthSessionMissingError', message: 'Auth session missing!', status: 400 } });
+  // Nothing is stored any more (cleared without a broadcast): supabase-js emits no SIGNED_OUT on its own.
+  const signOuts = [];
+  let api = await loadApi(unauthorized, undefined, missing, { signOut: async options => { signOuts.push(options); return { error: null }; } });
+  await assert.rejects(api.setPartnerActive('partner-a', false), error => error instanceof api.AdminSessionEndedError);
+  assert.deepEqual(signOuts, [{ scope: 'local' }]);
+  // A newer session was stored meanwhile (signed in again elsewhere): leave it alone.
+  const kept = [];
+  api = await loadApi(unauthorized, undefined, missing, { getSession: async () => ({ data: { session: { access_token: 'newer' } }, error: null }), signOut: async options => { kept.push(options); return { error: null }; } });
+  await assert.rejects(api.setPartnerActive('partner-a', false), error => error instanceof api.AdminSessionEndedError);
+  assert.deepEqual(kept, []);
 });

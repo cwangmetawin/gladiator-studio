@@ -219,6 +219,7 @@ button { font-family: inherit; }
 .msg { padding: 9px 12px; border-radius: 8px; font-size: 12px; line-height: 1.5; }
 .msg--err { background: var(--a-red-weak); color: #b42318; border: 1px solid #fecdca; }
 .msg--ok { background: #ecfdf3; color: var(--a-green); border: 1px solid #abefc6; }
+.msg--info { background: #eff8ff; color: #175cd3; border: 1px solid #b2ddff; }
 .link-btn { background: none; border: none; color: var(--a-accent); cursor: pointer; font-size: 12px; padding: 0; font: inherit; font-weight: 600; }
 .center-note { text-align: center; padding: 60px 0; color: var(--a-dim); }
 

@@ -8,7 +8,7 @@ import { PartnerFilesPanel } from './PartnerFilesPanel';
 import { PasswordOnceDialog } from './PasswordOnceDialog';
 import { useToast } from './Toast';
 import { useUnsaved } from './Unsaved';
-import { fetchPartners, invokePartnerAction, setPartnerActive, updatePartner, validatePartnerAccount, type PartnerAccountDraft } from './partnerAdminApi';
+import { AdminSessionEndedError, fetchPartners, invokePartnerAction, setPartnerActive, updatePartner, validatePartnerAccount, type PartnerAccountDraft } from './partnerAdminApi';
 
 const EMPTY: PartnerAccountDraft = { company: '', email: '', contactEmail: '' };
 interface PasswordOnce { readonly email: string; readonly password: string }
@@ -119,7 +119,8 @@ export function PartnersPanel() {
       merge({ ...row, active: saved.active }); toast(saved.active ? 'Partner enabled.' : 'Partner disabled.');
     } catch (reason) {
       // The function may cut data access before a login-ban error; refresh that flag.
-      await reload();
+      // An ended session has already returned the console to sign-in.
+      if (!(reason instanceof AdminSessionEndedError)) await reload();
       throw reason;
     }
   }
