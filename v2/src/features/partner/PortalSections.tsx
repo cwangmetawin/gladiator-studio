@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { EditorialChapter, EditorialIndex } from '@/features/arena-page/Editorial';
 import { DecodedKey } from '@/features/arena-page/DecodedKey';
+import { coverForGame } from '@/features/arena/hallManifest';
+import { coverError } from '@/features/arena/coverImage';
+import { useIsMobile } from '@/shared/hooks/useIsMobile';
+import { usePartnerCovers } from './usePartnerCovers';
 import { safeHref } from '@/shared/utils/text';
 import { docsParagraphs, fileSizeLabel, fileTypeLabel, maskApiKey } from './portalHelpers';
 import { createPartnerDownload } from './portalStorage';
@@ -18,6 +22,7 @@ const SECTIONS = [
 /** The arena page renders immediately; each resource supplies its own loading/error affordance. */
 export function PortalSections(props: PortalDataProps) {
   const data = usePortalData(props);
+  const covers = usePartnerCovers(), phone = useIsMobile();
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState('');
   const [copiedField, setCopiedField] = useState('');
@@ -151,8 +156,11 @@ export function PortalSections(props: PortalDataProps) {
 
     <EditorialChapter className="partner__section" id="partner-games" number="04" kicker="CERTIFIED" title="Games & certificates" deck="Live RTPs as published, with lab certificates.">
       {status(data.games, 'Loading game information…')}
-      {!data.games.loading && !data.games.error && (data.games.data.length ? data.games.data.map(game =>
-        <article className="partner__game" key={game.id}>
+      {!data.games.loading && !data.games.error && (data.games.data.length ? data.games.data.map(game => {
+        const cover = coverForGame({ slug: game.slug ?? undefined, image: game.image ?? undefined }, covers.manifest, phone);
+        return <article className="partner__game" key={game.id}>
+          <div className="partner__game-cover">{cover.url && <img key={cover.url} src={cover.url} alt="" width={cover.width} height={cover.height} loading="lazy" decoding="async" onError={event => coverError(event, cover.fallbackUrl)} />}</div>
+          <div className="partner__game-body">
           <h3>{game.title}</h3>
           <dl className="partner__gamefacts">
             <div><dt>Genre</dt><dd>{game.genre || 'Not provided'}</dd></div>
@@ -162,7 +170,9 @@ export function PortalSections(props: PortalDataProps) {
           </dl>
           {game.slug && !data.certificateFiles.loading && !data.certificateFiles.error &&
             fileList(data.certificateFiles.data.filter(file => file.path.startsWith(`certificates/${game.slug}/`)), 'Nothing here yet — new files appear the moment we publish them.')}
-        </article>) : <p className="partner__empty">Nothing here yet — new files appear the moment we publish them.</p>)}
+          </div>
+        </article>;
+      }) : <p className="partner__empty">Nothing here yet — new files appear the moment we publish them.</p>)}
       {status(data.certificateFiles, 'Loading certificates…')}
       {!data.certificateFiles.loading && !data.certificateFiles.error && groupedFiles(data.certificateFiles.data.filter(file =>
         !data.games.data.some(game => game.slug && file.path.startsWith(`certificates/${game.slug}/`))))}

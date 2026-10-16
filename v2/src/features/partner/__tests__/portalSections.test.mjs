@@ -75,7 +75,11 @@ test('reveal, username/key copy, polite feedback and on-demand downloads exercis
     .replace("from './portalHelpers'", `from '${createLoader().urlOf('features/partner/portalHelpers.ts')}'`)
     .replace("from '@/features/arena-page/Editorial'", `from '${createLoader().urlOf('features/arena-page/Editorial.tsx')}'`)
     .replace("from '@/features/arena-page/DecodedKey'", `from '${createLoader().urlOf('features/arena-page/DecodedKey.tsx')}'`)
-    .replace("from '@/shared/utils/text'", `from '${createLoader().urlOf('shared/utils/text.ts')}'`);
+    .replace("from '@/shared/utils/text'", `from '${createLoader().urlOf('shared/utils/text.ts')}'`)
+    .replace("from '@/features/arena/hallManifest'", `from '${createLoader().urlOf('features/arena/hallManifest.ts')}'`)
+    .replace("from '@/features/arena/coverImage'", `from '${createLoader().urlOf('features/arena/coverImage.ts')}'`)
+    .replace("from '@/shared/hooks/useIsMobile'", `from '${moduleUrl('export const useIsMobile = () => false;')}'`)
+    .replace("from './usePartnerCovers'", `from '${createLoader().urlOf('features/partner/usePartnerCovers.ts')}'`);
   const hookedModule = await import(moduleUrl(hooked));
   const harness = createHarness(hookedModule.PortalSections);
   try {
@@ -113,4 +117,29 @@ test('reveal, username/key copy, polite feedback and on-demand downloads exercis
       else Object.defineProperty(globalThis, key, { value, configurable: true });
     }
   }
+});
+
+test('each game shows its baked cover, falls back to the catalogue image, and shows none without one', async () => {
+  // Owner, 2026-10-16, looking at the signed-in portal: "没有图啊" (the games have no pictures).
+  const { COVER_MANIFEST } = await loader.load('features/arena/hallManifest.ts');
+  const [slug, entry] = Object.entries(COVER_MANIFEST.entries)[0];
+  const games = resource([
+    { id: 1, slug, title: 'Baked game', image: entry.source, genre: null, rtp: 96.5, volatility: null, release_date: null },
+    { id: 2, slug: 'not-baked', title: 'New game', image: 'https://cdn.example/new-cover.webp', genre: null, rtp: null, volatility: null, release_date: null },
+    { id: 3, slug: 'no-image', title: 'Bare game', image: null, genre: null, rtp: null, volatility: null, release_date: null },
+  ]);
+  globalThis.__portalSectionsData = { ...fixture, games };
+  const html = renderToStaticMarkup(React.createElement(PortalSections, props));
+  const covers = [...html.matchAll(/<div class="partner__game-cover"[^>]*>(.*?)<\/div>/g)].map(m => m[1]);
+  assert.equal(covers.length, 3, 'every game keeps the same layout slot');
+  assert.ok(covers[0].includes(`src="${entry.widths['640'].url}"`), 'baked 640 px cover first');
+  assert.match(covers[0], /alt=""/);
+  assert.match(covers[0], /loading="lazy"/);
+  assert.ok(covers[1].includes('src="https://cdn.example/new-cover.webp"'), 'an unbaked game uses its catalogue image');
+  assert.doesNotMatch(covers[2], /<img/, 'no image source, no broken image');
+});
+
+test('the games query reads the catalogue image the covers fall back to', () => {
+  const data = readFileSync(new URL('../usePortalData.ts', import.meta.url), 'utf8');
+  assert.match(data, /\.select\('id,slug,title,image,genre,rtp,volatility,release_date'\)/);
 });

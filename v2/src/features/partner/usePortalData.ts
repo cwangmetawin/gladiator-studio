@@ -35,7 +35,7 @@ export async function loadPortalCredentials(partner: PartnerRow): Promise<Creden
 
 export async function loadPortalGames(): Promise<PortalGame[]> {
   const { data, error } = await supabase.from('games')
-    .select('id,slug,title,genre,rtp,volatility,release_date')
+    .select('id,slug,title,image,genre,rtp,volatility,release_date')
     .eq('is_published', true).order('sort_order', { ascending: true }).order('title', { ascending: true });
   if (error) throw error;
   return (data ?? []) as PortalGame[];

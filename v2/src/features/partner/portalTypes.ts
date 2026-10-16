@@ -31,6 +31,7 @@ export interface PortalGame {
   id: number;
   slug: string | null;
   title: string;
+  image: string | null;
   genre: string | null;
   rtp: number | string | null;
   volatility: string | null;

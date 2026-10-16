@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ARENA_PAGE_COPY } from '@/features/arena-page/pageCopy';
 import { ArenaPageContent } from '@/features/arena-page/ArenaPageContent';
 import { EditorialChapter, EditorialCounter, EditorialIndex } from '@/features/arena-page/Editorial';
 import { usePartnerCovers } from '@/features/partner/usePartnerCovers';
 import { coverForGame } from '@/features/arena/hallManifest';
+import { coverError } from '@/features/arena/coverImage';
 import { playDetail } from '@/features/arena/hallActions';
 import { gameKey } from '@/features/starfield/gameIdentity';
 import { useIsMobile } from '@/shared/hooks/useIsMobile';
@@ -23,12 +24,6 @@ interface GamesPageProps {
   readonly loading: boolean;
   readonly onPlayGame: (game: { readonly title: string; readonly link: string }) => void;
   readonly focusGame?: { readonly title: string; readonly request: number } | null;
-}
-
-function coverError(event: SyntheticEvent<HTMLImageElement>, fallback: string) {
-  const image = event.currentTarget;
-  if (fallback && image.dataset.fallback !== 'true') { image.dataset.fallback = 'true'; image.src = fallback; }
-  else image.hidden = true;
 }
 
 /** Full published catalogue, with the same baked-cover contract as the hall and Client Area. */
