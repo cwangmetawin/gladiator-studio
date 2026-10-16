@@ -42,9 +42,26 @@ async function functionError(error: unknown): Promise<string> {
   return detail?.message || 'The account request failed. Please try again.';
 }
 
+/** The admin's login session is gone (signed out elsewhere, or revoked); the console has returned to sign-in. */
+export class AdminSessionEndedError extends Error {
+  constructor() { super('Your session has ended. Please sign in again.'); this.name = 'AdminSessionEndedError'; }
+}
+
+/**
+ * admin-partners answers 401 when GoTrue no longer knows the session, but the database still accepts the
+ * same token until it expires, so the console looks signed in. Ask GoTrue: when the session is missing,
+ * supabase-js removes it locally and emits SIGNED_OUT. Any other answer keeps the session.
+ */
+async function sessionEnded(error: unknown): Promise<boolean> {
+  if ((error as { readonly context?: Response } | null)?.context?.status !== 401) return false;
+  const { error: userError } = await supabase.auth.getUser().catch(() => ({ error: null }));
+  return userError?.name === 'AuthSessionMissingError';
+}
+
 type PartnerActiveAction = { readonly action: 'setActive'; readonly partnerId: string; readonly active: boolean };
 async function invokePartnerFunction(body: PartnerAction | PartnerActiveAction): Promise<Record<string, unknown>> {
   const { data, error } = await supabase.functions.invoke('admin-partners', { body });
+  if (error && await sessionEnded(error)) throw new AdminSessionEndedError();
   if (error) throw new Error(await functionError(error));
   if (data?.ok !== true) throw new Error(typeof data?.error === 'string' ? data.error : 'The account request failed. Please try again.');
   return data as Record<string, unknown>;

@@ -23,7 +23,7 @@ const NAV: readonly { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'enquiries', label: 'Enquiries', icon: <Mail size={17} aria-hidden="true" /> },
 ];
 
-function LoginScreen() {
+function LoginScreen({ notice }: { readonly notice: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,6 +47,7 @@ function LoginScreen() {
         <h1>Gladiator <span>Admin</span></h1>
         <p className="sub">Sign in to manage the catalogue, content &amp; enquiries.</p>
         <div className="login__fields">
+          {notice && !err && <div className="msg msg--info" role="status">{notice}</div>}
           {err && <div className="msg msg--err">{err}</div>}
           <div className="field">
             <label htmlFor="email">Email</label>
@@ -163,10 +164,10 @@ function AdminShell({ email }: { readonly email: string | undefined }) {
 }
 
 export function AdminApp() {
-  const { session, isAdmin, loading } = useAdminAuth();
+  const { session, isAdmin, loading, notice } = useAdminAuth();
 
   if (loading) return <div className="admin"><div className="center-note">Loading…</div></div>;
-  if (!session) return <LoginScreen />;
+  if (!session) return <LoginScreen notice={notice} />;
   if (!isAdmin) return <NotAuthorized email={session.user.email} />;
 
   return (

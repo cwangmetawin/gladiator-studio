@@ -6,13 +6,20 @@ export interface AdminAuthState {
   readonly session: Session | null;
   readonly isAdmin: boolean;
   readonly loading: boolean;
+  /** Why the console returned to sign-in, when the admin did not sign out here. */
+  readonly notice: string | null;
 }
+
+const SESSION_ENDED = 'Your session has ended. Please sign in again.';
+// True while this console's own Sign out runs, so its SIGNED_OUT needs no explanation.
+let signingOut = false;
 
 /** Tracks the Supabase session and whether the signed-in user is an admin. */
 export function useAdminAuth(): AdminAuthState {
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
   // Until the stored session has been read, "no user" means "not known yet" —
   // without this a signed-in admin briefly sees the login screen on every load.
   const [sessionReady, setSessionReady] = useState(false);
@@ -21,7 +28,12 @@ export function useAdminAuth(): AdminAuthState {
   useEffect(() => {
     let alive = true;
     supabase.auth.getSession().then(({ data }) => { if (alive) { setSession(data.session); setSessionReady(true); } });
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => { setSession(s); setSessionReady(true); });
+    // A SIGNED_OUT we did not start: another tab or window signed out, or the session was revoked or expired.
+    const { data: sub } = supabase.auth.onAuthStateChange((evt, s) => {
+      if (evt === 'SIGNED_OUT') setNotice(signingOut ? null : SESSION_ENDED);
+      else if (s) setNotice(null);
+      setSession(s); setSessionReady(true);
+    });
     return () => { alive = false; sub.subscription.unsubscribe(); };
   }, []);
 
@@ -36,7 +48,7 @@ export function useAdminAuth(): AdminAuthState {
     return () => { alive = false; };
   }, [userId, sessionReady]);
 
-  return { session, isAdmin, loading };
+  return { session, isAdmin, loading, notice };
 }
 
 export async function signIn(email: string, password: string): Promise<void> {
@@ -45,5 +57,7 @@ export async function signIn(email: string, password: string): Promise<void> {
 }
 
 export async function signOut(): Promise<void> {
-  await supabase.auth.signOut();
+  signingOut = true;
+  try { await supabase.auth.signOut(); }
+  finally { signingOut = false; }
 }
