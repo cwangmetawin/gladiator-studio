@@ -102,12 +102,17 @@ function createDialogManager(doc: Document) {
         doc.addEventListener('focusin', containFocus, true);
         observer.observe(doc.body, { childList: true, subtree: true, attributeFilter: ['inert'] });
       }
-      entries = [...entries, entry];
+      // React runs a child's layout effects before its parent's, so a dialog that mounts together
+      // with one inside it attaches second. Keep it below its descendants, and let it return to the
+      // opener they captured (it saw focus inside itself and kept none).
+      const inside = entries.findIndex((item) => entry.dialog.contains(item.dialog));
+      const placed = inside === -1 ? entry : { ...entry, returnTo: entry.returnTo ?? entries[inside]?.returnTo ?? null };
+      entries = inside === -1 ? [...entries, placed] : [...entries.slice(0, inside), placed, ...entries.slice(inside)];
       updateInert();
-      focusInitial(entry);
+      if (top() === placed) focusInitial(placed);
       return () => {
-        const wasTop = top() === entry;
-        entries = entries.filter((item) => item !== entry);
+        const wasTop = top() === placed;
+        entries = entries.filter((item) => item !== placed);
         updateInert();
         if (entries.length === 0) {
           observer.disconnect();
@@ -116,7 +121,7 @@ function createDialogManager(doc: Document) {
         }
         if (!wasTop) return;
         const next = top();
-        const opener = entry.returnTo;
+        const opener = placed.returnTo;
         if (opener?.isConnected && !opener.closest('[inert]') && (!next || next.dialog.contains(opener))) {
           opener.focus({ preventScroll: true });
         } else if (next) focusInitial(next);

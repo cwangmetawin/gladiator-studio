@@ -135,3 +135,33 @@ test('Client Area above the phone drawer traps focus, consumes Escape and return
     assert.equal(f.doc.activeElement === f.opener, true, 'closing the drawer still returns to Menu');
   } finally { f.restore(); }
 });
+
+test('a dialog mounted together with one inside it stays underneath, as React runs the inner effects first', () => {
+  const f = focusFixture();
+  try {
+    const manager = createDialogManager(f.doc);
+    const inner = f.dialog.append(new HTMLElement());
+    const innerClose = inner.append(new HTMLElement(true)), innerOk = inner.append(new HTMLElement(true));
+    let innerCloses = 0, outerCloses = 0;
+    // The inner layout effect attaches first; the outer one sees focus inside itself and keeps no opener.
+    const closeInner = manager.attach({ dialog: inner, scope: inner, modal: true, returnTo: f.opener,
+      initialFocus: () => innerClose, onEscape: () => { innerCloses++; } });
+    const closeOuter = manager.attach({ dialog: f.dialog, scope: f.dialog, modal: true, returnTo: null,
+      initialFocus: () => f.first, onEscape: () => { outerCloses++; } });
+    assert.equal(f.doc.activeElement === innerClose, true, 'the outer dialog does not take focus from the inner one');
+    assert.equal(f.first.inert, true, 'the outer dialog\'s own controls sit behind the inner one');
+    assert.equal(f.nav.inert, true);
+    f.key('Tab');
+    assert.equal(f.doc.activeElement === innerOk, true);
+    f.key('Tab');
+    assert.equal(f.doc.activeElement === innerClose, true, 'Tab stays inside the inner dialog');
+    f.key('Escape');
+    assert.deepEqual([innerCloses, outerCloses], [1, 0], 'Escape closes the inner dialog first');
+    closeInner();
+    assert.equal(f.first.inert, false);
+    assert.equal(f.doc.activeElement === f.first, true, 'the outer dialog takes focus once the inner one closes');
+    closeOuter();
+    assert.equal(f.nav.inert, false);
+    assert.equal(f.doc.activeElement === f.opener, true, 'closing the outer dialog returns to the original opener');
+  } finally { f.restore(); }
+});

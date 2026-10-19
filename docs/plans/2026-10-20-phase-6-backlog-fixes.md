@@ -1,0 +1,35 @@
+# 第六期：待办里的四件小事（2026-10-20）
+
+来由：老板 2026-10-19 23:15Z 说「所有session全力干」。第五期签收后没有进行中的阶段，本会话核对了
+`docs/plans/2026-10-15-backlog.md`，挑出不碰红线、不涉及审美的四项，写成 A/B 给 Boss。Boss 2026-10-20 代定 A
+（依据老板那句话，早上报老板）。合 main 就是上线正式站，这一步等老板本人。
+
+## 范围
+
+1. **会话确认的竞态**（#31 Codex 复核指出）：后台在 `admin-partners` 回 401 后确认会话。原来调 supabase-js 的
+   `getUser()`，遇到 session_not_found 它会清掉当时存着的会话，哪怕那是刚在别的标签页登录的新会话。改成拿被拒的那个令牌，
+   去问一个不存会话的独立客户端；只有本地存的还是同一个令牌时才在本地登出。
+2. **嵌套弹窗的焦点顺序**（第三期 Codex 复核指出）：焦点管理器按挂载先后决定谁在最上层。外层弹窗和它里面的弹窗同时挂载时，
+   React 先跑里层的副作用，外层后挂上就被当成最上层（Esc 关外层、Tab 跑到被盖住的控件）。改成按 DOM 包含关系排：外层永远在
+   它里面的弹窗下面，外层关闭时回到里层记下的触发按钮。现在的页面里没有能同时挂载的嵌套弹窗，这是预防。
+3. **数据库整理（只写迁移文件）**：`v2/supabase/migrations/20261020120000_legacy_grants_and_partner_index.sql`。
+   撤掉 public 的 5 张旧表（admins、admin_emails、enquiries、games、site_content）给 anon / authenticated 的
+   TRUNCATE、TRIGGER、REFERENCES（行级安全管不到 TRUNCATE，网站也用不到这三种）；给 `partners.created_by` 建索引。
+   `storage.objects`、`storage.buckets` 归 Supabase 存储服务管，不动。正式库由老板本人在控制台执行，本会话不碰。
+4. **待办文档整理**：标出已过时的（GameCoverflow 已删）和已达标的（手机 Lighthouse 正式站中位 80），把本期四项标成第六期。
+
+## 终点（全部满足才算结束）
+
+| # | 验收（可量化） |
+|---|----------------|
+| ① | 单元测试：401 时拿被拒的令牌去问独立客户端；网站自己的客户端的 `getUser()` 一次都不调；确认期间别处存进了新令牌时不登出、保留后端原话；会话仍有效或问不到时不登出；本地什么都没存时照样回登录页。每条先红后绿，关键判断做变异检查 |
+| ② | 单元测试：里层先挂、外层后挂时，焦点留在里层，Tab 不出里层，Esc 先关里层；里层关了焦点到外层；外层关了回到最初的触发按钮。先红后绿 |
+| ③ | 本地一次性 Postgres（`v2/supabase/tests/local/run-rls.sh`）：有新迁移时授权检查通过（9 张表上 anon / authenticated 都没有 TRUNCATE、TRIGGER、REFERENCES；5 张旧表的 SELECT/INSERT/UPDATE/DELETE 原样保留；`partners.created_by` 有索引），合作方权限测试仍是 50/50；去掉新迁移时脚本失败。正式库不动 |
+| ④ | 待办文档里每条都标明现状 |
+| ⑤ | 一个 PR：本地 gate（tsc、eslint、函数和单元测试、构建）全绿；Netlify 预览三项检查 SUCCESS；opus-max 盲审结论 COMPLETE，并单独回答「会不会把还有效的会话错误登出，或者该登出的没登出」；预览上浏览器复测（会话失效回登录页、竞态时保留新登录、整页和游戏弹层的 Esc 和焦点）；入口包只多本期改动本身（共享焦点管理器和会话确认，约 0.2 kB），不新增依赖 |
+| ⑥ | 老板批准合并（= 上线），正式站复测；老板在控制台执行 ③ 的迁移后只读核对授权和索引；老板签收第六期 |
+
+## 回退
+
+一个 PR、一个合并提交。出问题就在 GitHub 上 revert 该合并提交，Netlify 会自动重新部署上一版。迁移撤掉的是网站用不到的
+授权，要恢复就 `grant truncate, trigger, references on <表> to anon, authenticated;`；索引可以直接 drop。
