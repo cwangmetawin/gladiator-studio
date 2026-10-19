@@ -145,16 +145,16 @@ test('a dialog mounted together with one inside it stays underneath, as React ru
     let innerCloses = 0, outerCloses = 0;
     // The inner layout effect attaches first; the outer one sees focus inside itself and keeps no opener.
     const closeInner = manager.attach({ dialog: inner, scope: inner, modal: true, returnTo: f.opener,
-      initialFocus: () => innerClose, onEscape: () => { innerCloses++; } });
+      initialFocus: () => innerOk, onEscape: () => { innerCloses++; } });
     const closeOuter = manager.attach({ dialog: f.dialog, scope: f.dialog, modal: true, returnTo: null,
       initialFocus: () => f.first, onEscape: () => { outerCloses++; } });
-    assert.equal(f.doc.activeElement === innerClose, true, 'the outer dialog does not take focus from the inner one');
+    assert.equal(f.doc.activeElement === innerOk, true, 'the outer dialog does not take focus from the inner one');
     assert.equal(f.first.inert, true, 'the outer dialog\'s own controls sit behind the inner one');
     assert.equal(f.nav.inert, true);
     f.key('Tab');
-    assert.equal(f.doc.activeElement === innerOk, true);
+    assert.equal(f.doc.activeElement === innerClose, true);
     f.key('Tab');
-    assert.equal(f.doc.activeElement === innerClose, true, 'Tab stays inside the inner dialog');
+    assert.equal(f.doc.activeElement === innerOk, true, 'Tab stays inside the inner dialog');
     f.key('Escape');
     assert.deepEqual([innerCloses, outerCloses], [1, 0], 'Escape closes the inner dialog first');
     closeInner();

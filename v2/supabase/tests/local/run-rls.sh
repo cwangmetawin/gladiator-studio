@@ -25,10 +25,17 @@ if [ "${SKIP_MIGRATIONS:-}" != 1 ]; then
     psql_run -f "$migration"
   done
 fi
-# Raises on the first grant or index that is wrong.
-grants=$(psql_run -f "$supa/tests/legacy_grants.sql" 2>&1) \
-  || { printf '%s\n' "$grants" | grep -o 'LEGACY_GRANTS_FAIL.*'; echo "legacy grants check failed"; exit 1; }
-printf '%s\n' "$grants" | grep -o 'LEGACY_GRANTS_RESULT.*'
+# Raises on the first grant or index that is wrong. With SKIP_MIGRATIONS=1 it is expected to fail, and the
+# partner test below still runs, to prove that one fails without the migrations too.
+grants_failed=0
+grants=$(psql_run -f "$supa/tests/legacy_grants.sql" 2>&1) || grants_failed=1
+if [ "$grants_failed" = 1 ]; then
+  printf '%s\n' "$grants" | grep -o 'LEGACY_GRANTS_FAIL.*' || true
+  echo "legacy grants check failed"
+  [ "${SKIP_MIGRATIONS:-}" = 1 ] || exit 1
+else
+  printf '%s\n' "$grants" | grep -o 'LEGACY_GRANTS_RESULT.*'
+fi
 out=$(psql_run -f "$supa/tests/partner_rls.sql" 2>&1 || true)
 printf '%s\n' "$out" | sed -n 's/.*PARTNER_RLS_RESULT \(.*\)$/\1/p' | python3 -I -c '
 import json, sys
@@ -42,3 +49,4 @@ for key in sorted(result):
 print(f"{len(result) - len(failed)}/{len(result)} checks passed")
 sys.exit(1 if failed else 0)
 ' || { printf '%s\n' "$out" | grep -v PARTNER_RLS_RESULT | head -20; exit 1; }
+[ "$grants_failed" = 0 ] || exit 1

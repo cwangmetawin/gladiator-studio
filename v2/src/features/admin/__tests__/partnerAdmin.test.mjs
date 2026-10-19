@@ -7,10 +7,11 @@ const require = createRequire(new URL('../../../../package.json', import.meta.ur
 const ts = require('typescript');
 // `checkUser` answers the session-check client (stores nothing); the site client's own getUser() must
 // never run, because supabase-js then removes whatever session is current.
-async function loadApi(invoke, from, checkUser = async () => { throw new Error('the session check must not run'); }, auth = {}) {
+async function loadApi(invoke, from, checkUser = async (...args) => { globalThis.__partnerAdminChecks.push(args); return { data: { user: null }, error: { name: 'AuthSessionMissingError', message: 'Auth session missing!', status: 400 } }; }, auth = {}) {
   globalThis.__partnerAdminInvoke = invoke;
   globalThis.__partnerAdminFrom = from;
   globalThis.__partnerAdminCheck = checkUser;
+  globalThis.__partnerAdminChecks = [];
   globalThis.__partnerAdminSiteGetUser = []; // real supabase-js removes the current session here
   globalThis.__partnerAdminAuth = { getSession: async () => ({ data: { session: { access_token: 'token-a' } }, error: null }), signOut: async () => ({ error: null }), ...auth };
   let source = readFileSync(new URL('../partnerAdminApi.ts', import.meta.url), 'utf8');
@@ -316,4 +317,36 @@ test('a sign-in that lands while GoTrue is being asked about the old token is ke
   await assert.rejects(api.setPartnerActive('partner-a', false), error => !(error instanceof api.AdminSessionEndedError) && /Invalid or expired session\./.test(error.message));
   assert.deepEqual(signOuts, [], 'the newer session is not signed out');
   assert.deepEqual(globalThis.__partnerAdminSiteGetUser, [], "the site client's getUser(), which would clear it, never runs");
+});
+
+test('only a 401 asks GoTrue about the session; other function errors never check or sign out', async () => {
+  for (const status of [403, 409, 500]) {
+    const signOuts = [];
+    const api = await loadApi(async () => ({ data: null, error: { message: 'non-2xx response', context: new Response(JSON.stringify({ ok: false, error: `Refused ${status}.` }), { status }) } }), undefined, undefined, { signOut: recordSignOuts(signOuts) });
+    await assert.rejects(api.setPartnerActive('partner-a', false), new RegExp(`Refused ${status}\\.`));
+    assert.deepEqual(globalThis.__partnerAdminChecks, []);
+    assert.deepEqual(signOuts, []);
+  }
+});
+
+test('a local sign-out that fails, or a session that cannot be read, keeps the backend message', async () => {
+  // /logout failed (offline or 5xx): supabase-js keeps the session and emits no SIGNED_OUT.
+  const failing = async () => ({ error: { name: 'AuthRetryableFetchError', message: 'Failed to fetch', status: 0 } });
+  for (const auth of [
+    { signOut: failing },
+    { getSession: async () => ({ data: { session: null }, error: null }), signOut: failing },
+    // An expired token whose refresh failed: getSession reports the error, not an empty store.
+    { getSession: async () => ({ data: { session: null }, error: { name: 'AuthRetryableFetchError', message: 'Service unavailable', status: 503 } }), signOut: async () => { throw new Error('must not sign out'); } },
+  ]) {
+    const api = await loadApi(unauthorized, undefined, missing, auth);
+    await assert.rejects(api.setPartnerActive('partner-a', false), error => !(error instanceof api.AdminSessionEndedError) && /Invalid or expired session\./.test(error.message));
+  }
+});
+
+test('the session-check client stores nothing and keeps its own storage key', () => {
+  const lib = readFileSync(new URL('../../../lib/supabase.ts', import.meta.url), 'utf8');
+  const check = lib.slice(lib.indexOf('export function sessionCheckClient'));
+  assert.match(check, /persistSession: false/);
+  assert.match(check, /autoRefreshToken: false/);
+  assert.match(check, /storageKey: 'sb-session-check'/);
 });

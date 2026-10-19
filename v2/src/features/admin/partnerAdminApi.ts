@@ -49,20 +49,29 @@ export class AdminSessionEndedError extends Error {
 
 /**
  * admin-partners answers 401 when GoTrue no longer knows the session, but the database still accepts the
- * same token until it expires, so the console looks signed in. Ask GoTrue about the refused token on a
- * client that stores nothing, then sign out locally only if that token is still the stored one: a sign-in
- * that landed meanwhile is kept. Any other answer keeps the session and the backend message.
+ * same token until it expires, so the console looks signed in. Ask GoTrue about the token stored now (the
+ * one the call carried, unless another tab has replaced it) on a client that stores nothing, then sign out
+ * locally only if that token is still the stored one: a sign-in that landed meanwhile is kept. Any other
+ * answer, or a sign-out that fails, keeps the session and the backend message.
  */
 async function sessionEnded(error: unknown): Promise<boolean> {
   if ((error as { readonly context?: Response } | null)?.context?.status !== 401) return false;
-  const token = (await supabase.auth.getSession()).data.session?.access_token;
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  // An expired token whose refresh failed (offline, 5xx) is unknown, not ended.
+  if (sessionError) return false;
+  const token = data.session?.access_token;
   // Nothing stored (cleared without a broadcast): supabase-js emits no SIGNED_OUT itself; a local sign-out does.
-  if (!token) { await supabase.auth.signOut({ scope: 'local' }); return true; }
+  if (!token) return signOutHere();
   const { error: userError } = await sessionCheckClient().auth.getUser(token).catch(() => ({ error: null }));
   if (userError?.name !== 'AuthSessionMissingError') return false;
   if ((await supabase.auth.getSession()).data.session?.access_token !== token) return false;
-  await supabase.auth.signOut({ scope: 'local' });
-  return true;
+  return signOutHere();
+}
+
+/** True once supabase-js has removed the session and emitted SIGNED_OUT; a failed /logout (offline, 5xx) keeps both. */
+async function signOutHere(): Promise<boolean> {
+  const { error } = await supabase.auth.signOut({ scope: 'local' });
+  return !error;
 }
 
 type PartnerActiveAction = { readonly action: 'setActive'; readonly partnerId: string; readonly active: boolean };
