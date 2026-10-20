@@ -22,6 +22,23 @@ Linear：GAM-1258。
 | ④ | 一个 PR：本地 gate（tsc、eslint、函数和单元测试、构建）全绿；Netlify 预览三项检查 SUCCESS；入口包只多本期改动本身，不新增依赖 |
 | ⑤ | 老板批准合并（= 上线），正式站复测 ①–③；老板签收第七期 |
 
+## 签收（2026-10-20）
+
+老板 2026-10-20 在本会话回「签收」，第七期到此结束。
+
+- 上线：#36（3b4549a，老板在本会话回「合并」），按头提交 16bc936 合并，合并后的树和头相同。正式站换成和预览相同的
+  入口文件 index-C1lfelws.js。www 回 301 到主域名（Netlify 的主域名设置，本期没改跳转和头部配置），跳过去是同一版本。
+- ①–③ 在预览和正式站各用同一套探针复测通过（`p7-probe.cjs`、`p7-shots.cjs`），截图看过：
+  - 桌面 1440 和手机 390 上每个按钮恰好一个箭头，外链「↗」、站内「→」，0 报错；
+  - 后台和门户的 Sign out 都只发 `POST /auth/v1/logout?scope=local`，回登录页（Supabase 请求由探针在本地应答，不碰正式库）；
+  - 年龄确认：首次访问要问，同浏览器新标签不问，记录改成 25 小时前要问并清掉旧记录。
+- ④ 本地 gate：tsc 通过、eslint 0 错、21 个函数测试和 591 个单元测试全过、构建通过；入口包 415.37 kB 不变，没有新增依赖；
+  Netlify 预览三项 SUCCESS。
+- 实现：Codex gpt-6.1-sol（effort max）三个并行任务（箭头、登出、年龄确认），diff 由 Claude 审过。
+- 签收时如实列明：Netlify 正式部署 ID 仍拿不到，上线用正式站返回的入口文件证明。Contact 的 Send Enquiry 在表单里、不在
+  操作行，首轮探针没截到它，后来用 `p7-shots.cjs` 补拍了。
+- 证据：`~/Documents/Deployment/gladiator-studio-review/2026-10-20-p7/`（preview/、preview-shots/、prod/、prod-shots/）。
+
 ## 回退
 
 一个 PR、一个合并提交。出问题就在 GitHub 上 revert 该合并提交，Netlify 会自动重新部署上一版。年龄确认的本地记录
