@@ -7,6 +7,7 @@ import { useStudioStats } from '@/shared/content/StudioStats';
 import { lines, paras, safeHref, safeImageSrc } from '@/shared/utils/text';
 import { withStudioMarkets } from '@/shared/utils/studioText';
 import teamDefault from '@/api/teamDefault.json';
+import careersDefault from '@/api/careersDefault.json';
 import './teamDossier.css';
 
 interface Person {
@@ -71,6 +72,8 @@ function Profile({ person, index, markets }: { readonly person: Person; readonly
 
 export function TeamSection({ titleId, bodyOnly = false }: { readonly titleId: string; readonly bodyOnly?: boolean }) {
   const team = useSection('team', teamDefault as unknown as TeamData), s = useStudioStats();
+  const careers = useSection('careers', careersDefault);
+  const jobs = (careers.positions ?? []).filter(row => row && row.title);
   const all = (team.people ?? []).filter(p => p && (p.name || p.role || p.bio));
   const people = all.length > 0 ? all : teamDefault.people as unknown as Person[];
   const chapters = [...people.map((person, i) => ({ id: `team-person-${i + 1}`, label: person.name || `Profile ${i + 1}` })),
@@ -93,7 +96,7 @@ export function TeamSection({ titleId, bodyOnly = false }: { readonly titleId: s
     </EditorialChapter>
     <EditorialChapter id="team-join" number={String(people.length + 3).padStart(2, '0')} kicker="Next" title="Join the team">
       <p>We hire for craft, on a rolling basis. If you are exceptional at what you do and want your work in front of real players tonight, talk to us.</p>
-      <div className="arena-page__actions"><button className="arena-page__action" type="button" onClick={openCareers}>See open roles</button></div>
+      <div className="arena-page__actions"><button className="arena-page__action" type="button" onClick={openCareers}>{jobs.length > 0 ? 'See open roles' : 'Work with us'}</button></div>
     </EditorialChapter>
   </ArenaPageContent>;
 }

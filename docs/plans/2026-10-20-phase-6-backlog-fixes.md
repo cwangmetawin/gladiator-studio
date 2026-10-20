@@ -20,6 +20,10 @@
    （非属主执行 REVOKE 只给警告不报错）。正式库由老板本人在控制台执行，本会话不碰；执行后跑只读的
    `v2/supabase/tests/legacy_grants.sql` 核对。
 4. **待办文档整理**：标出已过时的（GameCoverflow 已删）和已达标的（手机 Lighthouse 正式站中位 80），把本期四项标成第六期。
+5. **Careers 没有职位时的页面**（老板 2026-10-20：「career没有open role你是否需要优化下」，三选一里选「A 换成投简历页」）：
+   后台把职位清空后，页面显示大标题「Open roles」、「0 open roles」和一片空白，第二章还问「Role Not Listed?」。没有职位时改成
+   一章：「No open roles right now」，正文邀请资深人才投简历，按钮「Send your dossier」直接写邮件；不显示章节目录。Team 页的按钮
+   在没有职位时写「Work with us」。后台一加职位，页面自动恢复现在的职位列表。单独一个 PR（#33 已上线）。
 
 ## 终点（全部满足才算结束）
 
@@ -30,6 +34,7 @@
 | ③ | 本地一次性 Postgres（`v2/supabase/tests/local/run-rls.sh`）：有新迁移时授权检查通过（9 张表上 anon / authenticated 都没有 TRUNCATE、TRIGGER、REFERENCES；5 张旧表的 SELECT/INSERT/UPDATE/DELETE 原样保留；`partners.created_by` 有索引），合作方权限测试仍是 50/50；去掉新迁移时脚本失败。正式库不动 |
 | ④ | 待办文档里每条都标明现状 |
 | ⑤ | 一个 PR：本地 gate（tsc、eslint、函数和单元测试、构建）全绿；Netlify 预览三项检查 SUCCESS；opus-max 盲审结论 COMPLETE，并单独回答「会不会把还有效的会话错误登出，或者该登出的没登出」；预览上浏览器复测（会话失效回登录页、竞态时保留新登录、整页和游戏弹层的 Esc 和焦点）；入口包只多本期改动本身（共享焦点管理器和会话确认，约 0.2 kB），不新增依赖 |
+| ⑤′ | Careers：单元测试覆盖没有职位（只有一章、文案和邮件按钮、没有「0 open roles」和空列表、没有目录）、有职位（和现在一样）、没标题的行不算职位、Team 按钮两种文案；先红后绿。预览上桌面和手机截图（没有职位）给老板过目，并用拦截的数据看一次有职位的样子；老板批准合并，正式站复测 |
 | ⑥ | 老板批准合并（= 上线），正式站复测；老板在控制台执行 ③ 的迁移后只读核对授权和索引；老板签收第六期 |
 
 ## 回退

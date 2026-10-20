@@ -28,6 +28,10 @@ export function CareersSection({ titleId, bodyOnly = false }: { readonly titleId
   const jobs = (careers.positions ?? []).filter(row => row && row.title);
   const cvHref = safeHref(`mailto:${applyEmail}?subject=${encodeURIComponent('Speculative Application — Gladiator Studio')}`);
   return <ArenaPageContent titleId={titleId} bodyOnly={bodyOnly} {...ARENA_PAGE_COPY.careers}>
+    {jobs.length === 0 ? <EditorialChapter id="careers-open-application" number="01" kicker="Careers" title="No open roles right now">
+      <p className="editorial-deck">We are not advertising a role at the moment. We still want to hear from senior engineers, designers and game mathematicians: send your dossier and we will keep it on file for the next opening.</p>
+      <div className="arena-page__actions"><a className="arena-page__action" href={cvHref}>Send your dossier <span aria-hidden="true">↗</span></a></div>
+    </EditorialChapter> : <>
     <EditorialIndex chapters={[{ id: 'careers-roles', label: 'Open roles' }, { id: 'careers-contact', label: 'Talk to us' }]} />
     <EditorialChapter id="careers-roles" number="01" kicker="Careers" title="Open roles">
       <p className="arena-page__meta">{jobs.length} open roles · hiring on a rolling basis</p>
@@ -53,5 +57,6 @@ export function CareersSection({ titleId, bodyOnly = false }: { readonly titleId
       <p className="editorial-deck">We hire senior talent across engineering, design, and product on a rolling basis. If you are exceptional at what you do and want to work on games that real players use daily, send us your dossier.</p>
       <div className="arena-page__actions"><a className="arena-page__action" href={cvHref}>Get in Touch <span aria-hidden="true">↗</span></a></div>
     </EditorialChapter>
+    </>}
   </ArenaPageContent>;
 }

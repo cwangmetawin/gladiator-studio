@@ -25,15 +25,16 @@ test('the shipped About and Team in-copy links switch the arena page with exactl
     const h = createHarness(useArenaPage); h.mount();
     h.act(() => h.output.openPage('about', { focus() {} }));
     globalThis.window.dispatchEvent = event => h.act(() => h.output.openPage(event.detail));
-    for (const [path, handler, target] of [
+    // The extracted button runs alone, so declare the component locals its label reads.
+    for (const [path, handler, target, locals = ''] of [
       ['../../features/about/AboutSection.tsx', 'openContact', 'contact'],
-      ['../../features/team/TeamSection.tsx', 'openCareers', 'careers'],
+      ['../../features/team/TeamSection.tsx', 'openCareers', 'careers', 'const jobs = [];'],
     ]) {
       record.pitches.length = 0;
       const original = source(path);
       const fn = original.match(new RegExp(`function ${handler}\\(\\) \\{[\\s\\S]*?\\n\\}`))[0];
       const markup = original.match(new RegExp(`<button\\b[^>]*onClick=\\{${handler}\\}[^>]*>[\\s\\S]*?</button>`))[0];
-      const { control } = await import(moduleUrl(`${fn}\nexport const control = (${markup});`));
+      const { control } = await import(moduleUrl(`${fn}\n${locals}\nexport const control = (${markup});`));
       control.props.onClick();
       assert.equal(h.output.page, target);
       assert.deepEqual(record.pitches, CUE_NOTES.click.tones.map(pitch => pitch.hz), `${path}: a switch never adds another open cue`);
