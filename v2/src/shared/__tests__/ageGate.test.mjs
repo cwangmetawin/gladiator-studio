@@ -312,23 +312,163 @@ test('a gate that closes without having faded (reduced motion) still releases th
   globalThis.__reducedMotion = false;
 });
 
-test('useAgeGate: starts verified from the session, verify stores the answer as a transition, reject shows the refusal', () => {
-  const stored = new Map();
-  globalThis.sessionStorage = { getItem: key => stored.get(key) ?? null, setItem: (key, value) => stored.set(key, value) };
-  globalThis.__transitions = [];
+const confirmationNow = Date.UTC(2026, 9, 20, 12);
+const confirmationDuration = 24 * 60 * 60 * 1000;
+
+function ageStorage(t, { session = null, confirmedAt = null } = {}) {
+  t.mock.method(Date, 'now', () => confirmationNow);
+  const sessionValues = new Map(session === null ? [] : [['gladiator_age_verified', session]]);
+  const localValues = new Map(confirmedAt === null ? [] : [['gladiator_age_verified_at', confirmedAt]]);
+  for (const [name, values] of [['sessionStorage', sessionValues], ['localStorage', localValues]]) {
+    const previous = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { configurable: true, writable: true, value: {
+      getItem: key => values.get(key) ?? null,
+      setItem: (key, value) => values.set(key, value),
+      removeItem: key => values.delete(key),
+    } });
+    t.after(() => { if (previous) Object.defineProperty(globalThis, name, previous); else delete globalThis[name]; });
+  }
+  return { sessionValues, localValues };
+}
+
+test('ageConfirmationValid: the owner chose a 24-hour window, including now but excluding expiry', () => {
+  assert.equal(gate.state.AGE_CONFIRMATION_MS, confirmationDuration);
+  for (const [stored, valid] of [
+    [String(confirmationNow), true],
+    [String(confirmationNow - 60 * 60 * 1000), true],
+    [String(confirmationNow - confirmationDuration + 1), true],
+    [String(confirmationNow - confirmationDuration), false],
+    [String(confirmationNow - confirmationDuration - 1), false],
+    [String(confirmationNow + 1), false],
+    [null, false], ['', false], [' ', false], ['garbage', false], ['NaN', false], ['Infinity', false], ['-Infinity', false],
+  ]) assert.equal(gate.state.ageConfirmationValid(stored, confirmationNow), valid, `stored ${JSON.stringify(stored)}`);
+  for (const stored of [null, '', ' ']) assert.equal(gate.state.ageConfirmationValid(stored, 0), false, 'an absent timestamp is never epoch zero');
+});
+
+test('useAgeGate: a fresh browser asks and reject stores nothing', t => {
+  const { sessionValues, localValues } = ageStorage(t);
   const hook = createHarness(() => gate.state.useAgeGate());
   hook.mount({});
   assert.deepEqual([hook.output.verified, hook.output.showGate], [false, true]);
   hook.act(() => hook.output.reject());
   assert.deepEqual([hook.output.verified, hook.output.showGate], [false, false]);
+  assert.equal(sessionValues.size, 0);
+  assert.equal(localValues.size, 0);
+  hook.unmount();
+});
+
+test('useAgeGate: confirmation an hour ago verifies a new tab without a session flag', t => {
+  const confirmedAt = String(confirmationNow - 60 * 60 * 1000);
+  const { sessionValues, localValues } = ageStorage(t, { confirmedAt });
+  const hook = createHarness(() => gate.state.useAgeGate());
+  hook.mount({});
+  assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
+  assert.equal(sessionValues.size, 0);
+  assert.equal(localValues.get('gladiator_age_verified_at'), confirmedAt);
+  hook.unmount();
+});
+
+for (const [label, confirmedAt] of [
+  ['exactly 24 hours old', String(confirmationNow - confirmationDuration)],
+  ['24 hours and 1 ms old', String(confirmationNow - confirmationDuration - 1)],
+  ['in the future', String(confirmationNow + 1)],
+  ['garbage', 'garbage'], ['empty', ''], ['whitespace', ' '], ['non-finite', 'Infinity'],
+]) {
+  test(`useAgeGate: a timestamp ${label} asks again and is removed`, t => {
+    const { localValues } = ageStorage(t, { confirmedAt });
+    const hook = createHarness(() => gate.state.useAgeGate());
+    hook.mount({});
+    assert.deepEqual([hook.output.verified, hook.output.showGate], [false, true]);
+    assert.equal(localValues.has('gladiator_age_verified_at'), false);
+    hook.unmount();
+  });
+}
+
+test('useAgeGate: the session flag alone still verifies this tab', t => {
+  const { localValues } = ageStorage(t, { session: '1' });
+  const hook = createHarness(() => gate.state.useAgeGate());
+  hook.mount({});
+  assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
+  assert.equal(localValues.size, 0);
+  hook.unmount();
+});
+
+test('useAgeGate: a verified session still removes an expired browser confirmation', t => {
+  const { localValues } = ageStorage(t, { session: '1', confirmedAt: String(confirmationNow - confirmationDuration) });
+  const hook = createHarness(() => gate.state.useAgeGate());
+  hook.mount({});
+  assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
+  assert.equal(localValues.has('gladiator_age_verified_at'), false);
+  hook.unmount();
+});
+
+for (const blocked of ['methods', 'getters']) {
+  test(`useAgeGate: storage ${blocked} that throw still ask and allow verification without throwing`, t => {
+    ageStorage(t);
+    const fail = () => { throw new Error('storage blocked'); };
+    for (const name of ['sessionStorage', 'localStorage']) {
+      if (blocked === 'getters') Object.defineProperty(globalThis, name, { configurable: true, get: fail });
+      else globalThis[name] = { getItem: fail, setItem: fail, removeItem: fail };
+    }
+    const hook = createHarness(() => gate.state.useAgeGate());
+    assert.doesNotThrow(() => hook.mount({}));
+    assert.deepEqual([hook.output.verified, hook.output.showGate], [false, true]);
+    assert.doesNotThrow(() => hook.act(() => hook.output.verify()));
+    assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
+    hook.unmount();
+  });
+}
+
+for (const blocked of ['sessionStorage', 'localStorage']) {
+  test(`useAgeGate: blocked ${blocked} does not prevent the other store from being read or written`, t => {
+    const { sessionValues, localValues } = ageStorage(t, { session: '1', confirmedAt: String(confirmationNow - 60 * 60 * 1000) });
+    const fail = () => { throw new Error('storage blocked'); };
+    globalThis[blocked] = { getItem: fail, setItem: fail, removeItem: fail };
+    const hook = createHarness(() => gate.state.useAgeGate());
+    hook.mount({});
+    assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
+    sessionValues.clear();
+    localValues.clear();
+    assert.doesNotThrow(() => hook.act(() => hook.output.verify()));
+    if (blocked === 'sessionStorage') assert.equal(localValues.get('gladiator_age_verified_at'), String(confirmationNow));
+    else assert.equal(sessionValues.get('gladiator_age_verified'), '1');
+    hook.unmount();
+  });
+}
+
+test('useAgeGate: expired confirmation cleanup is best effort when removal throws', t => {
+  const { localValues } = ageStorage(t, { confirmedAt: String(confirmationNow - confirmationDuration) });
+  const remove = t.mock.method(globalThis.localStorage, 'removeItem', () => { throw new Error('storage blocked'); });
+  const hook = createHarness(() => gate.state.useAgeGate());
+  assert.doesNotThrow(() => hook.mount({}));
+  assert.deepEqual([hook.output.verified, hook.output.showGate], [false, true]);
+  assert.equal(remove.mock.callCount(), 1);
+  assert.equal(localValues.has('gladiator_age_verified_at'), true);
+  hook.unmount();
+});
+
+test('useAgeGate: verify writes both keys at confirmation time as a transition', t => {
+  const { sessionValues, localValues } = ageStorage(t);
+  globalThis.__transitions = [];
+  const hook = createHarness(() => gate.state.useAgeGate());
+  hook.mount({});
+  const verifiedAt = confirmationNow + 5000;
+  t.mock.method(Date, 'now', () => verifiedAt);
   hook.act(() => hook.output.verify());
-  assert.equal(stored.get('gladiator_age_verified'), '1');
+  assert.equal(sessionValues.get('gladiator_age_verified'), '1');
+  assert.equal(localValues.get('gladiator_age_verified_at'), String(verifiedAt));
   assert.equal(globalThis.__transitions.length, 1, 'the site mounts as a non-urgent update');
-  assert.equal(hook.output.verified, true);
+  assert.deepEqual([hook.output.verified, hook.output.showGate], [true, false]);
   const again = createHarness(() => gate.state.useAgeGate());
   again.mount({});
   assert.equal(again.output.verified, true, 'a verified session skips the gate');
-  delete globalThis.sessionStorage;
+  sessionValues.clear();
+  const newTab = createHarness(() => gate.state.useAgeGate());
+  newTab.mount({});
+  assert.equal(newTab.output.verified, true, 'a new tab uses the browser confirmation');
+  hook.unmount();
+  again.unmount();
+  newTab.unmount();
 });
 
 test('App still unlocks sound and warms the scene on the click, then verifies', () => {

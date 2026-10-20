@@ -11,14 +11,14 @@ const partner = { id: 'partner-a', user_id: 'user-a', company: 'Partner A', acti
 let fixtureId = 0;
 
 async function setup() {
-  const stored = deferred(), queries = [], requests = [];
+  const stored = deferred(), queries = [], requests = [], signOuts = [];
   let listener, unsubscribed = 0;
   const sb = {
     auth: {
       getSession: () => stored.promise,
       onAuthStateChange: callback => { listener = callback; return { data: { subscription: { unsubscribe: () => { unsubscribed++; } } } }; },
       signInWithPassword: async () => ({ data: { session: session('user-a') }, error: null }),
-      signOut: async () => ({ error: null }),
+      signOut: async options => { signOuts.push(options); return { error: null }; },
     },
     from(table) {
       const query = { table, filters: [] }; queries.push(query);
@@ -30,7 +30,7 @@ async function setup() {
   const { load } = createLoader({ react: harnessHooksUrl(moduleUrl), '@/lib/supabase': moduleUrl(`export const supabase = globalThis.__portalAuthSb; // fixture ${fixtureId++}`) });
   const { usePartnerAuth } = await load('features/partner/usePartnerAuth.ts');
   const h = createHarness(usePartnerAuth); h.mount();
-  return { h, stored, queries, requests, emit: next => listener('SIGNED_IN', next), unsubscribed: () => unsubscribed,
+  return { h, stored, queries, requests, signOuts, emit: next => listener('SIGNED_IN', next), unsubscribed: () => unsubscribed,
     async settle(partnerRow, adminRow = null, error = null) {
       for (const request of requests.splice(0)) request.pending.resolve({ data: request.table === 'partners' ? partnerRow : adminRow, error });
       await tick(h);
@@ -63,6 +63,7 @@ test('signed out, preview and no-access states switch in place, and late access 
     assert.equal(s.h.output.status, 'noaccess');
     s.h.act(() => s.emit(session('user-a'))); await tick(s.h);
     await s.h.output.signOut(); s.h.act(() => {});
+    assert.deepEqual(s.signOuts, [{ scope: 'local' }]);
     assert.equal(s.h.output.status, 'signedout');
     await s.settle(partner);
     assert.equal(s.h.output.status, 'signedout');

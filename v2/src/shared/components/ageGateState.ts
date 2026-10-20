@@ -3,6 +3,17 @@ import { sceneReadiness } from '@/features/starfield/sceneReadiness';
 import { webglAvailable } from '../utils/webgl';
 
 const STORAGE_KEY = 'gladiator_age_verified';
+const CONFIRMATION_STORAGE_KEY = 'gladiator_age_verified_at';
+
+// Owner's choice (2026-10-20): remember age confirmation in this browser for 24 hours.
+export const AGE_CONFIRMATION_MS = 24 * 60 * 60 * 1000;
+
+export function ageConfirmationValid(stored: string | null, now: number): boolean {
+  if (stored === null || stored.trim() === '') return false;
+  const confirmedAt = Number(stored);
+  const elapsed = now - confirmedAt;
+  return Number.isFinite(confirmedAt) && elapsed >= 0 && elapsed < AGE_CONFIRMATION_MS;
+}
 
 /**
  * After "I am 18 or older" the emblem ignites at once (GATE_IGNITE_MS), while the site and its 3D
@@ -69,12 +80,20 @@ export function gateStepDelay(phase: GatePhase): number | null {
 
 export function useAgeGate(): { verified: boolean; verify: () => void; reject: () => void; showGate: boolean } {
   const [verified, setVerified] = useState(() => {
-    try { return sessionStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
+    let sessionVerified = false;
+    try { sessionVerified = sessionStorage.getItem(STORAGE_KEY) === '1'; } catch { /* noop */ }
+    try {
+      const stored = localStorage.getItem(CONFIRMATION_STORAGE_KEY);
+      if (ageConfirmationValid(stored, Date.now())) return true;
+      if (stored !== null) localStorage.removeItem(CONFIRMATION_STORAGE_KEY);
+    } catch { /* noop */ }
+    return sessionVerified;
   });
   const [rejected, setRejected] = useState(false);
 
   const verify = useCallback(() => {
     try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch { /* noop */ }
+    try { localStorage.setItem(CONFIRMATION_STORAGE_KEY, String(Date.now())); } catch { /* noop */ }
     // The whole site mounts on this update. As a transition it is rendered in slices, so the
     // gate's own (urgent) ignition keeps its frames while the site builds underneath it.
     startTransition(() => { setVerified(true); });

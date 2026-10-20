@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createLoader } from '../../../shared/__tests__/loadTs.mjs';
 import { moduleUrl } from '../../../shared/__tests__/sourceModule.mjs';
 import { createHarness, harnessHooksUrl } from '../../../shared/__tests__/hookHarness.mjs';
@@ -48,7 +50,7 @@ test('signing out from the console, or opening it signed out, shows the plain si
   const s = await setup();
   try {
     await s.auth.signOut(); await tick(s.h);
-    assert.equal(s.signOuts.length, 1);
+    assert.deepEqual(s.signOuts, [{ scope: 'local' }]);
     assert.equal(s.h.output.session, null);
     assert.equal(s.h.output.notice, null);
   } finally { s.h.unmount(); delete globalThis.__adminAuthSb; }
@@ -56,7 +58,7 @@ test('signing out from the console, or opening it signed out, shows the plain si
   try {
     // A double click runs two sign-outs at once; neither may read as an ended session.
     await Promise.all([twice.auth.signOut(), twice.auth.signOut()]); await tick(twice.h);
-    assert.equal(twice.signOuts.length, 2);
+    assert.deepEqual(twice.signOuts, [{ scope: 'local' }, { scope: 'local' }]);
     assert.equal(twice.h.output.notice, null);
   } finally { twice.h.unmount(); delete globalThis.__adminAuthSb; }
   const fresh = await setup(null);
@@ -72,4 +74,15 @@ test('the sign-in screen shows the notice, and an ended session skips the partne
   assert.match(app, /\{notice && !err && <div className="msg msg--info" role="status">\{notice\}<\/div>\}/);
   const panel = readFileSync(new URL('../PartnersPanel.tsx', import.meta.url), 'utf8');
   assert.match(panel, /if \(!\(reason instanceof AdminSessionEndedError\)\) await reload\(\);/);
+});
+
+test('every auth.signOut call in non-test source passes explicit options', () => {
+  const root = fileURLToPath(new URL('../../../', import.meta.url));
+  const sources = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const path = join(dir, entry.name);
+    return entry.isDirectory() ? entry.name === '__tests__' ? [] : sources(path)
+      : /\.[cm]?[jt]sx?$/.test(entry.name) && !/\.(?:test|spec)\.[cm]?[jt]sx?$/.test(entry.name) ? [path] : [];
+  });
+  const implicitSignOuts = sources(root).filter(path => /\bauth\s*\.\s*signOut\s*\(\s*\)/.test(readFileSync(path, 'utf8'))).map(path => relative(root, path));
+  assert.deepEqual(implicitSignOuts, [], 'auth.signOut must receive explicit options');
 });

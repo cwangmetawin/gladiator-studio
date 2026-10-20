@@ -57,8 +57,8 @@ export function AboutSection({ titleId, bodyOnly = false }: { readonly titleId: 
         </li>)}
       </ol>
       <div className="arena-page__actions">
-        <a className="arena-page__action" href="https://metawin.com" target="_blank" rel="noopener noreferrer">Visit MetaWin</a>
-        <a className="arena-page__action" href="mailto:cwang@metawin.inc?subject=Demo Request — Gladiator Studio">Request a demo</a>
+        <a className="arena-page__action" href="https://metawin.com" target="_blank" rel="noopener noreferrer">Visit MetaWin <span className="arena-page__action-arrow" aria-hidden="true">↗</span></a>
+        <a className="arena-page__action" href="mailto:cwang@metawin.inc?subject=Demo Request — Gladiator Studio">Request a demo <span className="arena-page__action-arrow" aria-hidden="true">↗</span></a>
         <button className="arena-page__action" type="button" onClick={openContact}>Partner with us</button>
       </div>
     </EditorialChapter>
