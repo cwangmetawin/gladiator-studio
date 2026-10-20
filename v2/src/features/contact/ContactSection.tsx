@@ -276,7 +276,7 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                     <button type="button" className="arena-page__action" onClick={openMailto} style={{ flex: '1 1 140px' }}>
-                      {status === 'mailto' ? 'Open email app again' : 'Use email app'}
+                      {status === 'mailto' ? 'Open email app again' : 'Use email app'} <span className="arena-page__action-arrow" aria-hidden="true">↗</span>
                     </button>
                     <button type="button" className="arena-page__action" onClick={copyMessage} style={{ flex: '1 1 140px' }}>Copy message</button>
                   </div>
@@ -294,7 +294,7 @@ export function ContactSection({ titleId, bodyOnly = false }: { readonly titleId
                     <span className="animate-spin" aria-hidden="true" style={{ width: 14, height: 14, border: '2px solid var(--color-line)', borderTopColor: 'var(--color-ice-200)' }} />
                     Sending…
                   </>
-                ) : <><span>Send Enquiry</span><span className="arena-page__action-arrow" aria-hidden="true">↗</span></>}
+                ) : <span>Send Enquiry</span>}
               </button>
             </form>
           )}

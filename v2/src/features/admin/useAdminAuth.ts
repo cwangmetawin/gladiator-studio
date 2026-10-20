@@ -58,6 +58,6 @@ export async function signIn(email: string, password: string): Promise<void> {
 
 export async function signOut(): Promise<void> {
   ownSignOuts += 1;
-  try { await supabase.auth.signOut(); }
+  try { await supabase.auth.signOut({ scope: 'local' }); }
   finally { ownSignOuts -= 1; }
 }

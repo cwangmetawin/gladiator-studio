@@ -78,7 +78,7 @@ export function usePartnerAuth() {
     setSession(data.session); setSessionReady(true); setSessionError('');
   }, []);
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: 'local' });
     if (error) throw error;
     setSession(null); setSessionReady(true); setSessionError('');
     setAccess({ userId: '', status: 'loading', partner: null, error: '' });

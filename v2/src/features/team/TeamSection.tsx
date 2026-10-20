@@ -66,7 +66,7 @@ function Profile({ person, index, markets }: { readonly person: Person; readonly
         <span className="editorial-ledger__number" aria-hidden="true">{String(i + 1).padStart(2, '0')}</span><p>{item}</p>
       </li>)}</ol>
     </>}
-    <div className="arena-page__actions">{socials.map(row => <a className="arena-page__action" key={row.label} href={safeHref(!row.href.startsWith('http') && row.href.includes('@') ? `mailto:${row.href}` : row.href)} target="_blank" rel="noopener noreferrer">{row.label}</a>)}</div>
+    <div className="arena-page__actions">{socials.map(row => <a className="arena-page__action" key={row.label} href={safeHref(!row.href.startsWith('http') && row.href.includes('@') ? `mailto:${row.href}` : row.href)} target="_blank" rel="noopener noreferrer">{row.label} <span className="arena-page__action-arrow" aria-hidden="true">↗</span></a>)}</div>
   </EditorialChapter>;
 }
 

@@ -37,7 +37,7 @@ function assertEmptyCareers(html) {
   assert.ok(html.includes(`<p class="editorial-deck">${deck}</p>`));
   assert.equal(html.match(/class="arena-page__actions"/g)?.length, 1);
   assert.equal(html.match(/class="arena-page__action"/g)?.length, 1);
-  assert.match(html, /<a class="arena-page__action" href="mailto:cwang@metawin\.inc\?subject=Speculative%20Application%20%E2%80%94%20Gladiator%20Studio">Send your dossier <span aria-hidden="true">↗<\/span><\/a>/);
+  assert.match(html, /<a class="arena-page__action" href="mailto:cwang@metawin\.inc\?subject=Speculative%20Application%20%E2%80%94%20Gladiator%20Studio">Send your dossier <span class="arena-page__action-arrow" aria-hidden="true">↗<\/span><\/a>/);
   assert.doesNotMatch(html, /open roles ·|Role Not Listed\?|<ol\b|class="editorial-index\b|aria-label="Page chapters"/);
 }
 
