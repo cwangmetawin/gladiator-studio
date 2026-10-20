@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 // PUBLIC client credentials — the publishable (anon) key is designed to ship in
 // the browser; every read/write is gated by Postgres Row Level Security, so this
@@ -12,3 +12,17 @@ const SUPABASE_KEY =
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
 });
+
+let sessionCheck: SupabaseClient | null = null;
+/**
+ * A client that stores no session, for asking GoTrue about one token. On the site client,
+ * getUser() removes whatever session is stored when GoTrue answers session_not_found, even a
+ * newer sign-in that landed while it waited. Its own storage key keeps supabase-js from warning
+ * about a second client, and without persistence it opens no cross-tab channel.
+ */
+export function sessionCheckClient(): SupabaseClient {
+  sessionCheck ??= createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: 'sb-session-check' },
+  });
+  return sessionCheck;
+}

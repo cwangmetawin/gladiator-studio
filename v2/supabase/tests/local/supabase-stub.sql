@@ -76,6 +76,14 @@ create table public.admins (
 );
 alter table public.admin_emails enable row level security;
 alter table public.admins enable row level security;
+-- The other pre-existing public tables, minimal: only their grants matter to tests/legacy_grants.sql.
+-- Like production's copies, they inherit ALL for the API roles from the default privileges above.
+create table public.enquiries (id uuid primary key default gen_random_uuid());
+create table public.games (id uuid primary key default gen_random_uuid());
+create table public.site_content (key text primary key);
+alter table public.enquiries enable row level security;
+alter table public.games enable row level security;
+alter table public.site_content enable row level security;
 
 create function private.is_admin() returns boolean language sql stable security definer
   set search_path to 'public' as $$
